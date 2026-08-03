@@ -1,0 +1,9 @@
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.DS_Store
+downloads/
+cookies.txt
+youtube_cookies.txt
+instagram_cookies.txt

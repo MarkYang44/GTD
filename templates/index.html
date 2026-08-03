@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ytb / Ins Downloader — 视频与 MP3 音频批量下载</title>
+<style>
+  /* ------------------------------------------------------------------ */
+  /*  Reset & Base                                                       */
+  /* ------------------------------------------------------------------ */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                 "Helvetica Neue", Arial, "Noto Sans SC", sans-serif;
+    background: #f5f7fa;
+    color: #1e293b;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Navbar                                                             */
+  /* ------------------------------------------------------------------ */
+  .navbar {
+    background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+    color: #fff;
+    padding: 0 24px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,.12);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .navbar-brand {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: .3px;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Main Content                                                       */
+  /* ------------------------------------------------------------------ */
+  .main {
+    flex: 1;
+    max-width: 800px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 40px 20px 60px;
+  }
+
+  .hero { text-align: center; margin-bottom: 32px; }
+  .hero h1 {
+    font-size: 28px;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 10px;
+  }
+  .hero p {
+    font-size: 15px;
+    color: #475569;
+    line-height: 1.6;
+    max-width: 560px;
+    margin: 0 auto;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Card                                                               */
+  /* ------------------------------------------------------------------ */
+  .card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.04);
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+
+  .download-card-header { margin-bottom: 16px; }
+  .download-card-header h2 {
+    font-size: 18px;
+    color: #0f172a;
+    margin-bottom: 6px;
+  }
+  .download-card-header p {
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .audio-card { border-top: 4px solid #7c3aed; }
+  .audio-card .url-input:focus { border-color: #7c3aed; }
+
+  /* ------------------------------------------------------------------ */
+  /*  Textarea                                                           */
+  /* ------------------------------------------------------------------ */
+  .url-input {
+    width: 100%;
+    min-height: 160px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-size: 14px;
+    font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono",
+                 "Courier New", monospace;
+    line-height: 1.7;
+    resize: vertical;
+    transition: border-color .2s;
+    color: #1e293b;
+    background: #fafbfc;
+  }
+  .url-input:focus {
+    outline: none;
+    border-color: #2563eb;
+    background: #fff;
+  }
+  .url-input::placeholder { color: #94a3b8; }
+
+  /* ------------------------------------------------------------------ */
+  /*  Buttons                                                            */
+  /* ------------------------------------------------------------------ */
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 24px;
+    font-size: 15px;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background .2s, opacity .2s, transform .1s;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .btn-primary {
+    background: #2563eb;
+    color: #fff;
+  }
+  .btn-primary:hover:not(:disabled) { background: #1d4ed8; }
+
+  .btn-audio {
+    background: #7c3aed;
+    color: #fff;
+  }
+  .btn-audio:hover:not(:disabled) { background: #6d28d9; }
+
+  .btn-secondary {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+  }
+  .btn-secondary:hover:not(:disabled) { background: #e2e8f0; }
+
+  /* ------------------------------------------------------------------ */
+  /*  Task list                                                          */
+  /* ------------------------------------------------------------------ */
+  .task-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .task-title { font-size: 16px; font-weight: 700; color: #0f172a; }
+  .task-count { font-size: 13px; color: #64748b; }
+
+  .task-list { list-style: none; }
+
+  .task-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    background: #fafbfc;
+    transition: background .3s, border-color .3s;
+  }
+  .task-item:last-child { margin-bottom: 0; }
+
+  /* status accent border */
+  .task-item.status-pending    { border-left: 4px solid #cbd5e1; }
+  .task-item.status-downloading { border-left: 4px solid #2563eb; background: #eff6ff; }
+  .task-item.status-completed  { border-left: 4px solid #16a34a; background: #f0fdf4; }
+  .task-item.status-failed     { border-left: 4px solid #dc2626; background: #fef2f2; }
+
+  .task-index {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #e2e8f0;
+    color: #475569;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .task-body { flex: 1; min-width: 0; }
+  .task-url {
+    font-size: 13px;
+    color: #64748b;
+    word-break: break-all;
+    margin-bottom: 4px;
+  }
+  .task-meta {
+    font-size: 13px;
+    color: #1e293b;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+  .task-meta strong { font-weight: 600; }
+
+  .task-progress {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    margin-top: 6px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #1d4ed8;
+  }
+  .task-progress-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+  }
+  .task-progress-label { color: #475569; }
+  .task-progress-value { font-weight: 700; }
+
+  .task-error {
+    margin-top: 4px;
+    font-size: 13px;
+    color: #dc2626;
+    background: #fee2e2;
+    padding: 4px 10px;
+    border-radius: 4px;
+    display: inline-block;
+  }
+
+  /* status badge */
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .badge-pending     { background: #f1f5f9; color: #64748b; }
+  .badge-downloading { background: #dbeafe; color: #1d4ed8; animation: pulse 1.2s infinite; }
+  .badge-completed   { background: #dcfce7; color: #16a34a; }
+  .badge-failed      { background: #fee2e2; color: #dc2626; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: .55; }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Empty / placeholder states                                         */
+  /* ------------------------------------------------------------------ */
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #94a3b8;
+  }
+  .empty-state .icon { font-size: 40px; margin-bottom: 8px; }
+  .empty-state p { font-size: 14px; }
+
+  /* spinner for in-progress indicator */
+  .spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid #2563eb;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin .6s linear infinite;
+    margin-right: 4px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ------------------------------------------------------------------ */
+  /*  Footer                                                             */
+  /* ------------------------------------------------------------------ */
+  .footer {
+    text-align: center;
+    padding: 20px;
+    font-size: 12px;
+    color: #94a3b8;
+    border-top: 1px solid #e2e8f0;
+    background: #fff;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Responsive                                                         */
+  /* ------------------------------------------------------------------ */
+  @media (max-width: 600px) {
+    .main  { padding: 24px 12px 40px; }
+    .hero h1 { font-size: 22px; }
+    .btn-row { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ================================================================= -->
+<!--  Navbar                                                            -->
+<!-- ================================================================= -->
+<nav class="navbar">
+  <span class="navbar-brand">🎬 Ytb / Ins Downloader</span>
+</nav>
+
+<!-- ================================================================= -->
+<!--  Main                                                              -->
+<!-- ================================================================= -->
+<main class="main">
+
+  <!-- Hero -->
+  <section class="hero">
+    <h1>YouTube &amp; Instagram 批量下载</h1>
+    <p>可下载最高质量视频，也可单独提取源站可获取的最高音质并转换为 MP3。</p>
+  </section>
+
+  <!-- Video input card -->
+  <section class="card" id="video-download-card">
+    <div class="download-card-header">
+      <h2>🎬 视频下载</h2>
+      <p>下载可获取的最高质量视频，并统一输出为 MP4。</p>
+    </div>
+    <textarea
+      class="url-input"
+      id="videoUrls"
+      placeholder="请粘贴 YouTube / Instagram 视频链接，一行一个"
+    ></textarea>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="videoDownloadButton" onclick="startDownload('video')">
+        ⬇ 下载最高质量视频
+      </button>
+      <button class="btn btn-secondary" id="videoClearButton" onclick="clearInput('video')">
+        ✕ 清空输入
+      </button>
+    </div>
+  </section>
+
+  <!-- Audio input card -->
+  <section class="card audio-card" id="audio-download-card">
+    <div class="download-card-header">
+      <h2>🎵 MP3 音频下载</h2>
+      <p>提取源视频中可获取的最高音质音轨，并使用 FFmpeg 转换为高质量 MP3。</p>
+    </div>
+    <textarea
+      class="url-input"
+      id="audioUrls"
+      placeholder="请粘贴需要提取音频的 YouTube / Instagram 链接，一行一个"
+    ></textarea>
+    <div class="btn-row">
+      <button class="btn btn-audio" id="audioDownloadButton" onclick="startDownload('audio')">
+        🎵 下载最高音质 MP3
+      </button>
+      <button class="btn btn-secondary" id="audioClearButton" onclick="clearInput('audio')">
+        ✕ 清空输入
+      </button>
+    </div>
+  </section>
+
+  <!-- Task list card -->
+  <section class="card" id="task-card">
+    <div class="task-header">
+      <span class="task-title" id="task-title">📋 下载任务</span>
+      <span class="task-count" id="task-summary">等待链接输入</span>
+    </div>
+    <div id="task-container">
+      <div class="empty-state">
+        <div class="icon">📭</div>
+        <p>在上方对应区块粘贴链接并开始下载</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ================================================================= -->
+<!--  Footer                                                            -->
+<!-- ================================================================= -->
+<footer class="footer">
+  ⚠️ 请仅下载自己拥有权利、获得授权或平台允许下载的视频或音频。
+</footer>
+
+<!-- ================================================================= -->
+<!--  Scripts                                                           -->
+<!-- ================================================================= -->
+<script>
+  // -------------------------------------------------------------------
+  //  DOM refs
+  // -------------------------------------------------------------------
+  const videoDownloadButton = document.getElementById("videoDownloadButton");
+  const audioDownloadButton = document.getElementById("audioDownloadButton");
+  const downloadControls = {
+    video: {
+      textarea: document.getElementById("videoUrls"),
+      downloadButton: videoDownloadButton,
+      clearButton: document.getElementById("videoClearButton"),
+      name: "视频",
+    },
+    audio: {
+      textarea: document.getElementById("audioUrls"),
+      downloadButton: audioDownloadButton,
+      clearButton: document.getElementById("audioClearButton"),
+      name: "MP3 音频",
+    },
+  };
+  const taskTitle = document.getElementById("task-title");
+  const taskSummary = document.getElementById("task-summary");
+  const taskContainer = document.getElementById("task-container");
+
+  let pollingTimer = null;
+  let currentBatchId = null;
+  let isDownloading = false;
+
+  // -------------------------------------------------------------------
+  //  Clear input
+  // -------------------------------------------------------------------
+  function clearInput(mediaType) {
+    if (isDownloading) return;
+    const control = downloadControls[mediaType];
+    control.textarea.value = "";
+    control.textarea.focus();
+  }
+
+  function setControlsDisabled(disabled) {
+    Object.values(downloadControls).forEach(control => {
+      control.textarea.disabled = disabled;
+      control.downloadButton.disabled = disabled;
+      control.clearButton.disabled = disabled;
+    });
+  }
+
+  // -------------------------------------------------------------------
+  //  Start download
+  // -------------------------------------------------------------------
+  async function startDownload(mediaType) {
+    if (isDownloading) return;
+
+    const control = downloadControls[mediaType];
+    if (!control) return;
+
+    const raw = control.textarea.value.trim();
+    if (!raw) {
+      alert(`请先粘贴至少一个${control.name}链接。`);
+      return;
+    }
+
+    // split by newline, filter empty lines
+    const urls = raw.split("\n").map(s => s.trim()).filter(Boolean);
+    if (urls.length === 0) {
+      alert("未检测到有效的链接行。");
+      return;
+    }
+
+    // disable UI
+    isDownloading = true;
+    setControlsDisabled(true);
+
+    // show initial "pending" skeleton
+    renderPendingSkeleton(urls.length);
+    taskTitle.textContent = mediaType === "audio" ? "🎵 MP3 音频下载任务" : "📋 视频下载任务";
+    taskSummary.textContent = "正在提交...";
+
+    try {
+      const resp = await fetch("/api/download", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ urls, media_type: mediaType }),
+      });
+      const data = await resp.json();
+
+      if (!resp.ok) {
+        alert("❌ " + (data.error || "请求失败"));
+        resetUI();
+        return;
+      }
+
+      currentBatchId = data.batch_id;
+      taskSummary.textContent = `共 ${data.task_count} 个任务 · 批次 ${currentBatchId}`;
+
+      // start polling
+      startPolling();
+    } catch (err) {
+      alert("❌ 网络错误：" + err.message);
+      resetUI();
+    }
+  }
+
+  // -------------------------------------------------------------------
+  //  Polling
+  // -------------------------------------------------------------------
+  function startPolling() {
+    stopPolling();
+    pollingTimer = setInterval(pollStatus, 800);
+    pollStatus(); // immediate first call
+  }
+
+  function stopPolling() {
+    if (pollingTimer) {
+      clearInterval(pollingTimer);
+      pollingTimer = null;
+    }
+  }
+
+  async function pollStatus() {
+    if (!currentBatchId) return;
+
+    try {
+      const resp = await fetch("/api/batch/" + currentBatchId);
+      if (!resp.ok) return;
+      const batch = await resp.json();
+      renderTasks(batch);
+
+      taskTitle.textContent = batch.media_type === "audio"
+        ? "🎵 MP3 音频下载任务"
+        : "📋 视频下载任务";
+
+      const done = batch.completed + batch.failed;
+      taskSummary.textContent =
+        `共 ${batch.total} 个 · ✅ ${batch.completed}  ❌ ${batch.failed}  · 批次 ${batch.id}`;
+
+      if (batch.all_done) {
+        stopPolling();
+        resetUI();
+      }
+    } catch (_) { /* retry on next tick */ }
+  }
+
+  // -------------------------------------------------------------------
+  //  Render helpers
+  // -------------------------------------------------------------------
+  function renderPendingSkeleton(count) {
+    let html = '<ul class="task-list">';
+    for (let i = 0; i < count; i++) {
+      html += `
+        <li class="task-item status-pending">
+          <span class="task-index">${i + 1}</span>
+          <span class="badge badge-pending">等待中</span>
+        </li>`;
+    }
+    html += "</ul>";
+    taskContainer.innerHTML = html;
+  }
+
+  function renderTasks(batch) {
+    let html = '<ul class="task-list">';
+    batch.tasks.forEach((t, i) => {
+      const cls = "status-" + t.status;
+      const badgeMap = {
+        pending:     ["等待中",   "badge-pending"],
+        downloading: ["下载中",   "badge-downloading"],
+        completed:   ["下载完成", "badge-completed"],
+        failed:      ["下载失败", "badge-failed"],
+      };
+      const [label, badgeCls] = badgeMap[t.status] || ["未知", ""];
+
+      html += `<li class="task-item ${cls}">`;
+      html += `<span class="task-index">${i + 1}</span>`;
+      html += `<div class="task-body">`;
+      html += `<div class="task-url">${escHtml(t.url)}</div>`;
+
+      // meta info
+      if (t.status === "completed" && t.result) {
+        const r = t.result;
+        html += `<div class="task-meta">`;
+        html += `<strong>${escHtml(r.title || "未知")}</strong><br>`;
+        if (batch.media_type === "audio") {
+          html += `格式: ${escHtml(r.format || "MP3")} · `;
+          html += `音频编码: ${escHtml(r.acodec || "mp3")} · `;
+        } else {
+          html += `分辨率: ${escHtml(r.resolution || "?")} · `;
+        }
+        html += `大小: ${escHtml(r.filesize || "?")}`;
+        if (r.filepath) {
+          html += `<br>保存路径: ${escHtml(r.filepath)}`;
+        }
+        html += `</div>`;
+      } else if (t.status === "downloading") {
+        html += `<div class="task-meta"><span class="spinner"></span> 正在下载，请稍候…</div>`;
+        html += renderDownloadProgress(t.progress);
+      } else if (t.status === "failed") {
+        html += `<div class="task-meta">下载失败</div>`;
+        if (t.error) {
+          html += `<div class="task-error">${escHtml(t.error)}</div>`;
+        }
+      }
+
+      html += `</div>`;
+      html += `<span class="badge ${badgeCls}">${t.status === "downloading" ? '<span class="spinner"></span>' : ""}${label}</span>`;
+      html += `</li>`;
+    });
+    html += "</ul>";
+    taskContainer.innerHTML = html;
+  }
+
+  function renderDownloadProgress(progress) {
+    const speed = progress && progress.speed_text ? progress.speed_text : "计算中";
+    const eta = progress && progress.eta_text ? progress.eta_text : "计算中";
+    const percent = progress && progress.percent_text ? progress.percent_text : "";
+
+    let html = `<div class="task-progress">`;
+    html += `<span class="task-progress-item"><span class="task-progress-label">下载速度</span><span class="task-progress-value">${escHtml(speed)}</span></span>`;
+    html += `<span class="task-progress-item"><span class="task-progress-label">预计剩余</span><span class="task-progress-value">${escHtml(eta)}</span></span>`;
+    if (percent && percent !== "计算中") {
+      html += `<span class="task-progress-item"><span class="task-progress-label">进度</span><span class="task-progress-value">${escHtml(percent)}</span></span>`;
+    }
+    html += `</div>`;
+    return html;
+  }
+
+  function resetUI() {
+    isDownloading = false;
+    setControlsDisabled(false);
+    currentBatchId = null;
+  }
+
+  // -------------------------------------------------------------------
+  //  Utility
+  // -------------------------------------------------------------------
+  function escHtml(str) {
+    if (!str) return "";
+    const div = document.createElement("div");
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
+  }
+</script>
+
+</body>
+</html>
