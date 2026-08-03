@@ -116,6 +116,49 @@ class WebProgressStateTests(unittest.TestCase):
             r"\.task-meta\s*\{[^}]*overflow-wrap:\s*anywhere",
         )
 
+    def test_frontend_uses_dark_petronas_theme_tokens(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8").lower()
+
+        self.assertIn("--background: #0f172a", html)
+        self.assertIn("--surface: #111827", html)
+        self.assertIn("--primary: #009b95", html)
+        self.assertIn("--accent: #00a19b", html)
+
+    def test_frontend_has_operational_metrics_with_expected_defaults(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8")
+
+        self.assertRegex(html, r'id="metric-active"[^>]*>00<')
+        self.assertRegex(html, r'id="metric-queue"[^>]*>00<')
+        self.assertRegex(html, r'id="metric-limit"[^>]*>03<')
+
+    def test_frontend_computes_active_and_queued_task_counts(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8")
+
+        self.assertIn("function updateOperationalMetrics(batch)", html)
+        self.assertIn('task.status === "downloading"', html)
+        self.assertIn('task.status === "pending"', html)
+        self.assertIn('padStart(2, "0")', html)
+
+    def test_frontend_has_progressive_motion_and_reduced_motion_fallback(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8")
+
+        self.assertIn('id="scroll-progress"', html)
+        self.assertIn('id="pointer-light"', html)
+        self.assertIn("data-reveal", html)
+        self.assertIn("IntersectionObserver", html)
+        self.assertIn("requestAnimationFrame", html)
+        self.assertIn("prefers-reduced-motion: reduce", html)
+
+    def test_frontend_has_approved_page_structure_without_service_label(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8")
+
+        self.assertIn('class="topbar"', html)
+        self.assertIn('class="hero', html)
+        self.assertIn('class="download-grid"', html)
+        self.assertIn('class="task-panel', html)
+        self.assertIn("Capture. Convert. Keep.", html)
+        self.assertNotIn("LOCAL SERVICE · 8233", html)
+
 
 class WebDownloadApiTests(unittest.TestCase):
     def setUp(self):
