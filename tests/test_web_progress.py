@@ -1,3 +1,4 @@
+import re
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -167,7 +168,7 @@ class WebProgressStateTests(unittest.TestCase):
             html,
         )
         self.assertIn(
-            '<span class="brand-mark">MARK YANG</span><span>/ DOWNLOADER</span>',
+            '<span class="brand-mark">Mark Yang</span><span>/ DOWNLOADER</span>',
             html,
         )
         self.assertIn(
@@ -180,6 +181,62 @@ class WebProgressStateTests(unittest.TestCase):
             html,
         )
         self.assertNotIn('<span class="brand-mark">YD</span>', html)
+        self.assertNotIn('<span class="brand-mark">MARK YANG</span>', html)
+
+    def test_frontend_loads_only_cormorant_google_font(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8")
+
+        self.assertIn("fonts.googleapis.com/css2?", html)
+        self.assertIn("family=Cormorant+Garamond:ital,wght@1,400", html)
+        self.assertIn("display=swap", html)
+        self.assertNotIn("family=Allura", html)
+        self.assertNotIn("family=Manrope", html)
+
+    def test_frontend_applies_cormorant_and_palatino_typography(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8")
+        body_match = re.search(r"\n  body\s*\{([^}]*)\}", html)
+        brand_match = re.search(r"\.brand\s*\{([^}]*)\}", html)
+        brand_mark_match = re.search(r"\.brand-mark\s*\{([^}]*)\}", html)
+        hero_title_match = re.search(r"\.hero h1\s*\{([^}]*)\}", html)
+        shared_label_match = re.search(
+            r"\.hero-kicker,\s*\.section-index,\s*\.card-index,\s*"
+            r"\.metric-label\s*\{([^}]*)\}",
+            html,
+        )
+
+        self.assertIsNotNone(body_match)
+        self.assertIsNotNone(brand_match)
+        self.assertIsNotNone(brand_mark_match)
+        self.assertIsNotNone(hero_title_match)
+        self.assertIsNotNone(shared_label_match)
+
+        body_rule = body_match.group(1)
+        brand_rule = brand_match.group(1)
+        brand_mark_rule = brand_mark_match.group(1)
+        hero_title_rule = hero_title_match.group(1)
+        shared_label_rule = shared_label_match.group(1)
+
+        self.assertIn('@font-face {', html)
+        self.assertIn('font-family: "Palatino UI Italic";', html)
+        self.assertIn('local("Palatino Italic")', html)
+        self.assertIn('local("Palatino-Italic")', html)
+        self.assertIn('--ui-font: "Palatino UI Italic", Palatino,', html)
+        self.assertIn("font-family: var(--ui-font);", body_rule)
+        self.assertIn("font-family: var(--ui-font);", brand_rule)
+        self.assertIn("font-family: var(--ui-font);", brand_mark_rule)
+        self.assertIn(
+            'font-family: "Cormorant Garamond", Georgia, serif;',
+            hero_title_rule,
+        )
+        self.assertIn("font-style: italic;", hero_title_rule)
+        self.assertIn("font-size: clamp(48px, 8vw, 102px);", hero_title_rule)
+        self.assertIn("font-weight: 400;", hero_title_rule)
+        self.assertIn("font-family: var(--ui-font);", shared_label_rule)
+        self.assertIn("font-size: 11px;", shared_label_rule)
+        self.assertIn(
+            ".hero h1 { font-size: clamp(44px, 15vw, 64px); }",
+            html,
+        )
 
 
 class WebDownloadApiTests(unittest.TestCase):
