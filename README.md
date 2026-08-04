@@ -44,31 +44,75 @@ Cookie 文件均为可选文件，不配置时无需创建。平台专用 Cookie
 - pip
 - FFmpeg
 
-进入项目目录：
+先将本项目下载或克隆到本机，然后在终端中进入项目根目录。下面的路径只是示例，请替换为项目在你电脑上的实际位置。
+
+macOS（Terminal）：
 
 ```bash
-cd /Users/markyang/Projects/Ytb_Ins_Video_Download
+cd /path/to/Ytb_Ins_Video_Download
+```
+
+Windows（PowerShell）：
+
+```powershell
+cd "C:\path\to\Ytb_Ins_Video_Download"
+```
+
+> 路径中包含空格时，macOS 和 Windows 都应使用引号包住完整路径。
+
+确认 Python 版本：
+
+macOS：
+
+```bash
+python3 --version
+python3 -m pip --version
+```
+
+Windows（PowerShell）：
+
+```powershell
+python --version
+python -m pip --version
 ```
 
 创建并启用虚拟环境：
+
+macOS：
 
 ```bash
 python3 -m venv venv
 source venv/bin/activate
 ```
 
-Windows 使用：
+Windows PowerShell：
 
-```cmd
+```powershell
 python -m venv venv
-venv\Scripts\activate
+.\venv\Scripts\Activate.ps1
+```
+
+如果 Windows PowerShell 的执行策略不允许运行激活脚本，可以不激活虚拟环境，直接使用其中的 Python：
+
+```powershell
+.\venv\Scripts\python.exe -m pip --version
 ```
 
 安装 Python 依赖：
 
+macOS（已激活虚拟环境）：
+
 ```bash
 python -m pip install -r requirements.txt
 ```
+
+Windows PowerShell（无需激活虚拟环境）：
+
+```powershell
+.\venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+后续示例默认虚拟环境已经启用，因此统一使用 `python`。如果 Windows PowerShell 未启用虚拟环境，请将示例开头的 `python` 替换为 `.\venv\Scripts\python.exe`，例如使用 `.\venv\Scripts\python.exe app.py` 启动网站。
 
 ## 二、安装 FFmpeg
 
@@ -93,7 +137,9 @@ Windows：
 
 1. 从 [FFmpeg 下载页](https://ffmpeg.org/download.html)下载 Windows 版本。
 2. 解压后将 `bin` 目录加入系统 `PATH`。
-3. 重新打开终端并运行 `ffmpeg -version` 验证安装。
+3. 重新打开 PowerShell 并运行 `ffmpeg -version` 验证安装。
+
+无论使用哪个系统，只要终端能正常显示 `ffmpeg -version` 的输出，本项目就能找到 FFmpeg。
 
 ---
 
@@ -101,7 +147,7 @@ Windows：
 
 ### 方式 A：交互式批量输入
 
-在项目目录并启用虚拟环境后运行：
+在项目目录并启用虚拟环境后运行（macOS 和 Windows 通用）：
 
 ```bash
 python main.py
@@ -122,6 +168,8 @@ python main.py
 
 下载视频（默认行为）：
 
+macOS：
+
 ```bash
 python main.py \
   "https://www.youtube.com/watch?v=xxxx" \
@@ -129,7 +177,18 @@ python main.py \
   "https://youtu.be/zzzz"
 ```
 
+Windows PowerShell：
+
+```powershell
+python main.py `
+  "https://www.youtube.com/watch?v=xxxx" `
+  "https://www.instagram.com/reel/yyyy/" `
+  "https://youtu.be/zzzz"
+```
+
 只下载最高可用音质并转换为 MP3：
+
+macOS：
 
 ```bash
 python main.py --audio \
@@ -137,14 +196,23 @@ python main.py --audio \
   "https://www.instagram.com/reel/yyyy/"
 ```
 
-命令行参数模式不再二次询问，会立即开始下载。`--audio` 可放在 URL 参数之间，但建议放在最前面。始终用引号包住链接，避免链接中的 `&` 等字符被终端解释。
+Windows PowerShell：
+
+```powershell
+python main.py --audio `
+  "https://www.youtube.com/watch?v=xxxx" `
+  "https://www.instagram.com/reel/yyyy/"
+```
+
+命令行参数模式不再二次询问，会立即开始下载。`--audio` 可放在 URL 参数之间，但建议放在最前面。始终用引号包住链接，避免链接中的 `&` 等字符被终端解释。macOS 终端使用反斜杠 `\` 续行，Windows PowerShell 使用反引号 `` ` `` 续行；也可以将整条命令写在同一行。
 
 ### 查看下载结果
 
-任务结束后，视频汇总会显示平台、标题、分辨率、文件大小和保存路径；音频汇总会显示平台、标题、MP3 格式、音频编码、文件大小和保存路径。所有文件保存在：
+任务结束后，视频汇总会显示平台、标题、分辨率、文件大小和保存路径；音频汇总会显示平台、标题、MP3 格式、音频编码、文件大小和保存路径。所有文件都保存在项目根目录下的 `downloads/` 目录：
 
 ```text
-/Users/markyang/Projects/Ytb_Ins_Video_Download/downloads/
+Ytb_Ins_Video_Download/
+└── downloads/
 ```
 
 若其中一个链接失败，程序仍会继续下载剩余链接，并在最终汇总中列出失败项。
@@ -157,7 +225,7 @@ python main.py --audio \
 
 ### 启动 Web 服务
 
-在项目目录并启用虚拟环境后运行：
+在项目目录并启用虚拟环境后运行（macOS 和 Windows 通用）：
 
 ```bash
 python app.py
