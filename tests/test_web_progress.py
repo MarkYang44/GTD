@@ -159,6 +159,28 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn("Capture. Convert. Keep.", html)
         self.assertNotIn("LOCAL SERVICE · 8233", html)
 
+    def test_frontend_uses_mark_yang_brand_copy(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8")
+
+        self.assertIn(
+            "<title>YTB / Ins Downloader - Designed By Mark Yang</title>",
+            html,
+        )
+        self.assertIn(
+            '<span class="brand-mark">MARK YANG</span><span>/ DOWNLOADER</span>',
+            html,
+        )
+        self.assertIn(
+            "<strong>最高质量视频，或最高音质音频下载。</strong><br>",
+            html,
+        )
+        self.assertIn("粘贴链接，其余交给下载队列。", html)
+        self.assertIn(
+            "请仅下载自己拥有权利、获得授权或平台允许下载的视频或音频。 -- Kozeki Ui",
+            html,
+        )
+        self.assertNotIn('<span class="brand-mark">YD</span>', html)
+
 
 class WebDownloadApiTests(unittest.TestCase):
     def setUp(self):
