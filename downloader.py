@@ -36,7 +36,6 @@ PLATFORM_NAMES = {
 MAX_PARALLEL_DOWNLOADS = 3
 MAX_PARALLEL_BILIBILI_DOWNLOADS = 2
 BILIBILI_HTTP_CHUNK_SIZE = 10 * 1024 * 1024
-BILIBILI_THROTTLED_RATE = 256 * 1024
 ANSI_ESCAPE_RE = re.compile(r"\x1b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 SHARE_URL_RE = re.compile(r"https?://[^\s]+", re.IGNORECASE)
 TRAILING_URL_PUNCTUATION = "】）》」』〕〉)]}>\"',.!?;:，。！？；："
@@ -330,7 +329,6 @@ def _build_ydl_options(
             {
                 "outtmpl": str(output_dir / "%(title)s [%(id)s].%(ext)s"),
                 "http_chunk_size": BILIBILI_HTTP_CHUNK_SIZE,
-                "throttled_rate": BILIBILI_THROTTLED_RATE,
             }
         )
 

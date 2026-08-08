@@ -122,10 +122,7 @@ class BilibiliDownloadOptionsTests(unittest.TestCase):
                     options["http_chunk_size"],
                     10 * 1024 * 1024,
                 )
-                self.assertEqual(
-                    options["throttled_rate"],
-                    256 * 1024,
-                )
+                self.assertNotIn("throttled_rate", options)
 
     def test_native_acceleration_does_not_change_other_platforms(self):
         output_dir = Path("/tmp/downloads")
