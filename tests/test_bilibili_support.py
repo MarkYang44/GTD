@@ -5,7 +5,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import app as web_app
 import downloader
+import main as cli_main
 
 
 class BilibiliUrlDetectionTests(unittest.TestCase):
@@ -122,6 +124,59 @@ class BilibiliDownloadOptionsTests(unittest.TestCase):
 
         self.assertIn("Bilibili", output.getvalue())
         self.assertIn("bilibili_cookies.txt", output.getvalue())
+
+
+class BilibiliSurfaceIntegrationTests(unittest.TestCase):
+    def setUp(self):
+        web_app._batches.clear()
+        self.client = web_app.app.test_client()
+
+    def test_cli_accepts_bilibili_in_mixed_arguments(self):
+        urls = [
+            "https://youtu.be/example",
+            "https://www.bilibili.com/video/BV1GJ411x7h7?p=2",
+        ]
+
+        tasks = cli_main.get_tasks_from_args(urls)
+
+        self.assertEqual(tasks[1][0], downloader.BILIBILI)
+        self.assertEqual(tasks[1][1], urls[1])
+
+    def test_web_api_creates_bilibili_audio_task(self):
+        url = "https://b23.tv/BV1GJ411x7h7"
+
+        with patch("app.threading.Thread") as thread_class:
+            response = self.client.post(
+                "/api/download",
+                json={"urls": [url], "media_type": downloader.AUDIO},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        batch = web_app._batches[response.get_json()["batch_id"]]
+        self.assertEqual(
+            batch["tasks"][0]["platform"],
+            downloader.BILIBILI,
+        )
+        self.assertEqual(batch["tasks"][0]["platform_name"], "Bilibili")
+        self.assertEqual(
+            thread_class.call_args.kwargs["args"][2],
+            downloader.AUDIO,
+        )
+
+    def test_page_names_bilibili_without_adding_new_input(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8")
+
+        self.assertIn("YOUTUBE + INSTAGRAM + BILIBILI / ONLINE", html)
+        self.assertIn("YouTube / Instagram / Bilibili", html)
+        self.assertEqual(html.count('id="videoUrls"'), 1)
+        self.assertEqual(html.count('id="audioUrls"'), 1)
+
+    def test_cli_and_api_errors_name_all_supported_platforms(self):
+        source = Path("main.py").read_text(encoding="utf-8")
+        app_source = Path("app.py").read_text(encoding="utf-8")
+
+        self.assertIn("YouTube、Instagram 或 Bilibili", source)
+        self.assertIn("YouTube、Instagram 或 Bilibili", app_source)
 
 
 if __name__ == "__main__":

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-YouTube 与 Instagram 视频批量下载工具 — 命令行入口。
+YouTube、Instagram 与 Bilibili 视频批量下载工具 — 命令行入口。
 
-同一批任务可以混合包含 YouTube 和 Instagram 链接。程序会自动识别平台，
+同一批任务可以混合包含 YouTube、Instagram 和 Bilibili 链接。程序会自动识别平台，
 并为不同平台选择对应的 yt-dlp 下载参数。
 
 核心下载逻辑位于 downloader.py，本文件仅保留命令行交互与结果展示。
@@ -68,11 +68,11 @@ def parse_command_line(args: list[str]) -> tuple[str, list[str]]:
 def get_tasks_from_user(media_type: str = VIDEO) -> list[VideoTask]:
     """交互式获取混合平台链接，每行一个，空行结束。"""
     media_name = MEDIA_TYPE_NAMES[media_type]
-    print(f"🎬 YouTube + Instagram {media_name}批量下载工具")
+    print(f"🎬 YouTube + Instagram + Bilibili {media_name}批量下载工具")
     print("=" * 56)
-    print("请逐行粘贴 YouTube 或 Instagram 视频链接，每行一个。")
-    print("两个平台的链接可以任意混合，输入空行后开始下载。")
-    print("⚠️  Instagram 的部分内容需要配置登录 Cookie。\n")
+    print("请逐行粘贴 YouTube、Instagram 或 Bilibili 视频链接，每行一个。")
+    print("三个平台的链接可以任意混合，输入空行后开始下载。")
+    print("⚠️  Instagram 与 Bilibili 的部分内容需要配置登录 Cookie。\n")
 
     tasks: list[VideoTask] = []
     count = 1
@@ -95,7 +95,7 @@ def get_tasks_from_user(media_type: str = VIDEO) -> list[VideoTask]:
             tasks.append(task)
             count += 1
         else:
-            print("⚠️  无法识别该链接，请输入受支持的 YouTube 或 Instagram 视频链接。\n")
+            print("⚠️  无法识别该链接，请输入受支持的 YouTube、Instagram 或 Bilibili 视频链接。\n")
 
     print(f"\n📋 已收集 {len(tasks)} 个链接。")
     return tasks
@@ -218,7 +218,7 @@ def main() -> int:
         media_type, url_args = parse_command_line(sys.argv[1:])
         tasks = get_tasks_from_args(url_args)
         if not tasks:
-            print("❌ 错误：未提供合法的 YouTube 或 Instagram 视频链接。")
+            print("❌ 错误：未提供合法的 YouTube、Instagram 或 Bilibili 视频链接。")
             print("   用法: python main.py [--audio] <URL1> [URL2] [URL3] ...")
             return 1
     else:

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-YouTube & Instagram 视频批量下载工具 — Web 界面入口。
+YouTube、Instagram 与 Bilibili 视频批量下载工具 — Web 界面入口。
 
 启动本地 Flask 服务，通过浏览器访问网页界面进行批量下载操作。
 """
@@ -143,7 +143,7 @@ def api_download():
             tasks.append(task)
 
     if not tasks:
-        return jsonify({"error": "未识别到任何受支持的 YouTube 或 Instagram 链接"}), 400
+        return jsonify({"error": "未识别到任何受支持的 YouTube、Instagram 或 Bilibili 链接"}), 400
 
     batch = _create_batch(tasks, media_type=media_type)
 
@@ -178,7 +178,7 @@ if __name__ == "__main__":
         print("⚠️  警告：未检测到 FFmpeg，最高质量下载需要 FFmpeg。")
 
     print("=" * 56)
-    print("  🎬 Ytb/Ins Downloader — Web 模式")
+    print("  🎬 Ytb/Ins/Bili Downloader — Web 模式")
     print("=" * 56)
     print(f"  浏览器访问:  http://{WEB_HOST}:{WEB_PORT}")
     print(f"  下载目录:    downloader.py 同级的 downloads/")
