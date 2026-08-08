@@ -439,6 +439,11 @@ def _handle_download_error(
         print("   这通常表示 Cookie 会话不完整、账号被风控、链接对当前账号不可访问，或 Instagram 接口策略变更。")
         print("   请先在同一个浏览器中确认该链接能正常播放，再重新导出完整 Cookie。")
         print(f"   Cookie 文件路径: {cookie_path}")
+    elif platform == BILIBILI and "http error 412" in msg:
+        cookie_path = PROJECT_DIR / "bilibili_cookies.txt"
+        print("\n❌ 错误：请求触发了 Bilibili 风控 (HTTP 412)。")
+        print("   请降低请求频率、切换到可正常访问 Bilibili 的网络环境后稍后重试。")
+        print(f"   如内容需要登录，请导出有效 Cookie 并保存为: {cookie_path}")
     elif "http error 429" in msg or "rate limit" in msg or "too many request" in msg:
         print(f"\n❌ 错误：请求过于频繁，{platform_name} 已限制访问，请稍后重试。")
     elif "http error 403" in msg:

@@ -125,6 +125,19 @@ class BilibiliDownloadOptionsTests(unittest.TestCase):
         self.assertIn("Bilibili", output.getvalue())
         self.assertIn("bilibili_cookies.txt", output.getvalue())
 
+    def test_http_412_explains_bilibili_risk_control(self):
+        output = io.StringIO()
+
+        with contextlib.redirect_stdout(output):
+            downloader._handle_download_error(
+                "Unable to download webpage: HTTP Error 412: Precondition Failed",
+                downloader.BILIBILI,
+            )
+
+        self.assertIn("Bilibili 风控", output.getvalue())
+        self.assertIn("bilibili_cookies.txt", output.getvalue())
+        self.assertIn("稍后重试", output.getvalue())
+
 
 class BilibiliSurfaceIntegrationTests(unittest.TestCase):
     def setUp(self):
@@ -177,6 +190,28 @@ class BilibiliSurfaceIntegrationTests(unittest.TestCase):
 
         self.assertIn("YouTube、Instagram 或 Bilibili", source)
         self.assertIn("YouTube、Instagram 或 Bilibili", app_source)
+
+
+class BilibiliDocumentationTests(unittest.TestCase):
+    def test_readme_documents_bilibili_workflow_and_boundaries(self):
+        readme = Path("README.md").read_text(encoding="utf-8")
+
+        required = [
+            "YouTube + Instagram + Bilibili",
+            "bilibili_cookies.txt",
+            "https://www.bilibili.com/video/BV",
+            "https://www.bilibili.com/video/av",
+            "https://b23.tv/",
+            "分 P",
+            "只下载链接指定的分 P",
+            "不自动展开合集、收藏夹或番剧",
+            "标题 [内容ID].mp4",
+            "标题 [内容ID].mp3",
+            "Bilibili 风控或 `HTTP 412`",
+        ]
+        for text in required:
+            with self.subTest(text=text):
+                self.assertIn(text, readme)
 
 
 if __name__ == "__main__":

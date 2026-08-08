@@ -1,15 +1,16 @@
-# YouTube + Instagram 视频与 MP3 音频批量下载工具
+# YouTube + Instagram + Bilibili 视频与 MP3 音频批量下载工具
 
-这是一个基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 的程序，支持**命令行**和**网页**两种使用方式。它可以在同一批任务中自动识别 YouTube 和 Instagram 链接，既能下载视频，也能提取最高可用音质并转换为 MP3。最终文件统一保存到项目内的 `downloads/` 文件夹。
+这是一个基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 的程序，支持**命令行**和**网页**两种使用方式。它可以在同一批任务中自动识别 YouTube、Instagram 和 Bilibili 链接，既能下载视频，也能提取最高可用音质并转换为 MP3。最终文件统一保存到项目内的 `downloads/` 文件夹。
 
 ## 功能
 
-- 一次输入多个 YouTube 与 Instagram 链接
+- 一次输入多个 YouTube、Instagram 与 Bilibili 链接
 - 一批任务最多同时处理 3 个链接，超过上限的任务自动排队
-- 两个平台的链接可以任意混合，程序自动识别平台
+- 三个平台的链接可以任意混合，程序自动识别平台
 - YouTube 自动选择可用的最高画质与最高音质
 - 音频模式选择源站可获取的最高质量音轨，并转换为高质量 VBR MP3
 - Instagram 支持 Reels、视频帖子、IGTV 和有效期内的 Stories
+- Bilibili 支持 `BV`、`av`、移动端视频、分 P 链接和 `b23.tv` 短链接
 - 使用 FFmpeg 合并音视频并输出 MP4，或将音轨转换为 MP3
 - **命令行模式**：交互式输入和命令行参数两种运行方式
 - **网页模式**：视频与 MP3 音频使用两个独立输入区，实时显示每个任务的下载状态、下载速度和预计剩余时间
@@ -31,6 +32,7 @@ Ytb_Ins_Video_Download/
 ├── cookies.txt                  # 可选：通用 Cookie
 ├── youtube_cookies.txt          # 可选：YouTube 专用 Cookie
 ├── instagram_cookies.txt        # 可选：Instagram 专用 Cookie
+├── bilibili_cookies.txt         # 可选：Bilibili 专用 Cookie
 └── downloads/                   # 首次下载时自动创建
 ```
 
@@ -153,12 +155,12 @@ Windows：
 python main.py
 ```
 
-程序会先要求选择下载类型：直接回车或输入 `1` 下载视频，输入 `2` 下载 MP3 音频。随后逐行请求链接，YouTube 与 Instagram 链接可以交替输入，例如：
+程序会先要求选择下载类型：直接回车或输入 `1` 下载视频，输入 `2` 下载 MP3 音频。随后逐行请求链接，YouTube、Instagram 与 Bilibili 链接可以交替输入，例如：
 
 ```text
 链接 1（空行结束）: https://www.youtube.com/watch?v=xxxx
 链接 2（空行结束）: https://www.instagram.com/reel/yyyy/
-链接 3（空行结束）: https://youtu.be/zzzz
+链接 3（空行结束）: https://www.bilibili.com/video/BV1GJ411x7h7
 链接 4（空行结束）:
 ```
 
@@ -174,7 +176,7 @@ macOS：
 python main.py \
   "https://www.youtube.com/watch?v=xxxx" \
   "https://www.instagram.com/reel/yyyy/" \
-  "https://youtu.be/zzzz"
+  "https://www.bilibili.com/video/BV1GJ411x7h7?p=2"
 ```
 
 Windows PowerShell：
@@ -183,7 +185,7 @@ Windows PowerShell：
 python main.py `
   "https://www.youtube.com/watch?v=xxxx" `
   "https://www.instagram.com/reel/yyyy/" `
-  "https://youtu.be/zzzz"
+  "https://www.bilibili.com/video/BV1GJ411x7h7?p=2"
 ```
 
 只下载最高可用音质并转换为 MP3：
@@ -193,7 +195,8 @@ macOS：
 ```bash
 python main.py --audio \
   "https://www.youtube.com/watch?v=xxxx" \
-  "https://www.instagram.com/reel/yyyy/"
+  "https://www.instagram.com/reel/yyyy/" \
+  "https://b23.tv/BV1GJ411x7h7"
 ```
 
 Windows PowerShell：
@@ -201,7 +204,8 @@ Windows PowerShell：
 ```powershell
 python main.py --audio `
   "https://www.youtube.com/watch?v=xxxx" `
-  "https://www.instagram.com/reel/yyyy/"
+  "https://www.instagram.com/reel/yyyy/" `
+  "https://b23.tv/BV1GJ411x7h7"
 ```
 
 命令行参数模式不再二次询问，会立即开始下载。`--audio` 可放在 URL 参数之间，但建议放在最前面。始终用引号包住链接，避免链接中的 `&` 等字符被终端解释。macOS 终端使用反斜杠 `\` 续行，Windows PowerShell 使用反引号 `` ` `` 续行；也可以将整条命令写在同一行。
@@ -235,7 +239,7 @@ python app.py
 
 ```text
 ========================================================
-  🎬 Ytb/Ins Downloader — Web 模式
+  🎬 Ytb/Ins/Bili Downloader — Web 模式
 ========================================================
   浏览器访问:  http://127.0.0.1:8233
   下载目录:    downloader.py 同级的 downloads/
@@ -249,7 +253,7 @@ python app.py
 
 ### 网页操作流程
 
-1. 下载视频时，在上方 **“视频下载”** 区块粘贴 YouTube 或 Instagram 链接，**一行一个**，再点击 **“下载最高质量视频”**。
+1. 下载视频时，在上方 **“视频下载”** 区块粘贴 YouTube、Instagram 或 Bilibili 链接，**一行一个**，再点击 **“下载最高质量视频”**。
 2. 只需要音频时，在下方独立的 **“MP3 音频下载”** 区块粘贴链接，再点击 **“下载最高音质 MP3”**。
 3. 后端每批最多同时处理 3 个链接，超过上限的任务会保持“等待中”，直到有下载位置空闲。网页同一时间只运行一个批次；任一批次运行时，视频和音频两个输入区都会暂时禁用。
 4. 下方任务列表会实时显示每个链接的状态：
@@ -292,13 +296,19 @@ https://www.youtube.com/watch?v=BaW_jenozKc
 | Instagram | 视频帖子 | `https://www.instagram.com/p/xxxx/` |
 | Instagram | IGTV | `https://www.instagram.com/tv/xxxx/` |
 | Instagram | Stories | `https://www.instagram.com/stories/username/xxxx/` |
+| Bilibili | BV 视频 | `https://www.bilibili.com/video/BV1GJ411x7h7` |
+| Bilibili | av 视频 | `https://www.bilibili.com/video/av170001` |
+| Bilibili | 移动端视频 | `https://m.bilibili.com/video/BV1GJ411x7h7` |
+| Bilibili | 指定分 P | `https://www.bilibili.com/video/BV1GJ411x7h7?p=2` |
+| Bilibili | 短链接 | `https://b23.tv/BV1GJ411x7h7` |
 
-YouTube 播放列表链接不会整表下载；程序按单个视频处理。Instagram 图片帖子没有视频内容时无法生成视频文件。
+YouTube 播放列表链接不会整表下载；程序按单个视频处理。Instagram 图片帖子没有视频内容时无法生成视频文件。Bilibili 分 P 视频只下载链接指定的分 P，未带 `?p=` 时下载第 1 P；程序不自动展开合集、收藏夹或番剧。
 
 ### 输出文件名与音质说明
 
 - YouTube 视频和音频使用内容标题命名，例如 `示例标题.mp4` 或 `示例标题.mp3`。
 - Instagram 文件名附加内容 ID，例如 `Video by author [ABC123].mp3`，避免同标题内容互相覆盖。
+- Bilibili 文件名附加内容 ID：视频为 `标题 [内容ID].mp4`，音频为 `标题 [内容ID].mp3`。
 - “最高音质”表示先选择源站当时可获取的最高质量音轨，再使用 yt-dlp/FFmpeg 的最高 VBR 品质设置转换为 MP3。MP3 是有损格式，转换不能提升源音轨本身的真实音质。
 
 ## 六、需要登录时配置 Cookie
@@ -310,7 +320,7 @@ YouTube 播放列表链接不会整表下载；程序按单个视频处理。Ins
 1. 在浏览器中正常登录对应平台。
 2. 使用可信的浏览器扩展将 Cookie 导出为 Netscape 格式的 `cookies.txt`。
 3. 将文件放到本项目根目录，与 `main.py` 同级。
-4. 根据平台命名为 `youtube_cookies.txt` 或 `instagram_cookies.txt`；也可直接使用通用名称 `cookies.txt`。
+4. 根据平台命名为 `youtube_cookies.txt`、`instagram_cookies.txt` 或 `bilibili_cookies.txt`；也可直接使用通用名称 `cookies.txt`。
 5. 重新运行下载命令（命令行或网页模式均可，Cookie 由 `downloader.py` 自动加载）。
 
 Cookie 属于敏感登录凭证，不要发送给他人，也不要提交到公开代码仓库。Cookie 失效后需要重新导出。
@@ -323,6 +333,8 @@ Cookie 属于敏感登录凭证，不要发送给他人，也不要提交到公�
 | `HTTP 403` 或要求登录 | 配置对应平台的 Cookie，确认浏览器中可正常打开链接 |
 | `HTTP 429` | 请求过于频繁，暂停一段时间后再试 |
 | Instagram Story 无法下载 | 确认 Story 尚未过期，且登录账号有访问权限 |
+| Bilibili 画质受限、要求登录或会员 | 确认账号本来有权播放该内容，再导出完整 Cookie 保存为 `bilibili_cookies.txt` |
+| Bilibili 风控或 `HTTP 412` | 降低请求频率，切换到可正常访问 Bilibili 的网络环境后稍后重试；登录内容同时配置 `bilibili_cookies.txt` |
 | 视频不可用或 404 | 在浏览器中确认链接仍有效且内容未被删除 |
 | 网络连接超时 | 检查本机网络、代理或 VPN 配置后重试 |
 | 下载后没有声音或无法合并 | 确认 FFmpeg 已安装并位于系统 `PATH` 中 |
@@ -340,4 +352,4 @@ Cookie 属于敏感登录凭证，不要发送给他人，也不要提交到公�
 
 ## 合规说明
 
-本工具仅供学习及下载用户本人拥有权利、已获授权或平台允许下载的视频或音频内容。请遵守 YouTube、Instagram 的服务条款及所在地法律法规。不得使用本工具绕过 DRM、访问控制或下载无权使用的受版权保护内容。
+本工具仅供学习及下载用户本人拥有权利、已获授权或平台允许下载的视频或音频内容。请遵守 YouTube、Instagram、Bilibili 的服务条款及所在地法律法规。不得使用本工具绕过 DRM、访问控制或下载无权使用的受版权保护内容。
