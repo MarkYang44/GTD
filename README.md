@@ -341,6 +341,7 @@ Cookie 属于敏感登录凭证，不要发送给他人，也不要提交到公�
 | Instagram Story 无法下载 | 确认 Story 尚未过期，且登录账号有访问权限 |
 | Bilibili 画质受限、要求登录或会员 | 确认账号本来有权播放该内容，再导出完整 Cookie 保存为 `bilibili_cookies.txt` |
 | Bilibili 风控或 `HTTP 412` | 降低请求频率，切换到可正常访问 Bilibili 的网络环境后稍后重试；登录内容同时配置 `bilibili_cookies.txt` |
+| Bilibili 下载速度较慢 | 项目使用 10 MB HTTP 分块，并且最多同时运行 2 个 Bilibili 下载任务；实际速度仍取决于 Bilibili 分配的 CDN 和网络路由，客户端优化不保证绕过平台侧限速 |
 | 视频不可用或 404 | 在浏览器中确认链接仍有效且内容未被删除 |
 | 网络连接超时 | 检查本机网络、代理或 VPN 配置后重试 |
 | 下载后没有声音或无法合并 | 确认 FFmpeg 已安装并位于系统 `PATH` 中 |

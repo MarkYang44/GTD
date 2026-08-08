@@ -299,6 +299,9 @@ class BilibiliDocumentationTests(unittest.TestCase):
             "标题 [内容ID].mp4",
             "标题 [内容ID].mp3",
             "Bilibili 风控或 `HTTP 412`",
+            "10 MB HTTP 分块",
+            "最多同时运行 2 个 Bilibili 下载任务",
+            "实际速度仍取决于 Bilibili 分配的 CDN 和网络路由",
         ]
         for text in required:
             with self.subTest(text=text):
