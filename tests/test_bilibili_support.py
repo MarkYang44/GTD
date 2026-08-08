@@ -106,6 +106,41 @@ class ShareTextUrlExtractionTests(unittest.TestCase):
 
 
 class BilibiliDownloadOptionsTests(unittest.TestCase):
+    def test_native_acceleration_applies_to_bilibili_video_and_audio(self):
+        output_dir = Path("/tmp/downloads")
+
+        for media_type in (downloader.VIDEO, downloader.AUDIO):
+            with self.subTest(media_type=media_type):
+                options = downloader._build_ydl_options(
+                    downloader.BILIBILI,
+                    output_dir,
+                    1,
+                    1,
+                    media_type=media_type,
+                )
+                self.assertEqual(
+                    options["http_chunk_size"],
+                    10 * 1024 * 1024,
+                )
+                self.assertEqual(
+                    options["throttled_rate"],
+                    256 * 1024,
+                )
+
+    def test_native_acceleration_does_not_change_other_platforms(self):
+        output_dir = Path("/tmp/downloads")
+
+        for platform in (downloader.YOUTUBE, downloader.INSTAGRAM):
+            with self.subTest(platform=platform):
+                options = downloader._build_ydl_options(
+                    platform,
+                    output_dir,
+                    1,
+                    1,
+                )
+                self.assertNotIn("http_chunk_size", options)
+                self.assertNotIn("throttled_rate", options)
+
     def test_video_uses_best_streams_mp4_merge_and_id_suffix(self):
         output_dir = Path("/tmp/downloads")
 
