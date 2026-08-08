@@ -270,5 +270,43 @@ class BilibiliDocumentationTests(unittest.TestCase):
                 self.assertIn(text, readme)
 
 
+class ShareTextSurfaceTests(unittest.TestCase):
+    def setUp(self):
+        web_app._batches.clear()
+        self.client = web_app.app.test_client()
+
+    def test_web_api_stores_only_clean_url_from_share_text(self):
+        share_text = (
+            "【视频】https://www.bilibili.com/video/BV1xRuu6fEeA"
+            "?vd_source=source123"
+        )
+        expected = (
+            "https://www.bilibili.com/video/BV1xRuu6fEeA"
+            "?vd_source=source123"
+        )
+
+        with patch("app.threading.Thread"):
+            response = self.client.post(
+                "/api/download",
+                json={"urls": [share_text], "media_type": downloader.VIDEO},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        batch = web_app._batches[response.get_json()["batch_id"]]
+        self.assertEqual(batch["tasks"][0]["url"], expected)
+
+    def test_page_and_readme_explain_share_text_input(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8")
+        readme = Path("README.md").read_text(encoding="utf-8")
+
+        self.assertGreaterEqual(html.count("链接或平台分享文案"), 2)
+        self.assertIn("可以直接粘贴平台生成的分享文案", readme)
+        self.assertIn(
+            "自动忽略标题并提取其中的第一个 HTTP(S) 链接",
+            readme,
+        )
+        self.assertIn("【【梗百科】", readme)
+
+
 if __name__ == "__main__":
     unittest.main()

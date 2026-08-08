@@ -157,6 +157,12 @@ python main.py
 
 程序会先要求选择下载类型：直接回车或输入 `1` 下载视频，输入 `2` 下载 MP3 音频。随后逐行请求链接，YouTube、Instagram 与 Bilibili 链接可以交替输入，例如：
 
+可以直接粘贴平台生成的分享文案，每行仍表示一个任务。程序会自动忽略标题并提取其中的第一个 HTTP(S) 链接，例如：
+
+```text
+【【梗百科】不X你们X什么是啥梗？！】https://www.bilibili.com/video/BV1xRuu6fEeA?vd_source=c29bf1bb20fc12664dae270045332759
+```
+
 ```text
 链接 1（空行结束）: https://www.youtube.com/watch?v=xxxx
 链接 2（空行结束）: https://www.instagram.com/reel/yyyy/
