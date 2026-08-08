@@ -8,6 +8,7 @@ main.py（命令行）和 app.py（Web 服务）均通过导入本模块复用�
 
 import re
 import shutil
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Callable, Optional
@@ -33,6 +34,7 @@ PLATFORM_NAMES = {
     BILIBILI: "Bilibili",
 }
 MAX_PARALLEL_DOWNLOADS = 3
+MAX_PARALLEL_BILIBILI_DOWNLOADS = 2
 BILIBILI_HTTP_CHUNK_SIZE = 10 * 1024 * 1024
 BILIBILI_THROTTLED_RATE = 256 * 1024
 ANSI_ESCAPE_RE = re.compile(r"\x1b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
@@ -596,6 +598,10 @@ def download_tasks(
     if not tasks:
         return []
 
+    bilibili_slots = threading.BoundedSemaphore(
+        MAX_PARALLEL_BILIBILI_DOWNLOADS
+    )
+
     def _run_task(index_and_task):
         task_index, task = index_and_task
         platform, url = task
@@ -607,8 +613,8 @@ def download_tasks(
             if progress_callback:
                 progress_callback(task_index, event, data)
 
-        try:
-            result = download_video(
+        def _download_current_task():
+            return download_video(
                 url,
                 index=task_index + 1,
                 total=total,
@@ -616,6 +622,13 @@ def download_tasks(
                 progress_callback=_relay_progress if progress_callback else None,
                 media_type=media_type,
             )
+
+        try:
+            if platform == BILIBILI:
+                with bilibili_slots:
+                    result = _download_current_task()
+            else:
+                result = _download_current_task()
         except Exception as error:
             print(f"\n❌ 任务 {task_index + 1} 发生未知错误: {error}")
             result = None

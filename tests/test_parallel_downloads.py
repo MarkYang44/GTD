@@ -9,6 +9,68 @@ import downloader
 
 
 class ParallelDownloadTests(unittest.TestCase):
+    def test_bilibili_runs_at_most_two_tasks_concurrently(self):
+        tasks = [
+            (downloader.BILIBILI, f"https://b23.tv/video-{index}")
+            for index in range(5)
+        ]
+        lock = threading.Lock()
+        active = 0
+        maximum_active = 0
+
+        def fake_download(url, **kwargs):
+            nonlocal active, maximum_active
+            with lock:
+                active += 1
+                maximum_active = max(maximum_active, active)
+            time.sleep(0.02)
+            with lock:
+                active -= 1
+            return {"title": url}
+
+        with patch("downloader.download_video", side_effect=fake_download):
+            results = downloader.download_tasks(tasks)
+
+        self.assertEqual(maximum_active, 2)
+        self.assertEqual(
+            [result["title"] for _, result in results],
+            [url for _, url in tasks],
+        )
+
+    def test_mixed_batch_keeps_three_global_workers_and_two_bilibili_slots(self):
+        tasks = [
+            (downloader.BILIBILI, "https://b23.tv/first"),
+            (downloader.BILIBILI, "https://b23.tv/second"),
+            (downloader.YOUTUBE, "https://youtu.be/third"),
+        ]
+        barrier = threading.Barrier(3)
+        lock = threading.Lock()
+        active = 0
+        active_bilibili = 0
+        maximum_active = 0
+        maximum_bilibili = 0
+
+        def fake_download(url, platform=None, **kwargs):
+            nonlocal active, active_bilibili, maximum_active, maximum_bilibili
+            with lock:
+                active += 1
+                if platform == downloader.BILIBILI:
+                    active_bilibili += 1
+                maximum_active = max(maximum_active, active)
+                maximum_bilibili = max(maximum_bilibili, active_bilibili)
+            barrier.wait(timeout=1)
+            with lock:
+                active -= 1
+                if platform == downloader.BILIBILI:
+                    active_bilibili -= 1
+            return {"title": url}
+
+        with patch("downloader.download_video", side_effect=fake_download):
+            downloader.download_tasks(tasks)
+
+        self.assertEqual(maximum_active, 3)
+        self.assertEqual(maximum_bilibili, 2)
+
     def test_download_tasks_runs_at_most_three_concurrently_and_preserves_order(self):
         tasks = [
             (downloader.YOUTUBE, f"https://youtu.be/video-{index}")
