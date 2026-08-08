@@ -23,12 +23,14 @@ DOWNLOADS_DIR = PROJECT_DIR / "downloads"
 
 YOUTUBE = "youtube"
 INSTAGRAM = "instagram"
+BILIBILI = "bilibili"
 VIDEO = "video"
 AUDIO = "audio"
 MEDIA_TYPES = {VIDEO, AUDIO}
 PLATFORM_NAMES = {
     YOUTUBE: "YouTube",
     INSTAGRAM: "Instagram",
+    BILIBILI: "Bilibili",
 }
 MAX_PARALLEL_DOWNLOADS = 3
 ANSI_ESCAPE_RE = re.compile(r"\x1b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
@@ -122,6 +124,27 @@ def detect_platform(url: str) -> Optional[str]:
     ):
         return INSTAGRAM
 
+    # -- Bilibili --
+    bilibili_hosts = {
+        "bilibili.com",
+        "www.bilibili.com",
+        "m.bilibili.com",
+    }
+    if (
+        host in bilibili_hosts
+        and len(path_parts) >= 2
+        and path_parts[0] == "video"
+        and re.fullmatch(
+            r"(?:BV[0-9A-Za-z]+|av\d+)",
+            path_parts[1],
+            re.IGNORECASE,
+        )
+    ):
+        return BILIBILI
+
+    if host in {"b23.tv", "www.b23.tv"} and path_parts:
+        return BILIBILI
+
     return None
 
 
@@ -133,6 +156,11 @@ def is_valid_youtube_url(url: str) -> bool:
 def is_valid_instagram_url(url: str) -> bool:
     """判断链接是否为支持的 Instagram 视频链接。"""
     return detect_platform(url) == INSTAGRAM
+
+
+def is_valid_bilibili_url(url: str) -> bool:
+    """判断链接是否为支持的 Bilibili 单视频或短链接。"""
+    return detect_platform(url) == BILIBILI
 
 
 def make_task(url: str) -> Optional[VideoTask]:
