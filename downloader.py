@@ -604,14 +604,17 @@ def download_tasks(
         task_index, task = index_and_task
         platform, url = task
 
-        if progress_callback:
-            progress_callback(task_index, "started", {"url": url, "platform": platform})
-
         def _relay_progress(event: str, data: dict[str, object]) -> None:
             if progress_callback:
                 progress_callback(task_index, event, data)
 
         def _download_current_task():
+            if progress_callback:
+                progress_callback(
+                    task_index,
+                    "started",
+                    {"url": url, "platform": platform},
+                )
             return download_video(
                 url,
                 index=task_index + 1,

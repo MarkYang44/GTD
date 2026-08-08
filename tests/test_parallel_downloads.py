@@ -71,6 +71,51 @@ class ParallelDownloadTests(unittest.TestCase):
         self.assertEqual(maximum_active, 3)
         self.assertEqual(maximum_bilibili, 2)
 
+    def test_waiting_bilibili_task_emits_started_after_a_slot_opens(self):
+        tasks = [
+            (downloader.BILIBILI, f"https://b23.tv/video-{index}")
+            for index in range(3)
+        ]
+        event_lock = threading.Lock()
+        download_lock = threading.Lock()
+        two_downloads_active = threading.Event()
+        release_downloads = threading.Event()
+        started_indices = []
+        entered_downloads = 0
+
+        def callback(index, event, data):
+            if event == "started":
+                with event_lock:
+                    started_indices.append(index)
+
+        def fake_download(url, **kwargs):
+            nonlocal entered_downloads
+            with download_lock:
+                entered_downloads += 1
+                if entered_downloads == 2:
+                    two_downloads_active.set()
+            release_downloads.wait(timeout=1)
+            return {"title": url}
+
+        with patch("downloader.download_video", side_effect=fake_download):
+            batch_thread = threading.Thread(
+                target=downloader.download_tasks,
+                args=(tasks, callback),
+            )
+            batch_thread.start()
+            try:
+                self.assertTrue(two_downloads_active.wait(timeout=1))
+                time.sleep(0.02)
+                with event_lock:
+                    waiting_started_count = len(started_indices)
+            finally:
+                release_downloads.set()
+                batch_thread.join(timeout=1)
+
+        self.assertFalse(batch_thread.is_alive())
+        self.assertEqual(waiting_started_count, 2)
+        self.assertEqual(started_indices, [0, 1, 2])
+
     def test_download_tasks_runs_at_most_three_concurrently_and_preserves_order(self):
         tasks = [
             (downloader.YOUTUBE, f"https://youtu.be/video-{index}")
