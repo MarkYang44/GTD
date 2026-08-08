@@ -295,7 +295,7 @@ def _build_ydl_options(
         node_path = shutil.which("node")
         options["js_runtimes"] = {"node": {"path": node_path} if node_path else {}}
         options["remote_components"] = ["ejs:github"]
-    else:
+    elif platform == INSTAGRAM:
         options.update(
             {
                 "outtmpl": str(output_dir / "%(title)s [%(id)s].%(ext)s"),
@@ -316,6 +316,8 @@ def _build_ydl_options(
                 "sleep_interval_requests": 1,
             }
         )
+    elif platform == BILIBILI:
+        options["outtmpl"] = str(output_dir / "%(title)s [%(id)s].%(ext)s")
 
     if media_type == AUDIO:
         # 选择源站可获取的最高质量音轨，再以 FFmpeg 的最高 VBR 品质输出 MP3。
@@ -331,7 +333,7 @@ def _build_ydl_options(
                 ],
             }
         )
-    elif platform == YOUTUBE:
+    elif platform in {YOUTUBE, BILIBILI}:
         # 优先下载可用的最高质量视频流和音频流。
         options.update(
             {
@@ -446,6 +448,14 @@ def _handle_download_error(
         print("\n❌ 错误：内容未找到 (HTTP 404)，链接可能已失效或内容已删除。")
     elif "private" in msg and ("account" in msg or "video" in msg):
         print("\n❌ 错误：账号或视频为私密内容，当前凭证无权访问。")
+    elif platform == BILIBILI and any(
+        marker in msg
+        for marker in ("premium", "member only", "members only", "login", "sign in")
+    ):
+        cookie_path = PROJECT_DIR / "bilibili_cookies.txt"
+        print("\n❌ 错误：当前账号无权访问该 Bilibili 内容，或该内容需要登录/会员权限。")
+        print("   请先确认浏览器中的 Bilibili 账号可以播放该视频。")
+        print(f"   然后导出完整 Cookie 并保存为: {cookie_path}")
     elif "login" in msg or "sign in" in msg:
         print(f"\n❌ 错误：需要登录 {platform_name} 才能访问该内容。")
         print(f"   请将 Cookie 保存为 {platform or '平台'}_cookies.txt 或 cookies.txt 后重试。")
