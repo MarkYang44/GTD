@@ -34,6 +34,8 @@ PLATFORM_NAMES = {
 }
 MAX_PARALLEL_DOWNLOADS = 3
 ANSI_ESCAPE_RE = re.compile(r"\x1b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+SHARE_URL_RE = re.compile(r"https?://[^\s]+", re.IGNORECASE)
+TRAILING_URL_PUNCTUATION = "】）》」』〕〉)]}>\"',.!?;:，。！？；："
 
 # 类型别名
 VideoTask = tuple[str, str]          # (platform, normalized_url)
@@ -71,8 +73,11 @@ def ensure_downloads_dir() -> Path:
 # 链接识别与校验
 # ---------------------------------------------------------------------------
 def normalize_url(url: str) -> str:
-    """补全省略的协议，并去除链接两端空白。"""
-    normalized = url.strip()
+    """提取输入中的首个 HTTP(S) URL，清理末尾标点并补全协议。"""
+    value = url.strip()
+    match = SHARE_URL_RE.search(value)
+    normalized = match.group(0) if match else value
+    normalized = normalized.rstrip(TRAILING_URL_PUNCTUATION)
     if normalized and not re.match(r"^https?://", normalized, re.IGNORECASE):
         normalized = f"https://{normalized}"
     return normalized

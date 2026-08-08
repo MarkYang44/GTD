@@ -49,6 +49,62 @@ class BilibiliUrlDetectionTests(unittest.TestCase):
                 self.assertFalse(downloader.is_valid_bilibili_url(url))
 
 
+class ShareTextUrlExtractionTests(unittest.TestCase):
+    def test_extracts_user_provided_bilibili_share_text(self):
+        share_text = (
+            "【【梗百科】不X你们X什么是啥梗？！】"
+            "https://www.bilibili.com/video/BV1xRuu6fEeA"
+            "?vd_source=c29bf1bb20fc12664dae270045332759"
+        )
+        expected = (
+            "https://www.bilibili.com/video/BV1xRuu6fEeA"
+            "?vd_source=c29bf1bb20fc12664dae270045332759"
+        )
+
+        self.assertEqual(downloader.normalize_url(share_text), expected)
+        self.assertEqual(
+            downloader.make_task(share_text),
+            (downloader.BILIBILI, expected),
+        )
+
+    def test_removes_trailing_share_punctuation_but_keeps_query(self):
+        share_text = (
+            "推荐：https://www.bilibili.com/video/BV1xRuu6fEeA?p=2】。"
+        )
+
+        self.assertEqual(
+            downloader.normalize_url(share_text),
+            "https://www.bilibili.com/video/BV1xRuu6fEeA?p=2",
+        )
+
+    def test_shared_parser_also_handles_youtube_and_instagram_text(self):
+        cases = [
+            (
+                "观看 (https://www.youtube.com/watch?v=abc123).",
+                downloader.YOUTUBE,
+                "https://www.youtube.com/watch?v=abc123",
+            ),
+            (
+                "Reel：https://www.instagram.com/reel/ABC123/！",
+                downloader.INSTAGRAM,
+                "https://www.instagram.com/reel/ABC123/",
+            ),
+        ]
+
+        for share_text, platform, expected in cases:
+            with self.subTest(share_text=share_text):
+                self.assertEqual(
+                    downloader.make_task(share_text),
+                    (platform, expected),
+                )
+
+    def test_rejects_text_without_url_and_non_video_url(self):
+        self.assertIsNone(downloader.make_task("只有标题，没有链接"))
+        self.assertIsNone(
+            downloader.make_task("主页 https://space.bilibili.com/2。")
+        )
+
+
 class BilibiliDownloadOptionsTests(unittest.TestCase):
     def test_video_uses_best_streams_mp4_merge_and_id_suffix(self):
         output_dir = Path("/tmp/downloads")
