@@ -6,6 +6,7 @@ import unittest
 from unittest.mock import patch
 
 import downloader
+from download_errors import DownloadCancelled, DownloadErrorInfo, DownloadFailure
 
 
 class ParallelDownloadTests(unittest.TestCase):
@@ -200,6 +201,48 @@ class ParallelDownloadTests(unittest.TestCase):
         self.assertIsNotNone(results[2][1])
         self.assertIn((1, "failed"), events)
         self.assertIn((2, "completed"), events)
+
+    def test_structured_failure_event_keeps_public_error_fields(self):
+        events = []
+        failure = DownloadFailure(
+            DownloadErrorInfo(
+                "NETWORK_TIMEOUT",
+                "网络超时",
+                "请重试",
+                True,
+                "private timeout detail",
+            )
+        )
+
+        with patch("downloader.download_video", side_effect=failure):
+            downloader.download_tasks(
+                [(downloader.YOUTUBE, "https://youtu.be/fail")],
+                progress_callback=lambda index, event, data: events.append(
+                    (event, data)
+                ),
+            )
+
+        event, data = events[-1]
+        self.assertEqual(event, "failed")
+        self.assertEqual(data["error_code"], "NETWORK_TIMEOUT")
+        self.assertNotIn("technical_detail", data)
+
+    def test_cancelled_worker_emits_cancelled_terminal_event(self):
+        events = []
+
+        with patch(
+            "downloader.download_video",
+            side_effect=DownloadCancelled(),
+        ):
+            downloader.download_tasks(
+                [(downloader.YOUTUBE, "https://youtu.be/cancel")],
+                progress_callback=lambda index, event, data: events.append(
+                    (event, data)
+                ),
+            )
+
+        self.assertEqual(events[-1][0], "cancelled")
+        self.assertEqual(events[-1][1]["error_code"], "CANCELLED")
 
     def test_audio_media_type_is_forwarded_to_every_task(self):
         tasks = [

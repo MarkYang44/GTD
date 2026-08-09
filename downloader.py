@@ -10,6 +10,7 @@ import copy
 import re
 import shutil
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,6 +18,16 @@ from typing import Callable, Optional
 from urllib.parse import parse_qs, urlparse
 
 import yt_dlp
+
+from download_errors import (
+    DownloadCancelled,
+    DownloadFailure,
+    classify_download_error,
+    format_cli_error,
+    public_error,
+)
+from download_logging import get_download_logger, log_download_event
+from task_control import CancellationToken
 
 from bilibili_acceleration import (
     BILIBILI_HTTP_CHUNK_SIZE,
@@ -364,10 +375,13 @@ def _make_progress_hook(
     index: int,
     total: int,
     progress_callback: YtdlpProgressCallback = None,
+    cancel_token: CancellationToken | None = None,
 ):
     """创建带任务序号的 yt-dlp 进度回调（命令行模式）。"""
 
     def _progress_hook(data: dict) -> None:
+        if cancel_token:
+            cancel_token.raise_if_cancelled()
         status = data.get("status")
         if status == "downloading":
             snapshot = _extract_progress_snapshot(data)
@@ -384,6 +398,36 @@ def _make_progress_hook(
     return _progress_hook
 
 
+def _make_cancel_hook(cancel_token: CancellationToken):
+    def _cancel_hook(_data: dict) -> None:
+        cancel_token.raise_if_cancelled()
+
+    return _cancel_hook
+
+
+def _validate_output_version(output_version: int) -> None:
+    if (
+        isinstance(output_version, bool)
+        or not isinstance(output_version, int)
+        or output_version < 1
+    ):
+        raise ValueError("输出版本必须是大于等于 1 的整数")
+
+
+def _output_template(
+    platform: str,
+    output_dir: Path,
+    output_version: int,
+) -> str:
+    suffix = "" if output_version == 1 else f" ({output_version})"
+    name = (
+        f"%(title)s [%(id)s]{suffix}.%(ext)s"
+        if platform in {INSTAGRAM, BILIBILI}
+        else f"%(title)s{suffix}.%(ext)s"
+    )
+    return str(output_dir / name)
+
+
 # ---------------------------------------------------------------------------
 # yt-dlp 选项构建
 # ---------------------------------------------------------------------------
@@ -398,6 +442,8 @@ def _build_ydl_options(
     speed_mode: str = STANDARD,
     aria2_executable: str | None = None,
     selected_audio: dict | None = None,
+    cancel_token: CancellationToken | None = None,
+    output_version: int = 1,
 ) -> dict:
     """生成公共配置，并追加平台专用配置。"""
     if not isinstance(media_type, str) or media_type not in MEDIA_TYPES:
@@ -406,10 +452,18 @@ def _build_ydl_options(
         raise ValueError(f"不支持的音频格式: {audio_format}")
     if not isinstance(speed_mode, str) or speed_mode not in SPEED_MODES:
         raise ValueError(f"不支持的速度模式: {speed_mode}")
+    _validate_output_version(output_version)
 
     options = {
-        "outtmpl": str(output_dir / "%(title)s.%(ext)s"),
-        "progress_hooks": [_make_progress_hook(index, total, progress_callback)],
+        "outtmpl": _output_template(platform, output_dir, output_version),
+        "progress_hooks": [
+            _make_progress_hook(
+                index,
+                total,
+                progress_callback,
+                cancel_token,
+            )
+        ],
         "writesubtitles": False,
         "writeautomaticsub": False,
         "embedmetadata": True,
@@ -430,7 +484,6 @@ def _build_ydl_options(
     elif platform == INSTAGRAM:
         options.update(
             {
-                "outtmpl": str(output_dir / "%(title)s [%(id)s].%(ext)s"),
                 "http_headers": platform_http_headers(INSTAGRAM),
                 "sleep_interval": 1,
                 "max_sleep_interval": 3,
@@ -440,7 +493,6 @@ def _build_ydl_options(
     elif platform == BILIBILI:
         options.update(
             {
-                "outtmpl": str(output_dir / "%(title)s [%(id)s].%(ext)s"),
                 "http_chunk_size": BILIBILI_HTTP_CHUNK_SIZE,
             }
         )
@@ -506,6 +558,9 @@ def _build_ydl_options(
 
     if platform == BILIBILI and speed_mode == TURBO and aria2_executable:
         configure_aria2(options, aria2_executable)
+
+    if cancel_token:
+        options["postprocessor_hooks"] = [_make_cancel_hook(cancel_token)]
 
     return options
 
@@ -653,9 +708,16 @@ def _audio_format_name(profile: AudioOutputProfile) -> str:
 def _rename_audio_output(
     filepath: Path,
     profile: AudioOutputProfile,
+    output_version: int = 1,
 ) -> Path:
+    _validate_output_version(output_version)
+    version_suffix = "" if output_version == 1 else f" ({output_version})"
+    stem = filepath.stem
+    if version_suffix and stem.endswith(version_suffix):
+        stem = stem[: -len(version_suffix)]
     target = filepath.with_name(
-        f"{filepath.stem} [{_audio_quality_label(profile)}]{filepath.suffix}"
+        f"{stem} [{_audio_quality_label(profile)}]"
+        f"{version_suffix}{filepath.suffix}"
     )
     filepath.replace(target)
     return target
@@ -919,7 +981,11 @@ def _download_bilibili(
     media_type: str,
     speed_mode: str,
     audio_format: str,
+    cancel_token: CancellationToken | None = None,
+    output_version: int = 1,
 ) -> DownloadResult:
+    if cancel_token:
+        cancel_token.raise_if_cancelled()
     executable = aria2c_path()
     used_mode = effective_speed_mode(BILIBILI, speed_mode, executable)
     metadata_options = _build_ydl_options(
@@ -931,6 +997,8 @@ def _download_bilibili(
         media_type=media_type,
         audio_format=audio_format,
         speed_mode=STANDARD,
+        cancel_token=cancel_token,
+        output_version=output_version,
     )
     media_name = "音频" if media_type == AUDIO else "视频"
     print(f"\n{'─' * 56}")
@@ -941,6 +1009,8 @@ def _download_bilibili(
 
     metadata_ydl, extracted = _extract_bilibili_info(url, metadata_options)
     try:
+        if cancel_token:
+            cancel_token.raise_if_cancelled()
         if not extracted:
             raise yt_dlp.utils.DownloadError("下载器未返回视频信息")
         plan = build_acceleration_plan(metadata_ydl, extracted)
@@ -999,6 +1069,8 @@ def _download_bilibili(
         attempt_plan,
         fallback,
     ) in enumerate(attempts):
+        if cancel_token:
+            cancel_token.raise_if_cancelled()
         options = _build_ydl_options(
             BILIBILI,
             output_dir,
@@ -1010,6 +1082,8 @@ def _download_bilibili(
             speed_mode=attempt_mode,
             aria2_executable=executable,
             selected_audio=(extracted if audio_profile else None),
+            cancel_token=cancel_token,
+            output_version=output_version,
         )
         options["http_chunk_size"] = attempt_plan.http_chunk_size
         if progress_callback:
@@ -1028,8 +1102,17 @@ def _download_bilibili(
                 options,
                 output_dir,
             )
+            if cancel_token:
+                cancel_token.raise_if_cancelled()
             if audio_profile:
-                filepath = _rename_audio_output(filepath, audio_profile)
+                if output_version == 1:
+                    filepath = _rename_audio_output(filepath, audio_profile)
+                else:
+                    filepath = _rename_audio_output(
+                        filepath,
+                        audio_profile,
+                        output_version=output_version,
+                    )
             return _build_download_result(
                 final_info,
                 filepath,
@@ -1041,6 +1124,9 @@ def _download_bilibili(
                 attempt_plan,
                 audio_profile,
             )
+        except DownloadCancelled:
+            _cleanup_new_attempt_files(output_dir, before)
+            raise
         except yt_dlp.utils.DownloadError as error:
             _cleanup_new_attempt_files(output_dir, before)
             last_error = error
@@ -1076,6 +1162,9 @@ def download_video(
     media_type: str = VIDEO,
     audio_format: str = MP3,
     speed_mode: str = STANDARD,
+    cancel_token: CancellationToken | None = None,
+    output_version: int = 1,
+    raise_errors: bool = False,
 ) -> Optional[DownloadResult]:
     """自动识别平台并使用 yt-dlp 下载单个视频。"""
     platform = platform or detect_platform(url)
@@ -1088,6 +1177,9 @@ def download_video(
         raise ValueError(f"不支持的速度模式: {speed_mode}")
     if not isinstance(audio_format, str) or audio_format not in AUDIO_FORMATS:
         raise ValueError(f"不支持的音频格式: {audio_format}")
+    _validate_output_version(output_version)
+    if cancel_token:
+        cancel_token.raise_if_cancelled()
 
     output_dir = ensure_downloads_dir()
     if platform == BILIBILI:
@@ -1101,17 +1193,30 @@ def download_video(
                 media_type,
                 speed_mode,
                 audio_format,
+                cancel_token,
+                output_version,
             )
-        except yt_dlp.utils.DownloadError as error:
-            _handle_download_error(str(error), platform, media_type)
+        except DownloadCancelled as error:
+            if raise_errors:
+                raise
+            print(f"\n{format_cli_error(error)}")
+            return None
+        except DownloadFailure as error:
+            if raise_errors:
+                raise
+            print(f"\n{format_cli_error(error)}")
             return None
         except Exception as error:
-            print(f"\n❌ 发生未知错误: {error}")
+            info = classify_download_error(error, platform)
+            if raise_errors:
+                raise DownloadFailure(info) from error
+            print(f"\n{format_cli_error(info)}")
             return None
 
     platform_name = PLATFORM_NAMES[platform]
     media_name = "音频" if media_type == AUDIO else "视频"
 
+    before = _temporary_snapshot(output_dir)
     try:
         print(f"\n{'─' * 56}")
         print(f"[{index}/{total}] [{platform_name}] 🔍 正在获取{media_name}信息: {url}\n")
@@ -1124,9 +1229,15 @@ def download_video(
                 progress_callback=progress_callback,
                 media_type=media_type,
                 audio_format=audio_format,
+                cancel_token=cancel_token,
+                output_version=output_version,
             )
+            if cancel_token:
+                cancel_token.raise_if_cancelled()
             with yt_dlp.YoutubeDL(metadata_options) as metadata_ydl:
                 info = metadata_ydl.extract_info(url, download=False)
+            if cancel_token:
+                cancel_token.raise_if_cancelled()
             if not info:
                 print("\n❌ 下载器未返回视频信息。")
                 return None
@@ -1141,7 +1252,11 @@ def download_video(
                 media_type=media_type,
                 audio_format=audio_profile.used,
                 selected_audio=info,
+                cancel_token=cancel_token,
+                output_version=output_version,
             )
+            if cancel_token:
+                cancel_token.raise_if_cancelled()
             with yt_dlp.YoutubeDL(options) as ydl:
                 ydl.process_info(info)
                 filepath = _resolve_output_path(
@@ -1152,7 +1267,16 @@ def download_video(
                     audio_format=audio_profile.used,
                     audio_profile=audio_profile,
                 )
-            filepath = _rename_audio_output(filepath, audio_profile)
+            if cancel_token:
+                cancel_token.raise_if_cancelled()
+            if output_version == 1:
+                filepath = _rename_audio_output(filepath, audio_profile)
+            else:
+                filepath = _rename_audio_output(
+                    filepath,
+                    audio_profile,
+                    output_version=output_version,
+                )
             result = {
                 "platform": platform_name,
                 "title": info.get("title", "未知标题"),
@@ -1190,12 +1314,19 @@ def download_video(
             progress_callback=progress_callback,
             media_type=media_type,
             audio_format=audio_format,
+            cancel_token=cancel_token,
+            output_version=output_version,
         )
+        if cancel_token:
+            cancel_token.raise_if_cancelled()
         with yt_dlp.YoutubeDL(options) as ydl:
             info = ydl.extract_info(url, download=True)
             if not info:
                 print("\n❌ 下载器未返回视频信息。")
                 return None
+
+            if cancel_token:
+                cancel_token.raise_if_cancelled()
 
             filepath = _resolve_output_path(
                 ydl,
@@ -1231,11 +1362,22 @@ def download_video(
             )
             return result
 
-    except yt_dlp.utils.DownloadError as error:
-        _handle_download_error(str(error), platform, media_type)
+    except DownloadCancelled as error:
+        _cleanup_new_attempt_files(output_dir, before)
+        if raise_errors:
+            raise
+        print(f"\n{format_cli_error(error)}")
+        return None
+    except DownloadFailure as error:
+        if raise_errors:
+            raise
+        print(f"\n{format_cli_error(error)}")
         return None
     except Exception as error:
-        print(f"\n❌ 发生未知错误: {error}")
+        info = classify_download_error(error, platform)
+        if raise_errors:
+            raise DownloadFailure(info) from error
+        print(f"\n{format_cli_error(info)}")
         return None
 
 
@@ -1283,6 +1425,7 @@ def download_tasks(
     bilibili_slots = threading.BoundedSemaphore(
         MAX_PARALLEL_BILIBILI_DOWNLOADS
     )
+    logger = get_download_logger()
 
     def _run_task(index_and_task):
         task_index, task = index_and_task
@@ -1293,38 +1436,127 @@ def download_tasks(
                 progress_callback(task_index, event, data)
 
         def _download_current_task():
+            started_at = time.monotonic()
             if progress_callback:
                 progress_callback(
                     task_index,
                     "started",
                     {"url": url, "platform": platform},
                 )
-            return download_video(
-                url,
-                index=task_index + 1,
-                total=total,
+            log_download_event(
+                logger,
+                "started",
                 platform=platform,
-                progress_callback=_relay_progress if progress_callback else None,
                 media_type=media_type,
                 audio_format=audio_format,
                 speed_mode=speed_mode,
+                task_index=task_index + 1,
+                attempt_number=1,
             )
+            try:
+                result = download_video(
+                    url,
+                    index=task_index + 1,
+                    total=total,
+                    platform=platform,
+                    progress_callback=(
+                        _relay_progress if progress_callback else None
+                    ),
+                    media_type=media_type,
+                    audio_format=audio_format,
+                    speed_mode=speed_mode,
+                    raise_errors=True,
+                )
+                if result is None:
+                    raise DownloadFailure(
+                        classify_download_error(
+                            RuntimeError("download returned no result"),
+                            platform,
+                        )
+                    )
+                elapsed = round(time.monotonic() - started_at, 3)
+                log_download_event(
+                    logger,
+                    "completed",
+                    platform=platform,
+                    media_type=media_type,
+                    audio_format=audio_format,
+                    speed_mode=speed_mode,
+                    task_index=task_index + 1,
+                    attempt_number=1,
+                    elapsed_seconds=elapsed,
+                )
+                if progress_callback:
+                    progress_callback(task_index, "completed", result)
+                return result
+            except DownloadCancelled as error:
+                elapsed = round(time.monotonic() - started_at, 3)
+                data = public_error(error)
+                log_download_event(
+                    logger,
+                    "cancelled",
+                    platform=platform,
+                    media_type=media_type,
+                    audio_format=audio_format,
+                    speed_mode=speed_mode,
+                    task_index=task_index + 1,
+                    attempt_number=1,
+                    elapsed_seconds=elapsed,
+                    **data,
+                )
+                if progress_callback:
+                    progress_callback(task_index, "cancelled", data)
+                return None
+            except DownloadFailure as error:
+                elapsed = round(time.monotonic() - started_at, 3)
+                data = public_error(error)
+                log_download_event(
+                    logger,
+                    "failed",
+                    platform=platform,
+                    media_type=media_type,
+                    audio_format=audio_format,
+                    speed_mode=speed_mode,
+                    task_index=task_index + 1,
+                    attempt_number=1,
+                    elapsed_seconds=elapsed,
+                    technical_detail=error.info.technical_detail,
+                    **data,
+                )
+                if progress_callback:
+                    progress_callback(task_index, "failed", data)
+                else:
+                    print(f"\n{format_cli_error(error)}")
+                return None
+            except Exception as error:
+                info = classify_download_error(error, platform)
+                failure = DownloadFailure(info)
+                elapsed = round(time.monotonic() - started_at, 3)
+                data = public_error(failure)
+                log_download_event(
+                    logger,
+                    "failed",
+                    platform=platform,
+                    media_type=media_type,
+                    audio_format=audio_format,
+                    speed_mode=speed_mode,
+                    task_index=task_index + 1,
+                    attempt_number=1,
+                    elapsed_seconds=elapsed,
+                    technical_detail=info.technical_detail,
+                    **data,
+                )
+                if progress_callback:
+                    progress_callback(task_index, "failed", data)
+                else:
+                    print(f"\n{format_cli_error(failure)}")
+                return None
 
-        try:
-            if platform == BILIBILI:
-                with bilibili_slots:
-                    result = _download_current_task()
-            else:
+        if platform == BILIBILI:
+            with bilibili_slots:
                 result = _download_current_task()
-        except Exception as error:
-            print(f"\n❌ 任务 {task_index + 1} 发生未知错误: {error}")
-            result = None
-
-        if progress_callback:
-            if result:
-                progress_callback(task_index, "completed", result)
-            else:
-                progress_callback(task_index, "failed", {"error": "下载失败"})
+        else:
+            result = _download_current_task()
         return task, result
 
     worker_count = min(MAX_PARALLEL_DOWNLOADS, total)

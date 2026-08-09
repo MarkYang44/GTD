@@ -5,6 +5,8 @@ import unittest
 from pathlib import Path
 
 import downloader
+import download_errors
+import task_control
 import yt_dlp
 
 
@@ -103,8 +105,60 @@ class DownloadOutputTemplateTests(unittest.TestCase):
             str(output_dir / "%(title)s.%(ext)s"),
         )
 
+    def test_video_output_template_includes_redownload_suffix(self):
+        options = downloader._build_ydl_options(
+            downloader.YOUTUBE,
+            Path("/tmp/output"),
+            1,
+            1,
+            output_version=2,
+        )
+
+        self.assertIn(" (2).%(ext)s", options["outtmpl"])
+
+    def test_cancel_cleanup_preserves_preexisting_and_completed_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output_dir = Path(directory)
+            existing = output_dir / "existing.mp4"
+            new_part = output_dir / "new.mp4.part"
+            completed = output_dir / "new.mp4"
+            existing.write_bytes(b"original")
+            before = downloader._temporary_snapshot(output_dir)
+            new_part.write_bytes(b"partial")
+            completed.write_bytes(b"complete")
+
+            downloader._cleanup_new_attempt_files(output_dir, before)
+
+            self.assertEqual(existing.read_bytes(), b"original")
+            self.assertFalse(new_part.exists())
+            self.assertTrue(completed.exists())
+
 
 class DownloadAudioOptionsTests(unittest.TestCase):
+    def test_audio_quality_label_precedes_redownload_suffix(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "Song (2).mp3"
+            path.touch()
+            profile = downloader.AudioOutputProfile(
+                downloader.MP3,
+                downloader.MP3,
+                False,
+                "AAC",
+                128,
+                "mp3",
+                True,
+            )
+
+            target = downloader._rename_audio_output(
+                path,
+                profile,
+                output_version=2,
+            )
+
+            self.assertEqual(
+                target.name,
+                "Song [MP3 V0 · 源AAC 128kbps] (2).mp3",
+            )
     def test_source_audio_preserves_selected_codec_without_quality_setting(self):
         info = {"acodec": "opus", "ext": "webm", "abr": 160}
 
@@ -403,6 +457,19 @@ class DownloadAudioOptionsTests(unittest.TestCase):
 
 
 class DownloadProgressHookTests(unittest.TestCase):
+    def test_progress_hook_raises_dedicated_cancel_exception(self):
+        token = task_control.CancellationToken()
+        hook = downloader._make_progress_hook(1, 1, cancel_token=token)
+        token.cancel()
+
+        with self.assertRaises(download_errors.DownloadCancelled):
+            hook(
+                {
+                    "status": "downloading",
+                    "downloaded_bytes": 1,
+                    "total_bytes": 2,
+                }
+            )
     def test_progress_hook_emits_complete_line_for_parallel_cli_output(self):
         hook = downloader._make_progress_hook(2, 3)
         buffer = io.StringIO()
