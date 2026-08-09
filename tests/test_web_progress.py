@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import app as web_app
 import downloader
+from collection_resolver import CollectionEntry, CollectionPreview
 
 
 class WebConfigurationTests(unittest.TestCase):
@@ -33,116 +34,15 @@ class WebConfigurationTests(unittest.TestCase):
         self.assertIn("http://127.0.0.1:8233", readme)
         self.assertNotIn("http://127.0.0.1:5000", readme)
 
-    def test_completed_batch_history_is_bounded_without_removing_active_batches(self):
-        web_app._batches.clear()
-        try:
-            active = web_app._create_batch([
-                (downloader.YOUTUBE, "https://youtu.be/active")
-            ])
-            completed_ids = []
-            for index in range(web_app.MAX_STORED_BATCHES):
-                batch = web_app._create_batch([
-                    (downloader.YOUTUBE, f"https://youtu.be/{index}")
-                ])
-                batch["all_done"] = True
-                completed_ids.append(batch["id"])
-
-            newest = web_app._create_batch([
-                (downloader.YOUTUBE, "https://youtu.be/newest")
-            ])
-
-            self.assertIn(active["id"], web_app._batches)
-            self.assertNotIn(completed_ids[0], web_app._batches)
-            self.assertIn(newest["id"], web_app._batches)
-            self.assertEqual(len(web_app._batches), web_app.MAX_STORED_BATCHES)
-        finally:
-            web_app._batches.clear()
-
-    def test_active_overflow_is_pruned_as_batches_finish(self):
-        web_app._batches.clear()
-        try:
-            batches = [
-                web_app._create_batch([
-                    (downloader.YOUTUBE, f"https://youtu.be/{index}")
-                ])
-                for index in range(web_app.MAX_STORED_BATCHES + 1)
-            ]
-            self.assertEqual(
-                len(web_app._batches),
-                web_app.MAX_STORED_BATCHES + 1,
-            )
-
-            with patch("app.download_tasks", return_value=[]):
-                for batch in batches:
-                    web_app._run_downloads(batch["id"], [])
-
-            self.assertEqual(len(web_app._batches), web_app.MAX_STORED_BATCHES)
-            self.assertNotIn(batches[0]["id"], web_app._batches)
-            self.assertIn(batches[-1]["id"], web_app._batches)
-        finally:
-            web_app._batches.clear()
+    def test_web_uses_one_bounded_process_task_manager(self):
+        self.assertEqual(
+            web_app.task_manager._max_batches,
+            web_app.MAX_STORED_BATCHES,
+        )
+        self.assertFalse(hasattr(web_app, "_batches"))
 
 
 class WebProgressStateTests(unittest.TestCase):
-    def test_batch_tasks_start_with_empty_progress(self):
-        batch = web_app._create_batch([(downloader.YOUTUBE, "https://youtu.be/example")])
-
-        self.assertIn("progress", batch["tasks"][0])
-        self.assertIsNone(batch["tasks"][0]["progress"])
-
-    def test_progress_event_updates_current_task_metrics(self):
-        batch = web_app._create_batch([(downloader.YOUTUBE, "https://youtu.be/example")])
-
-        web_app._apply_progress_event(
-            batch,
-            0,
-            "progress",
-            {
-                "percent_text": "12.3%",
-                "speed_text": "2.50 MB/s",
-                "eta_text": "01:05",
-            },
-        )
-
-        task = batch["tasks"][0]
-        self.assertEqual(task["status"], "downloading")
-        self.assertEqual(task["progress"]["percent_text"], "12.3%")
-        self.assertEqual(task["progress"]["speed_text"], "2.50 MB/s")
-        self.assertEqual(task["progress"]["eta_text"], "01:05")
-
-    def test_completion_clears_stale_progress_metrics(self):
-        batch = web_app._create_batch([(downloader.YOUTUBE, "https://youtu.be/example")])
-        web_app._apply_progress_event(
-            batch,
-            0,
-            "progress",
-            {"speed_text": "2.50 MB/s", "eta_text": "01:05"},
-        )
-
-        web_app._apply_progress_event(batch, 0, "completed", {"title": "done"})
-
-        task = batch["tasks"][0]
-        self.assertEqual(task["status"], "completed")
-        self.assertIsNone(task["progress"])
-
-    def test_duplicate_terminal_event_does_not_increment_count_twice(self):
-        batch = web_app._create_batch([(downloader.YOUTUBE, "https://youtu.be/example")])
-
-        web_app._apply_progress_event(batch, 0, "completed", {"title": "done"})
-        web_app._apply_progress_event(batch, 0, "completed", {"title": "done"})
-
-        self.assertEqual(batch["completed"], 1)
-        self.assertEqual(batch["failed"], 0)
-
-    def test_progress_after_terminal_event_does_not_regress_status(self):
-        batch = web_app._create_batch([(downloader.YOUTUBE, "https://youtu.be/example")])
-
-        web_app._apply_progress_event(batch, 0, "failed", {"error": "failed"})
-        web_app._apply_progress_event(batch, 0, "progress", {"percent_text": "99%"})
-
-        self.assertEqual(batch["tasks"][0]["status"], "failed")
-        self.assertEqual(batch["failed"], 1)
-
     def test_frontend_renders_speed_and_eta_inside_task_card(self):
         html = Path("templates/index.html").read_text(encoding="utf-8")
 
@@ -391,23 +291,24 @@ class WebProgressStateTests(unittest.TestCase):
 
 class WebDownloadApiTests(unittest.TestCase):
     def setUp(self):
-        web_app._batches.clear()
         self.client = web_app.app.test_client()
 
     def test_download_api_defaults_to_video_batch(self):
-        with patch("app.threading.Thread"):
+        with patch.object(web_app.task_manager, "create_batch") as create:
+            create.return_value = {"id": "batch", "total": 1}
             response = self.client.post(
                 "/api/download",
                 json={"urls": ["https://youtu.be/example"]},
             )
 
         self.assertEqual(response.status_code, 200)
-        batch = web_app._batches[response.get_json()["batch_id"]]
-        self.assertEqual(batch["media_type"], downloader.VIDEO)
-        self.assertEqual(batch["audio_format"], downloader.MP3)
+        args = create.call_args.args
+        self.assertEqual(args[1], downloader.VIDEO)
+        self.assertEqual(args[2], downloader.MP3)
 
     def test_download_api_creates_audio_batch_and_forwards_media_type(self):
-        with patch("app.threading.Thread") as thread_class:
+        with patch.object(web_app.task_manager, "create_batch") as create:
+            create.return_value = {"id": "batch", "total": 1}
             response = self.client.post(
                 "/api/download",
                 json={
@@ -417,13 +318,12 @@ class WebDownloadApiTests(unittest.TestCase):
             )
 
         self.assertEqual(response.status_code, 200)
-        batch = web_app._batches[response.get_json()["batch_id"]]
-        self.assertEqual(batch["media_type"], downloader.AUDIO)
-        self.assertEqual(batch["audio_format"], downloader.MP3)
-        self.assertEqual(thread_class.call_args.kwargs["args"][2], downloader.AUDIO)
+        self.assertEqual(create.call_args.args[1], downloader.AUDIO)
+        self.assertEqual(create.call_args.args[2], downloader.MP3)
 
     def test_download_api_creates_flac_audio_batch(self):
-        with patch("app.threading.Thread") as thread_class:
+        with patch.object(web_app.task_manager, "create_batch") as create:
+            create.return_value = {"id": "batch", "total": 1}
             response = self.client.post(
                 "/api/download",
                 json={
@@ -434,18 +334,13 @@ class WebDownloadApiTests(unittest.TestCase):
             )
 
         self.assertEqual(response.status_code, 200)
-        batch = web_app._batches[response.get_json()["batch_id"]]
-        self.assertEqual(batch["audio_format"], downloader.FLAC)
-        self.assertEqual(
-            thread_class.call_args.kwargs["args"][4],
-            downloader.FLAC,
-        )
+        self.assertEqual(create.call_args.args[2], downloader.FLAC)
 
     def test_download_api_rejects_unknown_and_non_string_audio_format(self):
-        for value in ("wav", [downloader.FLAC]):
+        for value in ("ogg", [downloader.FLAC]):
             with (
                 self.subTest(value=value),
-                patch("app.threading.Thread") as thread_class,
+                patch.object(web_app.task_manager, "create_batch") as create,
             ):
                 response = self.client.post(
                     "/api/download",
@@ -458,10 +353,10 @@ class WebDownloadApiTests(unittest.TestCase):
 
                 self.assertEqual(response.status_code, 400)
                 self.assertIn("音频格式", response.get_json()["error"])
-                thread_class.assert_not_called()
+                create.assert_not_called()
 
     def test_download_api_rejects_unknown_media_type(self):
-        with patch("app.threading.Thread") as thread_class:
+        with patch.object(web_app.task_manager, "create_batch") as create:
             response = self.client.post(
                 "/api/download",
                 json={
@@ -472,10 +367,10 @@ class WebDownloadApiTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertIn("下载类型", response.get_json()["error"])
-        thread_class.assert_not_called()
+        create.assert_not_called()
 
     def test_download_api_rejects_non_string_media_type(self):
-        with patch("app.threading.Thread") as thread_class:
+        with patch.object(web_app.task_manager, "create_batch") as create:
             response = self.client.post(
                 "/api/download",
                 json={
@@ -486,19 +381,19 @@ class WebDownloadApiTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertIn("下载类型", response.get_json()["error"])
-        thread_class.assert_not_called()
+        create.assert_not_called()
 
     def test_download_api_rejects_non_object_json_without_starting_a_thread(self):
         for payload in ([], "https://youtu.be/example"):
             with (
                 self.subTest(payload=payload),
-                patch("app.threading.Thread") as thread_class,
+                patch.object(web_app.task_manager, "create_batch") as create,
             ):
                 response = self.client.post("/api/download", json=payload)
 
                 self.assertEqual(response.status_code, 400)
                 self.assertIn("JSON 对象", response.get_json()["error"])
-                thread_class.assert_not_called()
+                create.assert_not_called()
 
     def test_download_api_rejects_invalid_url_list_types_early(self):
         for urls in (
@@ -507,7 +402,7 @@ class WebDownloadApiTests(unittest.TestCase):
         ):
             with (
                 self.subTest(urls=urls),
-                patch("app.threading.Thread") as thread_class,
+                patch.object(web_app.task_manager, "create_batch") as create,
             ):
                 response = self.client.post(
                     "/api/download",
@@ -516,12 +411,11 @@ class WebDownloadApiTests(unittest.TestCase):
 
                 self.assertEqual(response.status_code, 400)
                 self.assertIn("链接列表", response.get_json()["error"])
-                thread_class.assert_not_called()
+                create.assert_not_called()
 
 
 class WebTurboApiTests(unittest.TestCase):
     def setUp(self):
-        web_app._batches.clear()
         self.client = web_app.app.test_client()
 
     def test_capabilities_reports_aria2_boolean(self):
@@ -535,21 +429,19 @@ class WebTurboApiTests(unittest.TestCase):
         self.assertEqual(response.get_json(), {"aria2c_available": True})
 
     def test_download_defaults_to_standard_speed_mode(self):
-        with patch("app.threading.Thread"):
+        with patch.object(web_app.task_manager, "create_batch") as create:
+            create.return_value = {"id": "batch", "total": 1}
             response = self.client.post(
                 "/api/download",
                 json={"urls": ["https://b23.tv/example"]},
             )
 
-        batch = web_app._batches[response.get_json()["batch_id"]]
-        self.assertEqual(batch["speed_mode"], downloader.STANDARD)
-        self.assertEqual(
-            batch["tasks"][0]["speed_mode_used"],
-            downloader.STANDARD,
-        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(create.call_args.args[3], downloader.STANDARD)
 
     def test_download_forwards_turbo_to_background_thread(self):
-        with patch("app.threading.Thread") as thread_class:
+        with patch.object(web_app.task_manager, "create_batch") as create:
+            create.return_value = {"id": "batch", "total": 1}
             response = self.client.post(
                 "/api/download",
                 json={
@@ -560,16 +452,13 @@ class WebTurboApiTests(unittest.TestCase):
             )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(
-            thread_class.call_args.kwargs["args"][3],
-            downloader.TURBO,
-        )
+        self.assertEqual(create.call_args.args[3], downloader.TURBO)
 
     def test_download_rejects_non_string_and_unknown_speed_modes(self):
         for value in (["turbo"], "warp"):
             with self.subTest(value=value), patch(
-                "app.threading.Thread"
-            ) as thread_class:
+                "app.task_manager.create_batch"
+            ) as create:
                 response = self.client.post(
                     "/api/download",
                     json={
@@ -580,30 +469,149 @@ class WebTurboApiTests(unittest.TestCase):
 
                 self.assertEqual(response.status_code, 400)
                 self.assertIn("速度模式", response.get_json()["error"])
-                thread_class.assert_not_called()
+                create.assert_not_called()
 
-    def test_mode_event_updates_task_without_creating_terminal_state(self):
-        batch = web_app._create_batch(
-            [(downloader.BILIBILI, "https://b23.tv/example")],
-            speed_mode=downloader.TURBO,
-        )
 
-        web_app._apply_progress_event(
-            batch,
-            0,
-            "mode",
-            {
-                "speed_mode": downloader.STANDARD,
-                "turbo_fallback": True,
+class WebTaskOperationApiTests(unittest.TestCase):
+    def setUp(self):
+        self.client = web_app.app.test_client()
+
+    def test_preview_returns_collection_entries(self):
+        preview = {
+            "preview_id": "preview-1",
+            "title": "List",
+            "platform": "youtube",
+            "is_single": False,
+            "requires_selection": True,
+            "entries": [
+                {"id": "1:a", "title": "A", "selectable": True}
+            ],
+        }
+        with patch("app.resolve_inputs") as resolve:
+            resolve.return_value.id = "preview-1"
+            resolve.return_value.to_dict.return_value = preview
+            response = self.client.post(
+                "/api/preview",
+                json={
+                    "inputs": [
+                        "https://youtube.com/playlist?list=x"
+                    ]
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["preview_id"], "preview-1")
+
+    def test_preview_submission_rejects_more_than_100(self):
+        response = self.client.post(
+            "/api/download",
+            json={
+                "preview_id": "preview-1",
+                "selected_entry_ids": [str(index) for index in range(101)],
+                "media_type": "video",
             },
         )
 
-        task = batch["tasks"][0]
-        self.assertEqual(task["speed_mode_used"], downloader.STANDARD)
-        self.assertTrue(task["turbo_fallback"])
-        self.assertEqual(batch["completed"], 0)
-        self.assertEqual(batch["failed"], 0)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()["error_code"], "INVALID_REQUEST")
 
+    def test_cancel_conflict_returns_409_structured_error(self):
+        with patch.object(
+            web_app.task_manager,
+            "cancel",
+            side_effect=ValueError("极速任务不可取消"),
+        ):
+            response = self.client.post("/api/batch/b/task/t/cancel")
+
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("error_code", response.get_json())
+
+    def test_audio_api_accepts_source_and_wav(self):
+        for value in ("source", "wav"):
+            with self.subTest(value=value), patch.object(
+                web_app.task_manager,
+                "create_batch",
+            ) as create:
+                create.return_value = {"id": "b", "total": 1}
+                response = self.client.post(
+                    "/api/download",
+                    json={
+                        "urls": ["https://youtu.be/example"],
+                        "media_type": "audio",
+                        "audio_format": value,
+                    },
+                )
+
+                self.assertEqual(response.status_code, 200)
+
+    def test_selected_preview_entries_keep_user_order_and_metadata(self):
+        preview = CollectionPreview(
+            "selection-preview",
+            "Parts",
+            "bilibili",
+            (
+                CollectionEntry(
+                    "1:p1",
+                    "P1",
+                    "bilibili",
+                    "https://www.bilibili.com/video/BV1?p=1",
+                    1,
+                    None,
+                    True,
+                    None,
+                ),
+                CollectionEntry(
+                    "2:p2",
+                    "P2",
+                    "bilibili",
+                    "https://www.bilibili.com/video/BV1?p=2",
+                    2,
+                    None,
+                    True,
+                    None,
+                ),
+            ),
+            False,
+            True,
+        )
+        web_app.preview_store.put(preview)
+
+        with patch.object(web_app.task_manager, "create_batch") as create:
+            create.return_value = {"id": "batch", "total": 2}
+            response = self.client.post(
+                "/api/download",
+                json={
+                    "preview_id": preview.id,
+                    "selected_entry_ids": ["2:p2", "1:p1"],
+                    "media_type": "video",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        seeds = create.call_args.args[0]
+        self.assertEqual([seed.title for seed in seeds], ["P2", "P1"])
+        self.assertEqual([seed.position for seed in seeds], [2, 1])
+
+    def test_batch_status_and_operation_not_found_are_structured(self):
+        with patch.object(
+            web_app.task_manager,
+            "snapshot",
+            side_effect=KeyError("missing"),
+        ):
+            response = self.client.get("/api/batch/missing")
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.get_json()["error_code"], "BATCH_NOT_FOUND")
+
+        with patch.object(
+            web_app.task_manager,
+            "retry",
+            side_effect=KeyError("missing"),
+        ):
+            response = self.client.post(
+                "/api/batch/missing/task/missing/retry"
+            )
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.get_json()["error_code"], "TASK_NOT_FOUND")
 
 if __name__ == "__main__":
     unittest.main()

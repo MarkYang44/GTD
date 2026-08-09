@@ -643,7 +643,6 @@ class BilibiliTurboDownloadTests(unittest.TestCase):
 
 class BilibiliSurfaceIntegrationTests(unittest.TestCase):
     def setUp(self):
-        web_app._batches.clear()
         self.client = web_app.app.test_client()
 
     def test_cli_accepts_bilibili_in_mixed_arguments(self):
@@ -660,23 +659,17 @@ class BilibiliSurfaceIntegrationTests(unittest.TestCase):
     def test_web_api_creates_bilibili_audio_task(self):
         url = "https://b23.tv/BV1GJ411x7h7"
 
-        with patch("app.threading.Thread") as thread_class:
+        with patch.object(web_app.task_manager, "create_batch") as create:
+            create.return_value = {"id": "batch", "total": 1}
             response = self.client.post(
                 "/api/download",
                 json={"urls": [url], "media_type": downloader.AUDIO},
             )
 
         self.assertEqual(response.status_code, 200)
-        batch = web_app._batches[response.get_json()["batch_id"]]
-        self.assertEqual(
-            batch["tasks"][0]["platform"],
-            downloader.BILIBILI,
-        )
-        self.assertEqual(batch["tasks"][0]["platform_name"], "Bilibili")
-        self.assertEqual(
-            thread_class.call_args.kwargs["args"][2],
-            downloader.AUDIO,
-        )
+        seeds = create.call_args.args[0]
+        self.assertEqual(seeds[0].platform, downloader.BILIBILI)
+        self.assertEqual(create.call_args.args[1], downloader.AUDIO)
 
     def test_page_names_bilibili_without_adding_new_input(self):
         html = Path("templates/index.html").read_text(encoding="utf-8")
@@ -780,7 +773,6 @@ class CookieExtensionDocumentationTests(unittest.TestCase):
 
 class ShareTextSurfaceTests(unittest.TestCase):
     def setUp(self):
-        web_app._batches.clear()
         self.client = web_app.app.test_client()
 
     def test_web_api_stores_only_clean_url_from_share_text(self):
@@ -793,15 +785,15 @@ class ShareTextSurfaceTests(unittest.TestCase):
             "?vd_source=source123"
         )
 
-        with patch("app.threading.Thread"):
+        with patch.object(web_app.task_manager, "create_batch") as create:
+            create.return_value = {"id": "batch", "total": 1}
             response = self.client.post(
                 "/api/download",
                 json={"urls": [share_text], "media_type": downloader.VIDEO},
             )
 
         self.assertEqual(response.status_code, 200)
-        batch = web_app._batches[response.get_json()["batch_id"]]
-        self.assertEqual(batch["tasks"][0]["url"], expected)
+        self.assertEqual(create.call_args.args[0][0].url, expected)
 
     def test_page_and_readme_explain_share_text_input(self):
         html = Path("templates/index.html").read_text(encoding="utf-8")
