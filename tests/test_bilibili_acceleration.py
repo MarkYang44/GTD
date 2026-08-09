@@ -256,6 +256,26 @@ class AdaptivePolicyTests(unittest.TestCase):
         self.assertEqual(second, third)
         self.assertEqual(calls, ["probe", "probe"])
 
+    def test_cache_discards_expired_entries_when_a_new_host_set_is_probed(self):
+        now = [1000.0]
+        cache = acceleration.CdnProbeCache(
+            ttl_seconds=10,
+            clock=lambda: now[0],
+        )
+
+        cache.get_or_probe(
+            ("old.example",),
+            lambda: acceleration.CdnChoice("old.example", 1024),
+        )
+        now[0] += 11
+        cache.get_or_probe(
+            ("new.example",),
+            lambda: acceleration.CdnChoice("new.example", 2048),
+        )
+
+        self.assertNotIn(("old.example",), cache._entries)
+        self.assertIn(("new.example",), cache._entries)
+
     def test_concurrent_cache_miss_runs_one_probe(self):
         cache = acceleration.CdnProbeCache(ttl_seconds=1800)
         barrier = threading.Barrier(4)

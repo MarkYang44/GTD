@@ -33,6 +33,55 @@ class WebConfigurationTests(unittest.TestCase):
         self.assertIn("http://127.0.0.1:8233", readme)
         self.assertNotIn("http://127.0.0.1:5000", readme)
 
+    def test_completed_batch_history_is_bounded_without_removing_active_batches(self):
+        web_app._batches.clear()
+        try:
+            active = web_app._create_batch([
+                (downloader.YOUTUBE, "https://youtu.be/active")
+            ])
+            completed_ids = []
+            for index in range(web_app.MAX_STORED_BATCHES):
+                batch = web_app._create_batch([
+                    (downloader.YOUTUBE, f"https://youtu.be/{index}")
+                ])
+                batch["all_done"] = True
+                completed_ids.append(batch["id"])
+
+            newest = web_app._create_batch([
+                (downloader.YOUTUBE, "https://youtu.be/newest")
+            ])
+
+            self.assertIn(active["id"], web_app._batches)
+            self.assertNotIn(completed_ids[0], web_app._batches)
+            self.assertIn(newest["id"], web_app._batches)
+            self.assertEqual(len(web_app._batches), web_app.MAX_STORED_BATCHES)
+        finally:
+            web_app._batches.clear()
+
+    def test_active_overflow_is_pruned_as_batches_finish(self):
+        web_app._batches.clear()
+        try:
+            batches = [
+                web_app._create_batch([
+                    (downloader.YOUTUBE, f"https://youtu.be/{index}")
+                ])
+                for index in range(web_app.MAX_STORED_BATCHES + 1)
+            ]
+            self.assertEqual(
+                len(web_app._batches),
+                web_app.MAX_STORED_BATCHES + 1,
+            )
+
+            with patch("app.download_tasks", return_value=[]):
+                for batch in batches:
+                    web_app._run_downloads(batch["id"], [])
+
+            self.assertEqual(len(web_app._batches), web_app.MAX_STORED_BATCHES)
+            self.assertNotIn(batches[0]["id"], web_app._batches)
+            self.assertIn(batches[-1]["id"], web_app._batches)
+        finally:
+            web_app._batches.clear()
+
 
 class WebProgressStateTests(unittest.TestCase):
     def test_batch_tasks_start_with_empty_progress(self):
@@ -438,6 +487,36 @@ class WebDownloadApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("下载类型", response.get_json()["error"])
         thread_class.assert_not_called()
+
+    def test_download_api_rejects_non_object_json_without_starting_a_thread(self):
+        for payload in ([], "https://youtu.be/example"):
+            with (
+                self.subTest(payload=payload),
+                patch("app.threading.Thread") as thread_class,
+            ):
+                response = self.client.post("/api/download", json=payload)
+
+                self.assertEqual(response.status_code, 400)
+                self.assertIn("JSON 对象", response.get_json()["error"])
+                thread_class.assert_not_called()
+
+    def test_download_api_rejects_invalid_url_list_types_early(self):
+        for urls in (
+            "https://youtu.be/example",
+            ["https://youtu.be/example", 42],
+        ):
+            with (
+                self.subTest(urls=urls),
+                patch("app.threading.Thread") as thread_class,
+            ):
+                response = self.client.post(
+                    "/api/download",
+                    json={"urls": urls},
+                )
+
+                self.assertEqual(response.status_code, 400)
+                self.assertIn("链接列表", response.get_json()["error"])
+                thread_class.assert_not_called()
 
 
 class WebTurboApiTests(unittest.TestCase):

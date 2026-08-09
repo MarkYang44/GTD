@@ -269,11 +269,25 @@ class ParallelDownloadTests(unittest.TestCase):
         ))
 
     def test_unknown_batch_speed_mode_fails_before_workers_start(self):
+        for speed_mode in ("warp", []):
+            with (
+                self.subTest(speed_mode=speed_mode),
+                patch("downloader.ThreadPoolExecutor") as executor,
+            ):
+                with self.assertRaisesRegex(ValueError, "速度模式"):
+                    downloader.download_tasks(
+                        [(downloader.BILIBILI, "https://b23.tv/example")],
+                        speed_mode=speed_mode,
+                    )
+
+                executor.assert_not_called()
+
+    def test_unknown_batch_media_type_fails_before_workers_start(self):
         with patch("downloader.ThreadPoolExecutor") as executor:
-            with self.assertRaisesRegex(ValueError, "速度模式"):
+            with self.assertRaisesRegex(ValueError, "下载类型"):
                 downloader.download_tasks(
-                    [(downloader.BILIBILI, "https://b23.tv/example")],
-                    speed_mode="warp",
+                    [(downloader.YOUTUBE, "https://youtu.be/example")],
+                    media_type="document",
                 )
 
         executor.assert_not_called()

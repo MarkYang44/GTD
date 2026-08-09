@@ -1,4 +1,5 @@
 import contextlib
+import copy
 import io
 import tempfile
 import unittest
@@ -6,6 +7,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import app as web_app
+from bilibili_acceleration import CDN_CANDIDATES_FIELD
 import downloader
 import main as cli_main
 
@@ -66,6 +68,19 @@ class ShareTextUrlExtractionTests(unittest.TestCase):
             downloader.make_task(share_text),
             (downloader.BILIBILI, expected),
         )
+
+    def test_make_task_normalizes_share_text_only_once(self):
+        share_text = "【标题】https://www.bilibili.com/video/BV1xRuu6fEeA?vd_source=test"
+
+        with patch.object(
+            downloader,
+            "normalize_url",
+            wraps=downloader.normalize_url,
+        ) as normalize:
+            task = downloader.make_task(share_text)
+
+        self.assertEqual(task[0], downloader.BILIBILI)
+        normalize.assert_called_once_with(share_text)
 
     def test_removes_trailing_share_punctuation_but_keeps_query(self):
         share_text = (
@@ -228,6 +243,93 @@ class BilibiliDownloadOptionsTests(unittest.TestCase):
 
 
 class BilibiliTurboDownloadTests(unittest.TestCase):
+    def test_standard_download_avoids_copy_when_cdn_host_is_unchanged(self):
+        info = {
+            "id": "BV1TEST",
+            "title": "Example",
+            "url": "https://primary.example/video.m4s",
+            "filesize": 60 * 1024 * 1024,
+            "ext": "mp4",
+        }
+        plan = downloader.AccelerationPlan(
+            adaptive=False,
+            cdn_host="primary.example",
+            http_chunk_size=10 * 1024 * 1024,
+        )
+
+        with (
+            patch("downloader.aria2c_path", return_value=None),
+            patch("downloader._extract_bilibili_info", return_value=(Mock(), info)),
+            patch("downloader.build_acceleration_plan", return_value=plan),
+            patch(
+                "downloader._process_bilibili_attempt",
+                return_value=(info, Path("/tmp/Example [BV1TEST].mp4")),
+            ),
+            patch("downloader._format_filesize", return_value="60.00 MB"),
+            patch("downloader.copy.deepcopy", side_effect=copy.deepcopy) as deepcopy,
+        ):
+            result = downloader.download_video(
+                "https://b23.tv/example",
+                platform=downloader.BILIBILI,
+            )
+
+        self.assertIsNotNone(result)
+        deepcopy.assert_not_called()
+
+    def test_multi_stream_download_switches_each_available_stream_to_chosen_cdn(self):
+        info = {
+            "id": "BV1TEST",
+            "title": "Example",
+            "ext": "mp4",
+            "requested_formats": [
+                {
+                    "url": "https://chosen.example/video.m4s",
+                    CDN_CANDIDATES_FIELD: (
+                        "https://chosen.example/video.m4s",
+                    ),
+                },
+                {
+                    "url": "https://audio-original.example/audio.m4s",
+                    CDN_CANDIDATES_FIELD: (
+                        "https://audio-original.example/audio.m4s",
+                        "https://chosen.example/audio.m4s",
+                    ),
+                },
+            ],
+        }
+        plan = downloader.AccelerationPlan(
+            adaptive=True,
+            cdn_host="chosen.example",
+            http_chunk_size=4 * 1024 * 1024,
+        )
+        attempted_urls = []
+
+        def fake_attempt(prepared_info, options, output_dir):
+            attempted_urls.append([
+                fmt["url"] for fmt in prepared_info["requested_formats"]
+            ])
+            return prepared_info, Path("/tmp/Example [BV1TEST].mp4")
+
+        with (
+            patch("downloader.aria2c_path", return_value=None),
+            patch("downloader._extract_bilibili_info", return_value=(Mock(), info)),
+            patch("downloader.build_acceleration_plan", return_value=plan),
+            patch("downloader._process_bilibili_attempt", side_effect=fake_attempt),
+            patch("downloader._format_filesize", return_value="60.00 MB"),
+            patch("downloader.copy.deepcopy", side_effect=copy.deepcopy) as deepcopy,
+        ):
+            result = downloader.download_video(
+                "https://b23.tv/example",
+                platform=downloader.BILIBILI,
+            )
+
+        self.assertIsNotNone(result)
+        self.assertEqual(deepcopy.call_count, 1)
+        self.assertEqual(attempted_urls[0], [
+            "https://chosen.example/video.m4s",
+            "https://chosen.example/audio.m4s",
+        ])
+
     def test_flac_request_uses_real_flac_source(self):
         info = {
             "id": "BV1TEST",

@@ -27,12 +27,31 @@ from downloader import (
 app = Flask(__name__)
 WEB_HOST = "127.0.0.1"
 WEB_PORT = 8233
+MAX_STORED_BATCHES = 100
 
 # ---------------------------------------------------------------------------
 # 内存状态存储（服务重启后清空）
 # ---------------------------------------------------------------------------
 _lock = threading.Lock()
 _batches: dict[str, dict] = {}
+
+
+def _prune_completed_batches(
+    incoming_slots: int = 0,
+    preserve_batch_id: str | None = None,
+) -> None:
+    """淘汰最旧的已结束批次，保留活动批次与指定批次。"""
+    overflow = len(_batches) + incoming_slots - MAX_STORED_BATCHES
+    if overflow <= 0:
+        return
+    removable = []
+    for batch_id, batch in _batches.items():
+        if batch_id != preserve_batch_id and batch.get("all_done"):
+            removable.append(batch_id)
+        if len(removable) >= overflow:
+            break
+    for batch_id in removable:
+        _batches.pop(batch_id, None)
 
 
 def _create_batch(
@@ -71,6 +90,7 @@ def _create_batch(
         "all_done": False,
     }
     with _lock:
+        _prune_completed_batches(incoming_slots=1)
         _batches[batch_id] = batch
     return batch
 
@@ -154,6 +174,7 @@ def _run_downloads(
         batch = _batches.get(batch_id)
         if batch:
             batch["all_done"] = True
+            _prune_completed_batches(preserve_batch_id=batch_id)
 
 
 # ---------------------------------------------------------------------------
@@ -174,7 +195,10 @@ def api_capabilities():
 @app.route("/api/download", methods=["POST"])
 def api_download():
     """接收 URL 列表，启动后台下载线程，返回 batch_id。"""
-    body = request.get_json(silent=True) or {}
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify({"error": "请求正文必须是 JSON 对象"}), 400
+
     urls: list[str] = body.get("urls", [])
     media_type = body.get("media_type", VIDEO)
     speed_mode = body.get("speed_mode", STANDARD)
@@ -187,6 +211,10 @@ def api_download():
     if not isinstance(audio_format, str) or audio_format not in AUDIO_FORMATS:
         return jsonify({"error": "不支持的音频格式"}), 400
 
+    if not isinstance(urls, list) or not all(
+        isinstance(url, str) for url in urls
+    ):
+        return jsonify({"error": "链接列表格式无效"}), 400
     if not urls:
         return jsonify({"error": "请至少提供一个视频链接"}), 400
 

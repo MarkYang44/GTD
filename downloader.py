@@ -29,6 +29,7 @@ from bilibili_acceleration import (
     build_acceleration_plan,
     configure_aria2,
     effective_speed_mode,
+    needs_cdn_host_switch,
     primary_host,
     register_bilibili_extractor,
 )
@@ -114,9 +115,8 @@ def normalize_url(url: str) -> str:
     return normalized
 
 
-def detect_platform(url: str) -> Optional[str]:
-    """识别合法视频链接的平台；无法识别时返回 None。"""
-    normalized = normalize_url(url)
+def _detect_normalized_platform(normalized: str) -> Optional[str]:
+    """识别已标准化链接的平台；无法识别时返回 None。"""
     if not normalized:
         return None
 
@@ -184,6 +184,11 @@ def detect_platform(url: str) -> Optional[str]:
     return None
 
 
+def detect_platform(url: str) -> Optional[str]:
+    """识别合法视频链接的平台；无法识别时返回 None。"""
+    return _detect_normalized_platform(normalize_url(url))
+
+
 def is_valid_youtube_url(url: str) -> bool:
     """判断链接是否为支持的 YouTube 视频链接。"""
     return detect_platform(url) == YOUTUBE
@@ -202,7 +207,7 @@ def is_valid_bilibili_url(url: str) -> bool:
 def make_task(url: str) -> Optional[VideoTask]:
     """将用户输入转换为下载任务。"""
     normalized = normalize_url(url)
-    platform = detect_platform(normalized)
+    platform = _detect_normalized_platform(normalized)
     if platform is None:
         return None
     return platform, normalized
@@ -311,11 +316,11 @@ def _build_ydl_options(
     aria2_executable: str | None = None,
 ) -> dict:
     """生成公共配置，并追加平台专用配置。"""
-    if media_type not in MEDIA_TYPES:
+    if not isinstance(media_type, str) or media_type not in MEDIA_TYPES:
         raise ValueError(f"不支持的下载类型: {media_type}")
-    if audio_format not in AUDIO_FORMATS:
+    if not isinstance(audio_format, str) or audio_format not in AUDIO_FORMATS:
         raise ValueError(f"不支持的音频格式: {audio_format}")
-    if speed_mode not in SPEED_MODES:
+    if not isinstance(speed_mode, str) or speed_mode not in SPEED_MODES:
         raise ValueError(f"不支持的速度模式: {speed_mode}")
 
     options = {
@@ -789,10 +794,19 @@ def _download_bilibili(
         else None
     )
 
-    original_info = copy.deepcopy(extracted)
-    optimized_info = copy.deepcopy(extracted)
-    apply_cdn_host(optimized_info, plan.cdn_host)
-    for prepared in (original_info, optimized_info):
+    original_info = extracted
+    original_cdn_host = primary_host(original_info)
+    cdn_switched = needs_cdn_host_switch(original_info, plan.cdn_host)
+    if cdn_switched:
+        optimized_info = copy.deepcopy(original_info)
+        apply_cdn_host(optimized_info, plan.cdn_host)
+    else:
+        optimized_info = original_info
+
+    prepared_infos = [original_info]
+    if optimized_info is not original_info:
+        prepared_infos.append(optimized_info)
+    for prepared in prepared_infos:
         prepared["_media_type"] = media_type
         if audio_profile:
             prepared["_audio_format_used"] = audio_profile.used
@@ -805,10 +819,10 @@ def _download_bilibili(
 
     original_plan = AccelerationPlan(
         False,
-        primary_host(original_info),
+        original_cdn_host,
         BILIBILI_HTTP_CHUNK_SIZE,
     )
-    if plan.cdn_host and plan.cdn_host != primary_host(original_info):
+    if cdn_switched:
         attempts.append(
             (
                 STANDARD,
@@ -880,7 +894,8 @@ def _download_bilibili(
             )
             can_retry_cdn = (
                 _is_cdn_access_failure(error)
-                and attempt_plan.cdn_host != primary_host(original_info)
+                and cdn_switched
+                and prepared_info is not original_info
             )
             if not can_retry_aria2 and not can_retry_cdn:
                 raise
@@ -906,7 +921,9 @@ def download_video(
     if platform is None:
         print(f"\n❌ 无法识别视频平台: {url}")
         return None
-    if speed_mode not in SPEED_MODES:
+    if not isinstance(media_type, str) or media_type not in MEDIA_TYPES:
+        raise ValueError(f"不支持的下载类型: {media_type}")
+    if not isinstance(speed_mode, str) or speed_mode not in SPEED_MODES:
         raise ValueError(f"不支持的速度模式: {speed_mode}")
     if not isinstance(audio_format, str) or audio_format not in AUDIO_FORMATS:
         raise ValueError(f"不支持的音频格式: {audio_format}")
@@ -1085,7 +1102,9 @@ def download_tasks(
     speed_mode : str
         `standard` 使用原生下载器，`turbo` 仅对 Bilibili 尝试 aria2c。
     """
-    if speed_mode not in SPEED_MODES:
+    if not isinstance(media_type, str) or media_type not in MEDIA_TYPES:
+        raise ValueError(f"不支持的下载类型: {media_type}")
+    if not isinstance(speed_mode, str) or speed_mode not in SPEED_MODES:
         raise ValueError(f"不支持的速度模式: {speed_mode}")
     if not isinstance(audio_format, str) or audio_format not in AUDIO_FORMATS:
         raise ValueError(f"不支持的音频格式: {audio_format}")

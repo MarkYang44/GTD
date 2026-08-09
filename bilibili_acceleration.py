@@ -59,8 +59,17 @@ class CdnProbeCache:
         key = tuple(sorted(set(hosts)))
         while True:
             with self._lock:
+                now = self.clock()
+                expired = [
+                    entry_key
+                    for entry_key, (expires_at, _) in self._entries.items()
+                    if expires_at <= now
+                ]
+                for entry_key in expired:
+                    self._entries.pop(entry_key, None)
+
                 entry = self._entries.get(key)
-                if entry and entry[0] > self.clock():
+                if entry:
                     return entry[1]
 
                 event = self._in_flight.get(key)
@@ -260,6 +269,24 @@ def primary_host(info: dict) -> str | None:
     return _host(formats[0].get("url")) if formats else None
 
 
+def _candidate_for_host(fmt: dict, host: str) -> str | None:
+    return next(
+        (url for url in _format_candidates(fmt) if _host(url) == host),
+        None,
+    )
+
+
+def needs_cdn_host_switch(info: dict, host: str | None) -> bool:
+    """目标主机会改变任一已选流时返回 True。"""
+    if not host:
+        return False
+    return any(
+        (selected := _candidate_for_host(fmt, host)) is not None
+        and fmt.get("url") != selected
+        for fmt in selected_formats(info)
+    )
+
+
 def apply_cdn_host(info: dict, host: str | None) -> bool:
     """把每条所选流切换到同一候选主机；缺少候选的流保持原样。"""
     if not host:
@@ -268,10 +295,7 @@ def apply_cdn_host(info: dict, host: str | None) -> bool:
     formats = selected_formats(info)
     changed = False
     for fmt in formats:
-        selected = next(
-            (url for url in _format_candidates(fmt) if _host(url) == host),
-            None,
-        )
+        selected = _candidate_for_host(fmt, host)
         if selected and fmt.get("url") != selected:
             fmt["url"] = selected
             changed = True
