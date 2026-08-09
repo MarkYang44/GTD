@@ -503,6 +503,17 @@ class BilibiliDocumentationTests(unittest.TestCase):
             "10 MB HTTP 分块",
             "最多同时运行 2 个 Bilibili 下载任务",
             "实际速度仍取决于 Bilibili 分配的 CDN 和网络路由",
+            "bilibili_acceleration.py",
+            "brew install aria2",
+            "aria2c --version",
+            "--turbo",
+            "--audio --turbo",
+            "50 MiB",
+            "30 分钟",
+            "高速下载中",
+            "自动切换回标准模式",
+            "最多测试 4 个",
+            "不修改或猜测 CDN 域名",
         ]
         for text in required:
             with self.subTest(text=text):
