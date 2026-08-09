@@ -15,6 +15,8 @@ from typing import Optional
 from downloader import (
     AUDIO,
     DOWNLOADS_DIR,
+    FLAC,
+    MP3,
     PLATFORM_NAMES,
     STANDARD,
     TURBO,
@@ -29,7 +31,7 @@ from downloader import (
 
 MEDIA_TYPE_NAMES = {
     VIDEO: "视频",
-    AUDIO: "MP3 音频",
+    AUDIO: "音频",
 }
 
 
@@ -61,12 +63,30 @@ def choose_media_type() -> str:
         print("⚠️  请输入 1 或 2。")
 
 
-def parse_command_line(args: list[str]) -> tuple[str, str, list[str]]:
-    """解析媒体与速度标志，并返回媒体类型、速度模式及 URL 参数。"""
+def choose_audio_format() -> str:
+    """让音频用户选择 MP3 V0 或源 FLAC，直接回车默认 MP3。"""
+    print("请选择音频输出格式：")
+    print("  1. MP3 V0（默认，兼容性最佳）")
+    print("  2. 源 FLAC（无 FLAC 时自动回退 MP3 V0）")
+    while True:
+        choice = input("选择 1 或 2（直接回车选择 MP3）: ").strip().lower()
+        if choice in {"", "1", "mp3"}:
+            return MP3
+        if choice in {"2", "flac"}:
+            return FLAC
+        print("⚠️  请输入 1 或 2。")
+
+
+def parse_command_line(args: list[str]) -> tuple[str, str, str, list[str]]:
+    """解析媒体、音频格式与速度标志，并返回 URL 参数。"""
+    if "--flac" in args and "--audio" not in args:
+        raise ValueError("--flac 只能与 --audio 一起使用")
     media_type = AUDIO if "--audio" in args else VIDEO
+    audio_format = FLAC if "--flac" in args else MP3
     speed_mode = TURBO if "--turbo" in args else STANDARD
-    urls = [value for value in args if value not in {"--audio", "--turbo"}]
-    return media_type, speed_mode, urls
+    flags = {"--audio", "--flac", "--turbo"}
+    urls = [value for value in args if value not in flags]
+    return media_type, audio_format, speed_mode, urls
 
 
 def choose_speed_mode() -> str:
@@ -162,6 +182,11 @@ def print_single_result(result: DownloadResult) -> None:
     print(f"  保存路径: {result['filepath']}")
     if result.get("media_type") == AUDIO:
         print(f"  格式:     {result['format']}")
+        source_codec = result.get("source_acodec", "未知")
+        source_bitrate = result.get("source_abr_kbps", "未知")
+        print(f"  源音轨:   {source_codec} / {source_bitrate} kbps")
+        if result.get("audio_format_fallback"):
+            print("  提示:     源站未提供 FLAC，已自动回退至 MP3 V0")
     else:
         print(f"  分辨率:   {result['resolution']}")
         print(f"  帧率:     {result['fps']} fps")
@@ -197,9 +222,12 @@ def print_summary(
                 if result.get("media_type") == AUDIO:
                     print(
                         f"     格式: {result['format']}  |  "
-                        f"音频编码: {result['acodec']}  |  "
+                        f"源音轨: {result.get('source_acodec', '未知')} "
+                        f"{result.get('source_abr_kbps', '未知')}kbps  |  "
                         f"文件大小: {result['filesize']}"
                     )
+                    if result.get("audio_format_fallback"):
+                        print("     源站未提供 FLAC，已自动回退至 MP3 V0")
                 else:
                     print(
                         f"     分辨率: {result['resolution']}  |  "
@@ -244,15 +272,31 @@ def main() -> int:
 
     command_line_mode = len(sys.argv) > 1
     if command_line_mode:
-        media_type, speed_mode, url_args = parse_command_line(sys.argv[1:])
+        try:
+            media_type, audio_format, speed_mode, url_args = parse_command_line(
+                sys.argv[1:]
+            )
+        except ValueError as error:
+            print(f"❌ 错误：{error}")
+            print(
+                "   用法: python main.py [--audio [--flac]] "
+                "[--turbo] <URL1> [URL2] [URL3] ..."
+            )
+            return 1
         tasks = get_tasks_from_args(url_args)
         if not tasks:
             print("❌ 错误：未提供合法的 YouTube、Instagram 或 Bilibili 视频链接。")
-            print("   用法: python main.py [--audio] [--turbo] <URL1> [URL2] [URL3] ...")
+            print(
+                "   用法: python main.py [--audio [--flac]] "
+                "[--turbo] <URL1> [URL2] [URL3] ..."
+            )
             return 1
     else:
         try:
             media_type = choose_media_type()
+            audio_format = (
+                choose_audio_format() if media_type == AUDIO else MP3
+            )
             speed_mode = choose_speed_mode()
             tasks = get_tasks_from_user(media_type=media_type)
         except (EOFError, KeyboardInterrupt):
@@ -280,6 +324,7 @@ def main() -> int:
     results = download_tasks(
         tasks,
         media_type=media_type,
+        audio_format=audio_format,
         speed_mode=speed_mode,
     )
     print_summary(results, media_type=media_type)
