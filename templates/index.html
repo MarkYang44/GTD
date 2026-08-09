@@ -374,15 +374,19 @@
   .url-input::placeholder { color: #64748b; }
   .url-input:disabled { opacity: .58; cursor: wait; }
 
+  .format-control, .format-control-spacer {
+    min-height: 52px;
+    margin-top: 14px;
+  }
   .format-control {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
-    margin-top: 14px;
     padding: 5px;
     border: 1px solid var(--border);
     background: rgba(7, 12, 24, .48);
   }
+  .format-control-spacer { visibility: hidden; }
   .format-control legend {
     position: absolute;
     width: 1px;
@@ -624,6 +628,7 @@
     .section-heading { align-items: flex-start; flex-direction: column; gap: 12px; }
     .download-grid { grid-template-columns: 1fr; }
     .download-card-header { min-height: 0; }
+    .format-control-spacer { display: none; }
   }
 
   @media (max-width: 560px) {
@@ -710,6 +715,7 @@
           <p>下载源站可获取的最高质量视频，并统一输出为 MP4。</p>
         </div>
         <textarea class="url-input" id="videoUrls" aria-label="视频链接" placeholder="粘贴 YouTube / Instagram / Bilibili 链接或平台分享文案，一行一个"></textarea>
+        <div class="format-control-spacer" aria-hidden="true"></div>
         <div class="turbo-control">
           <span class="turbo-copy"><span class="turbo-title">极速模式</span><span class="turbo-hint" id="videoTurboHint">正在检测 aria2c…</span></span>
           <label class="turbo-switch" aria-label="视频极速模式">

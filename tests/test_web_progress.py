@@ -107,6 +107,20 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn("formatInputs", html)
         self.assertIn("formatInput.disabled = disabled", html)
 
+    def test_desktop_cards_reserve_matching_format_row_height(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8")
+
+        self.assertIn(
+            '<div class="format-control-spacer" aria-hidden="true"></div>',
+            html,
+        )
+        self.assertIn(
+            ".format-control, .format-control-spacer",
+            html,
+        )
+        self.assertIn("min-height: 52px", html)
+        self.assertIn(".format-control-spacer { display: none; }", html)
+
     def test_frontend_submits_and_renders_audio_format_details(self):
         html = Path("templates/index.html").read_text(encoding="utf-8")
 
