@@ -48,7 +48,9 @@ AUDIO = "audio"
 MEDIA_TYPES = {VIDEO, AUDIO}
 MP3 = "mp3"
 FLAC = "flac"
-AUDIO_FORMATS = {MP3, FLAC}
+SOURCE = "source"
+WAV = "wav"
+AUDIO_FORMATS = {MP3, FLAC, SOURCE, WAV}
 PLATFORM_NAMES = {
     YOUTUBE: "YouTube",
     INSTAGRAM: "Instagram",
@@ -77,6 +79,8 @@ class AudioOutputProfile:
     fallback: bool
     source_acodec: str | None
     source_abr_kbps: int | None
+    output_ext: str
+    cover_embedded: bool
 
 
 class _QuietYtdlpLogger:
@@ -314,6 +318,7 @@ def _build_ydl_options(
     audio_format: str = MP3,
     speed_mode: str = STANDARD,
     aria2_executable: str | None = None,
+    selected_audio: dict | None = None,
 ) -> dict:
     """生成公共配置，并追加平台专用配置。"""
     if not isinstance(media_type, str) or media_type not in MEDIA_TYPES:
@@ -373,33 +378,29 @@ def _build_ydl_options(
         )
 
     if media_type == AUDIO:
-        extractor = {
-            "key": "FFmpegExtractAudio",
-            "preferredcodec": audio_format,
-        }
-        if audio_format == MP3:
-            extractor["preferredquality"] = "0"
+        profile_info = selected_audio
+        if profile_info is None and audio_format == FLAC:
+            # 元数据预检前尚不知道源编码；先保留用户请求的 FLAC
+            # 后处理配置，拿到真实格式后再决定是否回退到 MP3。
+            profile_info = {"acodec": "flac", "ext": "flac"}
+        audio_profile = _audio_output_profile(
+            profile_info or {},
+            audio_format,
+        )
+        postprocessors = _audio_postprocessors(audio_profile)
         options.update(
             {
                 "format": (
                     "bestaudio[acodec^=flac]/bestaudio/best"
                     if audio_format == FLAC
-                    else "bestaudio/best"
+                    else (
+                        "bestaudio[acodec!=none]/best[acodec!=none]"
+                        if audio_format in {SOURCE, WAV}
+                        else "bestaudio/best"
+                    )
                 ),
-                "writethumbnail": True,
-                "postprocessors": [
-                    extractor,
-                    {
-                        "key": "FFmpegMetadata",
-                        "add_metadata": True,
-                        "add_chapters": False,
-                        "add_infojson": False,
-                    },
-                    {
-                        "key": "EmbedThumbnail",
-                        "already_have_thumbnail": False,
-                    },
-                ],
+                "writethumbnail": audio_profile.cover_embedded,
+                "postprocessors": postprocessors,
             }
         )
     elif platform in {YOUTUBE, BILIBILI}:
@@ -480,19 +481,53 @@ def _audio_output_profile(info: dict, requested: str) -> AudioOutputProfile:
         if isinstance(raw_bitrate, (int, float)) and raw_bitrate > 0
         else None
     )
-    used = FLAC if requested == FLAC and source_acodec == "FLAC" else MP3
+    source_ext = str(selected.get("ext") or "").lower()
+    if requested == FLAC:
+        used = FLAC if source_acodec == "FLAC" else MP3
+        output_ext = FLAC if used == FLAC else MP3
+    elif requested == SOURCE:
+        used = SOURCE
+        output_ext = source_ext or "mka"
+    elif requested == WAV:
+        used = WAV
+        output_ext = WAV
+    else:
+        used = MP3
+        output_ext = MP3
+    cover_embedded = output_ext in {
+        "flac",
+        "m4a",
+        "mp3",
+        "mp4",
+        "ogg",
+        "opus",
+    }
     return AudioOutputProfile(
         requested=requested,
         used=used,
         fallback=requested == FLAC and used == MP3,
         source_acodec=source_acodec,
         source_abr_kbps=source_abr_kbps,
+        output_ext=output_ext,
+        cover_embedded=cover_embedded,
     )
 
 
 def _audio_quality_label(profile: AudioOutputProfile) -> str:
-    parts = ["FLAC Lossless" if profile.used == FLAC else "MP3 V0"]
     if profile.used == FLAC:
+        parts = ["FLAC Lossless"]
+    elif profile.used == SOURCE:
+        parts = [
+            f"Source {profile.source_acodec or profile.output_ext.upper()}"
+        ]
+    elif profile.used == WAV:
+        parts = ["WAV PCM"]
+    else:
+        parts = ["MP3 V0"]
+    if profile.used == FLAC:
+        if profile.source_abr_kbps:
+            parts.append(f"{profile.source_abr_kbps}kbps")
+    elif profile.used == SOURCE:
         if profile.source_abr_kbps:
             parts.append(f"{profile.source_abr_kbps}kbps")
     elif profile.source_acodec:
@@ -501,6 +536,50 @@ def _audio_quality_label(profile: AudioOutputProfile) -> str:
             source += f" {profile.source_abr_kbps}kbps"
         parts.append(source)
     return " · ".join(parts)
+
+
+def _audio_postprocessors(
+    profile: AudioOutputProfile,
+) -> list[dict[str, object]]:
+    preferred_codec = {
+        MP3: MP3,
+        FLAC: FLAC,
+        SOURCE: "best",
+        WAV: WAV,
+    }[profile.used]
+    extractor: dict[str, object] = {
+        "key": "FFmpegExtractAudio",
+        "preferredcodec": preferred_codec,
+    }
+    if profile.used == MP3:
+        extractor["preferredquality"] = "0"
+    postprocessors: list[dict[str, object]] = [
+        extractor,
+        {
+            "key": "FFmpegMetadata",
+            "add_metadata": True,
+            "add_chapters": False,
+            "add_infojson": False,
+        },
+    ]
+    if profile.cover_embedded:
+        postprocessors.append(
+            {
+                "key": "EmbedThumbnail",
+                "already_have_thumbnail": False,
+            }
+        )
+    return postprocessors
+
+
+def _audio_format_name(profile: AudioOutputProfile) -> str:
+    if profile.used == FLAC:
+        return "FLAC"
+    if profile.used == SOURCE:
+        return f"SOURCE {profile.output_ext.upper()}"
+    if profile.used == WAV:
+        return "WAV PCM"
+    return "MP3 V0"
 
 
 def _rename_audio_output(
@@ -520,12 +599,19 @@ def _resolve_output_path(
     output_dir: Path,
     media_type: str = VIDEO,
     audio_format: str = MP3,
+    audio_profile: AudioOutputProfile | None = None,
+    audio_output_ext: str | None = None,
 ) -> Path:
     """根据 yt-dlp 的输出信息定位后处理后的实际文件。"""
     if audio_format not in AUDIO_FORMATS:
         raise ValueError(f"不支持的音频格式: {audio_format}")
     prepared = Path(ydl.prepare_filename(info))
-    output_suffix = f".{audio_format}" if media_type == AUDIO else ".mp4"
+    output_ext = (
+        audio_output_ext
+        or (audio_profile.output_ext if audio_profile is not None else None)
+        or audio_format
+    )
+    output_suffix = f".{output_ext}" if media_type == AUDIO else ".mp4"
     candidates = [prepared.with_suffix(output_suffix), prepared]
 
     for candidate in candidates:
@@ -677,6 +763,7 @@ def _process_bilibili_attempt(
             output_dir,
             prepared_info["_media_type"],
             prepared_info.get("_audio_format_used", MP3),
+            audio_output_ext=prepared_info.get("_audio_output_ext"),
         )
     return prepared_info, filepath
 
@@ -726,13 +813,17 @@ def _build_download_result(
             raise ValueError("音频结果缺少输出格式信息")
         result.update(
             {
-                "format": (
-                    "FLAC" if audio_profile.used == FLAC else "MP3 V0"
+                "format": _audio_format_name(audio_profile),
+                "acodec": (
+                    audio_profile.source_acodec
+                    if audio_profile.used == SOURCE
+                    else audio_profile.used
                 ),
-                "acodec": audio_profile.used,
                 "audio_format_requested": audio_profile.requested,
                 "audio_format_used": audio_profile.used,
                 "audio_format_fallback": audio_profile.fallback,
+                "output_ext": audio_profile.output_ext,
+                "cover_embedded": audio_profile.cover_embedded,
                 "source_acodec": audio_profile.source_acodec or "未知",
                 "source_abr_kbps": (
                     audio_profile.source_abr_kbps or "未知"
@@ -810,6 +901,7 @@ def _download_bilibili(
         prepared["_media_type"] = media_type
         if audio_profile:
             prepared["_audio_format_used"] = audio_profile.used
+            prepared["_audio_output_ext"] = audio_profile.output_ext
 
     attempts = [(used_mode, optimized_info, plan, False)]
     if used_mode == TURBO:
@@ -849,6 +941,7 @@ def _download_bilibili(
             audio_format=(audio_profile.used if audio_profile else MP3),
             speed_mode=attempt_mode,
             aria2_executable=executable,
+            selected_audio=(extracted if audio_profile else None),
         )
         options["http_chunk_size"] = attempt_plan.http_chunk_size
         if progress_callback:
@@ -979,6 +1072,7 @@ def download_video(
                 progress_callback=progress_callback,
                 media_type=media_type,
                 audio_format=audio_profile.used,
+                selected_audio=info,
             )
             with yt_dlp.YoutubeDL(options) as ydl:
                 ydl.process_info(info)
@@ -988,6 +1082,7 @@ def download_video(
                     output_dir,
                     media_type=media_type,
                     audio_format=audio_profile.used,
+                    audio_profile=audio_profile,
                 )
             filepath = _rename_audio_output(filepath, audio_profile)
             result = {
@@ -1001,13 +1096,17 @@ def download_video(
                 "turbo_fallback": False,
                 "cdn_host": "未知",
                 "http_chunk_size": 0,
-                "format": (
-                    "FLAC" if audio_profile.used == FLAC else "MP3 V0"
+                "format": _audio_format_name(audio_profile),
+                "acodec": (
+                    audio_profile.source_acodec
+                    if audio_profile.used == SOURCE
+                    else audio_profile.used
                 ),
-                "acodec": audio_profile.used,
                 "audio_format_requested": audio_profile.requested,
                 "audio_format_used": audio_profile.used,
                 "audio_format_fallback": audio_profile.fallback,
+                "output_ext": audio_profile.output_ext,
+                "cover_embedded": audio_profile.cover_embedded,
                 "source_acodec": audio_profile.source_acodec or "未知",
                 "source_abr_kbps": (
                     audio_profile.source_abr_kbps or "未知"

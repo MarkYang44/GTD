@@ -105,6 +105,103 @@ class DownloadOutputTemplateTests(unittest.TestCase):
 
 
 class DownloadAudioOptionsTests(unittest.TestCase):
+    def test_source_audio_preserves_selected_codec_without_quality_setting(self):
+        info = {"acodec": "opus", "ext": "webm", "abr": 160}
+
+        profile = downloader._audio_output_profile(info, downloader.SOURCE)
+        options = downloader._build_ydl_options(
+            downloader.YOUTUBE,
+            Path("/tmp/output"),
+            1,
+            1,
+            media_type=downloader.AUDIO,
+            audio_format=downloader.SOURCE,
+            selected_audio=info,
+        )
+        extractor = options["postprocessors"][0]
+
+        self.assertEqual(profile.used, downloader.SOURCE)
+        self.assertEqual(profile.output_ext, "webm")
+        self.assertEqual(extractor["preferredcodec"], "best")
+        self.assertNotIn("preferredquality", extractor)
+        self.assertEqual(
+            downloader._audio_quality_label(profile),
+            "Source Opus · 160kbps",
+        )
+
+    def test_wav_decodes_best_audio_without_claiming_lossless_source(self):
+        info = {"acodec": "mp4a.40.2", "ext": "m4a", "abr": 128}
+
+        profile = downloader._audio_output_profile(info, downloader.WAV)
+        options = downloader._build_ydl_options(
+            downloader.YOUTUBE,
+            Path("/tmp/output"),
+            1,
+            1,
+            media_type=downloader.AUDIO,
+            audio_format=downloader.WAV,
+            selected_audio=info,
+        )
+
+        self.assertEqual(profile.used, downloader.WAV)
+        self.assertEqual(profile.output_ext, "wav")
+        self.assertEqual(
+            options["postprocessors"][0]["preferredcodec"],
+            "wav",
+        )
+        self.assertEqual(
+            downloader._audio_quality_label(profile),
+            "WAV PCM · 源AAC 128kbps",
+        )
+
+    def test_source_webm_and_wav_skip_unsupported_thumbnail_embedding(self):
+        source_options = downloader._build_ydl_options(
+            downloader.YOUTUBE,
+            Path("/tmp/output"),
+            1,
+            1,
+            media_type=downloader.AUDIO,
+            audio_format=downloader.SOURCE,
+            selected_audio={"acodec": "opus", "ext": "webm"},
+        )
+        wav_options = downloader._build_ydl_options(
+            downloader.YOUTUBE,
+            Path("/tmp/output"),
+            1,
+            1,
+            media_type=downloader.AUDIO,
+            audio_format=downloader.WAV,
+            selected_audio={"acodec": "aac", "ext": "m4a"},
+        )
+
+        self.assertNotIn(
+            "EmbedThumbnail",
+            [processor["key"] for processor in source_options["postprocessors"]],
+        )
+        self.assertNotIn(
+            "EmbedThumbnail",
+            [processor["key"] for processor in wav_options["postprocessors"]],
+        )
+        self.assertFalse(source_options["writethumbnail"])
+        self.assertFalse(wav_options["writethumbnail"])
+
+    def test_source_m4a_keeps_supported_thumbnail_embedding(self):
+        options = downloader._build_ydl_options(
+            downloader.YOUTUBE,
+            Path("/tmp/output"),
+            1,
+            1,
+            media_type=downloader.AUDIO,
+            audio_format=downloader.SOURCE,
+            selected_audio={"acodec": "aac", "ext": "m4a"},
+        )
+
+        self.assertIn(
+            "EmbedThumbnail",
+            [processor["key"] for processor in options["postprocessors"]],
+        )
+        self.assertTrue(options["writethumbnail"])
+
     def test_flac_source_builds_mp3_profile_and_quality_filename(self):
         info = {"vcodec": "none", "acodec": "flac", "abr": 1521.267}
 
@@ -275,6 +372,31 @@ class DownloadAudioOptionsTests(unittest.TestCase):
                 output_dir,
                 media_type=downloader.AUDIO,
                 audio_format=downloader.FLAC,
+            )
+
+        self.assertEqual(actual, expected)
+
+    def test_audio_output_path_resolves_source_extension_from_profile(self):
+        class FakeYdl:
+            def prepare_filename(self, info):
+                return str(output_dir / "Example.webm")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir)
+            expected = output_dir / "Example.webm"
+            expected.touch()
+            profile = downloader._audio_output_profile(
+                {"acodec": "opus", "ext": "webm"},
+                downloader.SOURCE,
+            )
+
+            actual = downloader._resolve_output_path(
+                FakeYdl(),
+                {"title": "Example", "ext": "webm"},
+                output_dir,
+                media_type=downloader.AUDIO,
+                audio_format=downloader.SOURCE,
+                audio_profile=profile,
             )
 
         self.assertEqual(actual, expected)
