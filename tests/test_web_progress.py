@@ -149,6 +149,14 @@ class WebProgressStateTests(unittest.TestCase):
             r"\.task-meta\s*\{[^}]*overflow-wrap:\s*anywhere",
         )
 
+    def test_mobile_hero_clips_decorative_orbit_overflow(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8")
+
+        self.assertRegex(
+            html,
+            r"\.hero\s*\{[^}]*overflow:\s*hidden",
+        )
+
     def test_frontend_uses_dark_petronas_theme_tokens(self):
         html = Path("templates/index.html").read_text(encoding="utf-8").lower()
 
