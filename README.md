@@ -356,15 +356,53 @@ YouTube 播放列表链接不会整表下载；程序按单个视频处理。Ins
 
 公开内容通常可以直接下载。私密内容、年龄限制内容或平台要求登录的内容需要有效 Cookie，并且当前登录账号必须本来就有权访问该内容。本程序不会绕过访问权限。
 
-操作步骤：
+### 安装可信的 Cookie 导出扩展
 
-1. 在浏览器中正常登录对应平台。
-2. 使用可信的浏览器扩展将 Cookie 导出为 Netscape 格式的 `cookies.txt`。
-3. 将文件放到本项目根目录，与 `main.py` 同级。
-4. 根据平台命名为 `youtube_cookies.txt`、`instagram_cookies.txt` 或 `bilibili_cookies.txt`；也可直接使用通用名称 `cookies.txt`。
-5. 重新运行下载命令（命令行或网页模式均可，Cookie 由 `downloader.py` 自动加载）。
+本项目推荐开源扩展 **Get cookies.txt LOCALLY**。请通过下面的官方页面安装，并核对扩展名称及 GitHub 仓库；不要安装名称相似的旧版 **Get cookies.txt** 或来源不明的同名扩展。
 
-Cookie 属于敏感登录凭证，不要发送给他人，也不要提交到公开代码仓库。Cookie 失效后需要重新导出。
+- Chrome / Edge：[Chrome Web Store 安装页面](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc)
+- Firefox：[Mozilla Add-ons 安装页面](https://addons.mozilla.org/en-US/firefox/addon/get-cookies-txt-locally/)
+- 源代码与隐私说明：[kairi003/Get-cookies.txt-LOCALLY](https://github.com/kairi003/Get-cookies.txt-LOCALLY)
+
+#### Chrome / Edge 安装
+
+1. 打开上面的 Chrome Web Store 页面。
+2. Chrome 点击 **“添加至 Chrome”**；Edge 点击 **“获取”**，若浏览器提示允许来自其他应用商店的扩展，请先确认页面域名确实是 `chromewebstore.google.com` 再允许。
+3. 在浏览器扩展菜单中固定 **Get cookies.txt LOCALLY**，方便在目标平台页面使用。
+
+#### Firefox 安装
+
+1. 打开上面的 Mozilla Add-ons 页面。
+2. 点击 **“添加到 Firefox”**，阅读权限说明后确认安装。
+3. 在扩展管理器中允许该扩展访问目标平台页面；否则它无法读取并导出当前站点 Cookie。
+
+### 按平台导出 Cookie
+
+YouTube、Instagram 和 Bilibili 分别执行一次以下步骤，不要把三个站点的 Cookie 混在同一个平台专用文件中：
+
+1. 在浏览器中登录目标平台，并打开该平台的视频页面，确认当前账号能够正常播放目标内容。
+2. 保持目标平台页面为当前标签页，打开 **Get cookies.txt LOCALLY**。
+3. 选择 **Netscape** 格式，使用扩展的当前站点导出功能，仅导出当前平台域名的 Cookie。
+4. 保存文件后，用纯文本编辑器打开并检查首行包含 `# Netscape HTTP Cookie File`。不要修改后续 Cookie 行。
+5. 将文件移动到本项目根目录，与 `main.py` 同级，并按平台重命名：
+
+| 当前登录平台 | 建议打开的页面 | 保存文件名 |
+|---|---|---|
+| YouTube | `https://www.youtube.com/` | `youtube_cookies.txt` |
+| Instagram | `https://www.instagram.com/` | `instagram_cookies.txt` |
+| Bilibili | `https://www.bilibili.com/` | `bilibili_cookies.txt` |
+
+平台专用 Cookie 优先于通用 `cookies.txt`。建议使用上表中的独立文件名；只有确实需要一个通用回退文件时才使用 `cookies.txt`。
+
+### 让新 Cookie 生效
+
+- CLI：结束当前命令后重新运行 `python main.py`。
+- Web：停止正在运行的服务，重新执行 `python app.py`，即重启 8233 Web 服务，然后刷新页面并重新提交任务。
+- 如果仍然提示登录、`HTTP 403` 或 Bilibili `HTTP 412`，先确认浏览器中的登录状态仍有效，再重新导出对应平台 Cookie。Cookie 过期或账号退出后必须重新导出。
+
+### Cookie 安全
+
+Cookie 文件等同于登录凭证。不要上传、分享、截图或提交到 Git，也不要粘贴到聊天、Issue 或日志中。扩展只应从上述官方商店链接安装。若 Cookie 已泄露，应立即在对应平台退出其他会话或撤销登录状态，必要时修改密码，然后删除旧文件并重新导出。
 
 ## 七、常见问题
 

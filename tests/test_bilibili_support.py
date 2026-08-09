@@ -520,6 +520,35 @@ class BilibiliDocumentationTests(unittest.TestCase):
                 self.assertIn(text, readme)
 
 
+class CookieExtensionDocumentationTests(unittest.TestCase):
+    def test_readme_documents_cookie_extension_install_and_export(self):
+        readme = Path("README.md").read_text(encoding="utf-8")
+        cookie_section = readme.split(
+            "## 六、需要登录时配置 Cookie",
+            maxsplit=1,
+        )[1].split("## 七、常见问题", maxsplit=1)[0]
+
+        required = [
+            "Get cookies.txt LOCALLY",
+            "https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc",
+            "https://addons.mozilla.org/en-US/firefox/addon/get-cookies-txt-locally/",
+            "https://github.com/kairi003/Get-cookies.txt-LOCALLY",
+            "Chrome / Edge 安装",
+            "Firefox 安装",
+            "Netscape",
+            "# Netscape HTTP Cookie File",
+            "仅导出当前平台域名",
+            "youtube_cookies.txt",
+            "instagram_cookies.txt",
+            "bilibili_cookies.txt",
+            "重启 8233 Web 服务",
+            "不要上传、分享、截图或提交到 Git",
+        ]
+        for text in required:
+            with self.subTest(text=text):
+                self.assertIn(text, cookie_section)
+
+
 class ShareTextSurfaceTests(unittest.TestCase):
     def setUp(self):
         web_app._batches.clear()
