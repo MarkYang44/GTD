@@ -102,6 +102,38 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn("videoDownloadButton", html)
         self.assertIn("audioDownloadButton", html)
 
+    def test_frontend_has_independent_video_and_audio_turbo_switches(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8")
+
+        self.assertIn('id="videoTurboToggle"', html)
+        self.assertIn('id="audioTurboToggle"', html)
+        self.assertEqual(
+            html.count('<span class="turbo-title">极速模式</span>'),
+            2,
+        )
+        self.assertIn('fetch("/api/capabilities")', html)
+        self.assertIn("aria2c_available", html)
+
+    def test_frontend_submits_section_speed_mode(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8")
+
+        self.assertIn(
+            'const speedMode = control.turboToggle.checked ? "turbo" : "standard";',
+            html,
+        )
+        self.assertIn(
+            "JSON.stringify({ urls, media_type: mediaType, speed_mode: speedMode })",
+            html,
+        )
+
+    def test_frontend_renders_turbo_and_fallback_states(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8")
+
+        self.assertIn("高速下载中", html)
+        self.assertIn("极速模式不可用，已切换标准模式", html)
+        self.assertIn('t.speed_mode_used === "turbo"', html)
+        self.assertIn("!t.turbo_fallback", html)
+
     def test_frontend_renders_audio_results_without_video_resolution(self):
         html = Path("templates/index.html").read_text(encoding="utf-8")
 
