@@ -1,12 +1,88 @@
 """Bilibili 专用 CDN 候选提取与下载加速策略。"""
 
+import threading
+import time
+from dataclasses import dataclass
+from typing import Callable
 from urllib.parse import urlparse
 
 from yt_dlp.extractor.bilibili import BiliBiliIE as YtdlpBiliBiliIE
+from yt_dlp.networking.common import Request
 
 
 CDN_CANDIDATES_FIELD = "_bilibili_cdn_candidates"
 MAX_CDN_HOSTS = 4
+BILIBILI_HTTP_CHUNK_SIZE = 10 * 1024 * 1024
+BILIBILI_SMALL_CHUNK_SIZE = 4 * 1024 * 1024
+BILIBILI_LARGE_FILE_THRESHOLD = 50 * 1024 * 1024
+CDN_PROBE_BYTES = 512 * 1024
+CDN_CACHE_TTL_SECONDS = 30 * 60
+CDN_PROBE_TIMEOUT_SECONDS = 3
+
+
+@dataclass(frozen=True)
+class CdnChoice:
+    host: str | None
+    http_chunk_size: int
+
+
+@dataclass(frozen=True)
+class AccelerationPlan:
+    adaptive: bool
+    cdn_host: str | None
+    http_chunk_size: int
+
+
+class CdnProbeCache:
+    """带 TTL 和 single-flight 的线程安全 CDN 选择缓存。"""
+
+    def __init__(
+        self,
+        ttl_seconds: float,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self.ttl_seconds = ttl_seconds
+        self.clock = clock
+        self._lock = threading.Lock()
+        self._entries: dict[tuple[str, ...], tuple[float, CdnChoice]] = {}
+        self._in_flight: dict[tuple[str, ...], threading.Event] = {}
+
+    def get_or_probe(
+        self,
+        hosts: tuple[str, ...],
+        probe: Callable[[], CdnChoice],
+    ) -> CdnChoice:
+        key = tuple(sorted(set(hosts)))
+        while True:
+            with self._lock:
+                entry = self._entries.get(key)
+                if entry and entry[0] > self.clock():
+                    return entry[1]
+
+                event = self._in_flight.get(key)
+                if event is None:
+                    event = self._in_flight[key] = threading.Event()
+                    owner = True
+                else:
+                    owner = False
+            if owner:
+                break
+            event.wait()
+
+        try:
+            choice = probe()
+            with self._lock:
+                self._entries[key] = (
+                    self.clock() + self.ttl_seconds,
+                    choice,
+                )
+            return choice
+        finally:
+            with self._lock:
+                self._in_flight.pop(key).set()
+
+
+CDN_PROBE_CACHE = CdnProbeCache(CDN_CACHE_TTL_SECONDS)
 
 
 def _https_candidates(stream: dict) -> tuple[str, ...]:
@@ -171,3 +247,117 @@ def apply_cdn_host(info: dict, host: str | None) -> bool:
     if "requested_formats" not in info and formats:
         info["url"] = formats[0]["url"]
     return changed
+
+
+def measure_range(
+    ydl,
+    url: str,
+    size: int,
+    start: int = 0,
+    headers: dict | None = None,
+) -> float | None:
+    """读取一个经校验的 Range 样本并返回 bytes/s。"""
+    request_headers = dict(headers or {})
+    request_headers["Range"] = f"bytes={start}-{start + size - 1}"
+    request = Request(
+        url,
+        headers=request_headers,
+        extensions={"timeout": CDN_PROBE_TIMEOUT_SECONDS},
+    )
+    started = time.monotonic()
+    try:
+        with ydl.urlopen(request) as response:
+            if getattr(response, "status", None) != 206:
+                return None
+            content_range = str(
+                getattr(response, "headers", {}).get("Content-Range", "")
+            )
+            if not content_range.startswith("bytes "):
+                return None
+            payload = response.read(size)
+    except Exception:
+        return None
+
+    elapsed = time.monotonic() - started
+    if not payload or elapsed <= 0:
+        return None
+    return len(payload) / elapsed
+
+
+def _probe_choice(ydl, info: dict, hosts: dict[str, str]) -> CdnChoice:
+    headers = info.get("http_headers")
+    headers = headers if isinstance(headers, dict) else None
+    successful: dict[str, float] = {}
+    for host, url in hosts.items():
+        speed = measure_range(
+            ydl,
+            url,
+            CDN_PROBE_BYTES,
+            headers=headers,
+        )
+        if speed is not None:
+            successful[host] = speed
+
+    if not successful:
+        return CdnChoice(primary_host(info), BILIBILI_HTTP_CHUNK_SIZE)
+
+    fastest = max(successful, key=successful.get)
+    url = hosts[fastest]
+    small_speed = measure_range(
+        ydl,
+        url,
+        BILIBILI_SMALL_CHUNK_SIZE,
+        CDN_PROBE_BYTES,
+        headers=headers,
+    )
+    normal_speed = measure_range(
+        ydl,
+        url,
+        BILIBILI_HTTP_CHUNK_SIZE,
+        CDN_PROBE_BYTES + BILIBILI_SMALL_CHUNK_SIZE,
+        headers=headers,
+    )
+    chunk_size = (
+        BILIBILI_SMALL_CHUNK_SIZE
+        if (
+            small_speed is not None
+            and normal_speed is not None
+            and small_speed > normal_speed
+        )
+        else BILIBILI_HTTP_CHUNK_SIZE
+    )
+    return CdnChoice(fastest, chunk_size)
+
+
+def build_acceleration_plan(
+    ydl,
+    info: dict,
+    cache: CdnProbeCache = CDN_PROBE_CACHE,
+) -> AccelerationPlan:
+    """按 50 MiB 阈值生成固定或自适应下载计划。"""
+    size = selected_size(info)
+    original_host = primary_host(info)
+    if size is None or size <= BILIBILI_LARGE_FILE_THRESHOLD:
+        return AccelerationPlan(
+            False,
+            original_host,
+            BILIBILI_HTTP_CHUNK_SIZE,
+        )
+
+    hosts = candidate_hosts(info)
+    if not hosts:
+        return AccelerationPlan(
+            False,
+            original_host,
+            BILIBILI_HTTP_CHUNK_SIZE,
+        )
+
+    choice = cache.get_or_probe(
+        tuple(hosts),
+        lambda: _probe_choice(ydl, info, hosts),
+    )
+    return AccelerationPlan(
+        True,
+        choice.host,
+        choice.http_chunk_size,
+    )
