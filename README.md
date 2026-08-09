@@ -23,7 +23,7 @@
 ## 目录结构
 
 ```text
-Ytb_Ins_Video_Download/
+Multiple_Video_Downloader/
 ├── main.py                      # 命令行入口
 ├── app.py                       # Web 服务入口
 ├── downloader.py                # 通用下载核心逻辑（main.py 与 app.py 共用）
@@ -54,13 +54,13 @@ Cookie 文件均为可选文件，不配置时无需创建。平台专用 Cookie
 macOS（Terminal）：
 
 ```bash
-cd /path/to/Ytb_Ins_Video_Download
+cd /path/to/Multiple_Video_Downloader
 ```
 
 Windows（PowerShell）：
 
 ```powershell
-cd "C:\path\to\Ytb_Ins_Video_Download"
+cd "C:\path\to\Multiple_Video_Downloader"
 ```
 
 > 路径中包含空格时，macOS 和 Windows 都应使用引号包住完整路径。
@@ -257,7 +257,7 @@ python main.py --audio --turbo "https://www.bilibili.com/video/BV1xRuu6fEeA"
 任务结束后，视频汇总会显示平台、标题、分辨率、文件大小和保存路径；音频汇总会显示实际输出格式、源编码/码率、是否发生 FLAC 回退、文件大小和保存路径。所有文件都保存在项目根目录下的 `downloads/` 目录：
 
 ```text
-Ytb_Ins_Video_Download/
+Multiple_Video_Downloader/
 └── downloads/
 ```
 

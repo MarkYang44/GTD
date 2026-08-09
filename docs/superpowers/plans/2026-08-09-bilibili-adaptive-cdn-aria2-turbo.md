@@ -2222,7 +2222,7 @@ ps -p "$project_service_pid" -o pid=,command=
 lsof -a -p "$project_service_pid" -d cwd -Fn
 ```
 
-Proceed only if the command is this project's Python/Flask process and cwd is exactly `/Users/markyang/Projects/Ytb_Ins_Video_Download` or the active feature worktree. Stop that explicit validated PID with `kill "$project_service_pid"`, then start the completed checkout with:
+Proceed only if the command is this project's Python/Flask process and cwd is exactly `/Users/markyang/Projects/Multiple_Video_Downloader` or the active feature worktree. Stop that explicit validated PID with `kill "$project_service_pid"`, then start the completed checkout with:
 
 ```bash
 venv/bin/python app.py

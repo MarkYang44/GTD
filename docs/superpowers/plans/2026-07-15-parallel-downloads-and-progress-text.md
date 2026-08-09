@@ -609,7 +609,7 @@ Because this is not a Git repository, inspect the changed files directly and con
 Stop any existing `python app.py` process, restart with:
 
 ```bash
-cd /Users/markyang/Projects/Ytb_Ins_Video_Download
+cd /Users/markyang/Projects/Multiple_Video_Downloader
 source venv/bin/activate
 python app.py
 ```

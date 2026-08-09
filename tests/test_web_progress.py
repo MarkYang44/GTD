@@ -8,6 +8,12 @@ import downloader
 
 
 class WebConfigurationTests(unittest.TestCase):
+    def test_readme_uses_current_project_directory_name(self):
+        readme = Path("README.md").read_text(encoding="utf-8")
+
+        self.assertIn("Multiple_Video_Downloader", readme)
+        self.assertNotIn("Ytb_Ins_Video_Download", readme)
+
     def test_default_web_port_and_readme_are_8233(self):
         readme = Path("README.md").read_text(encoding="utf-8")
 

@@ -562,7 +562,7 @@ Expected when the network and Bilibili permit access: two metadata lines with a 
 
 - [ ] **Step 8: Restart only the verified project service and inspect served HTML**
 
-Resolve the PID with `lsof -nP -iTCP:8233 -sTCP:LISTEN`, verify its cwd with `lsof -a -p <PID> -d cwd -Fn`, and stop it only when the cwd is `/Users/markyang/Projects/Ytb_Ins_Video_Download`. Start `venv/bin/python app.py`, then request `http://127.0.0.1:8233/` and verify the response contains `BILIBILI`, `videoUrls`, and `audioUrls`.
+Resolve the PID with `lsof -nP -iTCP:8233 -sTCP:LISTEN`, verify its cwd with `lsof -a -p <PID> -d cwd -Fn`, and stop it only when the cwd is `/Users/markyang/Projects/Multiple_Video_Downloader`. Start `venv/bin/python app.py`, then request `http://127.0.0.1:8233/` and verify the response contains `BILIBILI`, `videoUrls`, and `audioUrls`.
 
 - [ ] **Step 9: Commit documentation and final verification coverage**
 
