@@ -12,17 +12,30 @@ class CliAudioModeTests(unittest.TestCase):
     def test_parse_command_line_selects_audio_and_removes_flag(self):
         url = "https://youtu.be/example"
 
-        media_type, urls = cli_main.parse_command_line(["--audio", url])
+        media_type, speed_mode, urls = cli_main.parse_command_line(["--audio", url])
 
         self.assertEqual(media_type, downloader.AUDIO)
+        self.assertEqual(speed_mode, downloader.STANDARD)
         self.assertEqual(urls, [url])
 
     def test_parse_command_line_defaults_to_video(self):
         url = "https://youtu.be/example"
 
-        media_type, urls = cli_main.parse_command_line([url])
+        media_type, speed_mode, urls = cli_main.parse_command_line([url])
 
         self.assertEqual(media_type, downloader.VIDEO)
+        self.assertEqual(speed_mode, downloader.STANDARD)
+        self.assertEqual(urls, [url])
+
+    def test_parse_command_line_combines_audio_and_turbo(self):
+        url = "https://b23.tv/example"
+
+        media_type, speed_mode, urls = cli_main.parse_command_line([
+            "--audio", url, "--turbo",
+        ])
+
+        self.assertEqual(media_type, downloader.AUDIO)
+        self.assertEqual(speed_mode, downloader.TURBO)
         self.assertEqual(urls, [url])
 
     def test_interactive_choice_two_selects_audio(self):
@@ -30,6 +43,10 @@ class CliAudioModeTests(unittest.TestCase):
             media_type = cli_main.choose_media_type()
 
         self.assertEqual(media_type, downloader.AUDIO)
+
+    def test_interactive_speed_mode_defaults_to_standard(self):
+        with patch("builtins.input", return_value=""):
+            self.assertEqual(cli_main.choose_speed_mode(), downloader.STANDARD)
 
     def test_main_forwards_audio_mode_and_prints_audio_summary(self):
         url = "https://youtu.be/example"
@@ -58,6 +75,39 @@ class CliAudioModeTests(unittest.TestCase):
         self.assertEqual(download_tasks.call_args.kwargs["media_type"], downloader.AUDIO)
         self.assertIn("MP3", output.getvalue())
         self.assertNotIn("分辨率", output.getvalue())
+
+    def test_main_forwards_turbo_and_warns_when_aria2_is_missing(self):
+        url = "https://b23.tv/example"
+        result = {
+            "platform": "Bilibili",
+            "title": "Example",
+            "filepath": "/tmp/Example.mp4",
+            "resolution": "1920x1080",
+            "fps": 30,
+            "vcodec": "h264",
+            "acodec": "aac",
+            "filesize": "10.00 MB",
+            "media_type": downloader.VIDEO,
+            "speed_mode_requested": downloader.TURBO,
+            "speed_mode_used": downloader.STANDARD,
+            "turbo_fallback": False,
+        }
+        with (
+            patch.object(sys, "argv", ["main.py", "--turbo", url]),
+            patch("main.check_ffmpeg", return_value=True),
+            patch("main.aria2c_path", return_value=None),
+            patch(
+                "main.download_tasks",
+                return_value=[((downloader.BILIBILI, url), result)],
+            ) as tasks,
+            contextlib.redirect_stdout(io.StringIO()) as output,
+        ):
+            exit_code = cli_main.main()
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(tasks.call_args.kwargs["speed_mode"], downloader.TURBO)
+        self.assertIn("未检测到 aria2c", output.getvalue())
+        self.assertIn("标准模式", output.getvalue())
 
 
 if __name__ == "__main__":

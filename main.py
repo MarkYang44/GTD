@@ -16,11 +16,14 @@ from downloader import (
     AUDIO,
     DOWNLOADS_DIR,
     PLATFORM_NAMES,
+    STANDARD,
+    TURBO,
     VIDEO,
     VideoTask,
     DownloadResult,
     check_ffmpeg,
     download_tasks,
+    aria2c_path,
     make_task,
 )
 
@@ -58,11 +61,27 @@ def choose_media_type() -> str:
         print("⚠️  请输入 1 或 2。")
 
 
-def parse_command_line(args: list[str]) -> tuple[str, list[str]]:
-    """解析可选的 --audio 标志，并返回媒体类型与 URL 参数。"""
+def parse_command_line(args: list[str]) -> tuple[str, str, list[str]]:
+    """解析媒体与速度标志，并返回媒体类型、速度模式及 URL 参数。"""
     media_type = AUDIO if "--audio" in args else VIDEO
-    urls = [value for value in args if value != "--audio"]
-    return media_type, urls
+    speed_mode = TURBO if "--turbo" in args else STANDARD
+    urls = [value for value in args if value not in {"--audio", "--turbo"}]
+    return media_type, speed_mode, urls
+
+
+def choose_speed_mode() -> str:
+    """让交互式用户选择是否为 Bilibili 启用极速模式。"""
+    print("是否启用 Bilibili 极速模式？")
+    print("  y. 启用 aria2c 多连接下载")
+    print("  n. 标准模式（默认）")
+
+    while True:
+        choice = input("启用极速模式？(y/N): ").strip().lower()
+        if choice in {"", "n", "no"}:
+            return STANDARD
+        if choice in {"y", "yes"}:
+            return TURBO
+        print("⚠️  请输入 y 或 n。")
 
 
 def get_tasks_from_user(media_type: str = VIDEO) -> list[VideoTask]:
@@ -149,6 +168,11 @@ def print_single_result(result: DownloadResult) -> None:
         print(f"  视频编码: {result['vcodec']}")
     print(f"  音频编码: {result['acodec']}")
     print(f"  文件大小: {result['filesize']}")
+    used_mode = result.get("speed_mode_used", STANDARD)
+    mode_name = "极速模式" if used_mode == TURBO else "标准模式"
+    if result.get("turbo_fallback"):
+        mode_name += "（极速模式已降级）"
+    print(f"  下载模式: {mode_name}")
 
 
 def print_summary(
@@ -181,6 +205,11 @@ def print_summary(
                         f"     分辨率: {result['resolution']}  |  "
                         f"文件大小: {result['filesize']}"
                     )
+                used_mode = result.get("speed_mode_used", STANDARD)
+                mode_name = "极速模式" if used_mode == TURBO else "标准模式"
+                if result.get("turbo_fallback"):
+                    mode_name += "（极速模式已降级）"
+                print(f"     下载模式: {mode_name}")
                 print(f"     路径: {result['filepath']}\n")
 
     if failed:
@@ -215,19 +244,23 @@ def main() -> int:
 
     command_line_mode = len(sys.argv) > 1
     if command_line_mode:
-        media_type, url_args = parse_command_line(sys.argv[1:])
+        media_type, speed_mode, url_args = parse_command_line(sys.argv[1:])
         tasks = get_tasks_from_args(url_args)
         if not tasks:
             print("❌ 错误：未提供合法的 YouTube、Instagram 或 Bilibili 视频链接。")
-            print("   用法: python main.py [--audio] <URL1> [URL2] [URL3] ...")
+            print("   用法: python main.py [--audio] [--turbo] <URL1> [URL2] [URL3] ...")
             return 1
     else:
         try:
             media_type = choose_media_type()
+            speed_mode = choose_speed_mode()
             tasks = get_tasks_from_user(media_type=media_type)
         except (EOFError, KeyboardInterrupt):
             print("\n已取消。")
             return 130
+
+    if speed_mode == TURBO and aria2c_path() is None:
+        print("⚠️  未检测到 aria2c；Bilibili 任务将自动使用标准模式。")
 
     media_name = MEDIA_TYPE_NAMES[media_type]
     print(f"\n📋 共 {len(tasks)} 个{media_name}待下载：")
@@ -244,7 +277,11 @@ def main() -> int:
             print("已取消。")
             return 0
 
-    results = download_tasks(tasks, media_type=media_type)
+    results = download_tasks(
+        tasks,
+        media_type=media_type,
+        speed_mode=speed_mode,
+    )
     print_summary(results, media_type=media_type)
     return 1 if any(result is None for _, result in results) else 0
 
