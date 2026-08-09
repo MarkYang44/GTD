@@ -193,6 +193,62 @@ def detect_platform(url: str) -> Optional[str]:
     return _detect_normalized_platform(normalize_url(url))
 
 
+def detect_collection_platform(url: str) -> Optional[str]:
+    """识别当前项目明确支持展开的播放列表、合集或多条目链接。"""
+    normalized = normalize_url(url)
+    try:
+        parsed = urlparse(normalized)
+    except ValueError:
+        return None
+    if parsed.scheme not in {"http", "https"}:
+        return None
+
+    host = (parsed.hostname or "").lower()
+    path_parts = [part for part in parsed.path.split("/") if part]
+    query = parse_qs(parsed.query)
+    youtube_hosts = {
+        "youtube.com",
+        "www.youtube.com",
+        "m.youtube.com",
+        "music.youtube.com",
+    }
+    if host in youtube_hosts and (
+        parsed.path == "/playlist" or bool(query.get("list"))
+    ):
+        return YOUTUBE
+
+    bilibili_hosts = {
+        "bilibili.com",
+        "www.bilibili.com",
+        "m.bilibili.com",
+    }
+    if host in bilibili_hosts and path_parts:
+        if path_parts[0] in {"video", "medialist", "list"}:
+            return BILIBILI
+    if (
+        host == "space.bilibili.com"
+        and len(path_parts) >= 3
+        and path_parts[0].isdigit()
+        and path_parts[1] == "lists"
+    ):
+        return BILIBILI
+    if host in {"b23.tv", "www.b23.tv"} and path_parts:
+        return BILIBILI
+
+    instagram_hosts = {
+        "instagram.com",
+        "www.instagram.com",
+        "m.instagram.com",
+    }
+    if (
+        host in instagram_hosts
+        and len(path_parts) >= 2
+        and path_parts[0] in {"p", "reel", "reels", "tv"}
+    ):
+        return INSTAGRAM
+    return None
+
+
 def is_valid_youtube_url(url: str) -> bool:
     """判断链接是否为支持的 YouTube 视频链接。"""
     return detect_platform(url) == YOUTUBE
@@ -220,13 +276,36 @@ def make_task(url: str) -> Optional[VideoTask]:
 # ---------------------------------------------------------------------------
 # Cookie 查找
 # ---------------------------------------------------------------------------
-def _find_cookie_file(platform: str) -> Optional[Path]:
+def find_cookie_file(platform: str) -> Optional[Path]:
     """优先使用平台专用 Cookie，随后使用通用 cookies.txt。"""
     candidates = [
         PROJECT_DIR / f"{platform}_cookies.txt",
         PROJECT_DIR / "cookies.txt",
     ]
     return next((path for path in candidates if path.is_file()), None)
+
+
+def _find_cookie_file(platform: str) -> Optional[Path]:
+    """保留内部兼容入口。"""
+    return find_cookie_file(platform)
+
+
+def platform_http_headers(platform: str) -> dict[str, str]:
+    """返回元数据提取与下载共用的平台安全请求头。"""
+    if platform != INSTAGRAM:
+        return {}
+    return {
+        "User-Agent": (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/131.0.0.0 Safari/537.36"
+        ),
+        "Accept": (
+            "text/html,application/xhtml+xml,application/xml;"
+            "q=0.9,*/*;q=0.8"
+        ),
+        "Accept-Language": "en-US,en;q=0.9",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -352,18 +431,7 @@ def _build_ydl_options(
         options.update(
             {
                 "outtmpl": str(output_dir / "%(title)s [%(id)s].%(ext)s"),
-                "http_headers": {
-                    "User-Agent": (
-                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                        "AppleWebKit/537.36 (KHTML, like Gecko) "
-                        "Chrome/131.0.0.0 Safari/537.36"
-                    ),
-                    "Accept": (
-                        "text/html,application/xhtml+xml,application/xml;"
-                        "q=0.9,*/*;q=0.8"
-                    ),
-                    "Accept-Language": "en-US,en;q=0.9",
-                },
+                "http_headers": platform_http_headers(INSTAGRAM),
                 "sleep_interval": 1,
                 "max_sleep_interval": 3,
                 "sleep_interval_requests": 1,
