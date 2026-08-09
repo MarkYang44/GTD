@@ -375,7 +375,7 @@
   .url-input:disabled { opacity: .58; cursor: wait; }
 
   .format-control, .format-control-spacer {
-    min-height: 52px;
+    min-height: 98px;
     margin-top: 14px;
   }
   .format-control {
@@ -492,6 +492,45 @@
   .btn-secondary { color: var(--muted-strong); background: transparent; border-color: var(--border); }
   .btn-secondary:hover:not(:disabled) { color: var(--foreground); border-color: rgba(148, 163, 184, .36); background: rgba(148, 163, 184, .06); }
 
+  .collection-preview {
+    margin: -48px 0 72px;
+    padding: clamp(22px, 3.4vw, 38px);
+    border: 1px solid var(--border-strong);
+    background: linear-gradient(145deg, rgba(13, 28, 43, .98), rgba(10, 18, 32, .98));
+    box-shadow: 0 28px 72px rgba(2, 6, 23, .35), 0 0 34px rgba(0, 155, 149, .05);
+  }
+  .collection-preview[hidden] { display: none; }
+  .collection-preview-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .collection-preview-title { margin-top: 8px; font-size: 22px; font-weight: 580; }
+  .collection-preview-count { color: var(--muted); font-size: 11px; text-align: right; }
+  .collection-list { max-height: 390px; margin-top: 16px; overflow: auto; border: 1px solid var(--border); }
+  .collection-entry {
+    display: grid;
+    grid-template-columns: auto 56px minmax(0, 1fr);
+    align-items: center;
+    gap: 13px;
+    min-height: 70px;
+    padding: 10px 13px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(7, 12, 24, .38);
+  }
+  .collection-entry:last-child { border-bottom: 0; }
+  .collection-entry.is-unavailable { opacity: .5; }
+  .collection-entry input { width: 16px; height: 16px; accent-color: var(--accent); }
+  .collection-thumb { width: 56px; height: 42px; object-fit: cover; border: 1px solid var(--border); background: var(--background-deep); }
+  .collection-thumb-placeholder { display: grid; place-items: center; color: var(--accent); font-size: 10px; }
+  .collection-entry-copy { min-width: 0; }
+  .collection-entry-title { color: var(--foreground); font-size: 13px; overflow-wrap: anywhere; }
+  .collection-entry-meta { margin-top: 4px; color: var(--muted); font-size: 10px; }
+  .collection-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+
   .task-panel { padding: clamp(22px, 3.4vw, 38px); }
   .task-header {
     display: flex;
@@ -503,6 +542,7 @@
     border-bottom: 1px solid var(--border);
   }
   .task-heading-group { display: grid; gap: 7px; }
+  .task-header-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; }
   .task-title { font-size: 20px; font-weight: 580; }
   .task-count { color: var(--muted); font-family: var(--ui-font); font-size: 11px; text-align: right; }
   .task-list { list-style: none; }
@@ -522,10 +562,11 @@
   }
   .task-item:last-child { margin-bottom: 0; }
   .task-item:hover { border-color: rgba(148, 163, 184, .28); background: rgba(22, 32, 51, .66); }
-  .task-item.status-pending { border-left-color: #64748b; }
-  .task-item.status-downloading { border-left-color: var(--accent); }
+  .task-item.status-queued { border-left-color: #64748b; }
+  .task-item.status-running, .task-item.status-running_uninterruptible { border-left-color: var(--accent); }
   .task-item.status-completed { border-left-color: var(--success); }
   .task-item.status-failed { border-left-color: var(--danger); }
+  .task-item.status-cancelled { border-left-color: #f59e0b; }
   .task-item-enter { animation: task-enter .35s ease both; }
   .task-index {
     display: grid;
@@ -552,6 +593,22 @@
   .task-progress-label { color: var(--muted); }
   .task-progress-value { color: #61ddd2; font-weight: 700; }
   .task-error { display: inline-block; margin-top: 7px; padding: 6px 9px; color: #fecdd3; background: rgba(244, 63, 94, .1); font-size: 12px; }
+  .task-error-code { color: var(--danger); font-family: var(--ui-font); letter-spacing: .05em; }
+  .task-attempts { margin-top: 9px; color: var(--muted); font-size: 10px; }
+  .task-attempts summary { cursor: pointer; color: var(--muted-strong); }
+  .task-attempts-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+  .task-attempt { padding: 3px 6px; border: 1px solid var(--border); background: rgba(148, 163, 184, .04); }
+  .task-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 11px; }
+  .task-action {
+    min-height: 30px;
+    padding: 5px 9px;
+    border: 1px solid var(--border);
+    color: var(--muted-strong);
+    background: rgba(148, 163, 184, .04);
+    cursor: pointer;
+    font-size: 10px;
+  }
+  .task-action:hover { color: var(--foreground); border-color: var(--border-strong); background: rgba(0, 161, 155, .08); }
   .badge {
     display: inline-flex;
     flex: 0 0 auto;
@@ -565,10 +622,11 @@
     font-weight: 700;
     letter-spacing: .06em;
   }
-  .badge-pending { color: var(--muted); }
-  .badge-downloading { color: #61ddd2; }
+  .badge-queued { color: var(--muted); }
+  .badge-running { color: #61ddd2; }
   .badge-completed { color: var(--success); }
   .badge-failed { color: var(--danger); }
+  .badge-cancelled { color: #fbbf24; }
   .spinner {
     display: inline-block;
     width: 10px;
@@ -648,6 +706,11 @@
     .metric-label { font-size: 9px; }
     .metric-value { font-size: 29px; }
     .download-grid { margin-bottom: 54px; }
+    .collection-preview { margin-top: -34px; margin-bottom: 54px; }
+    .collection-preview-header { align-items: flex-start; flex-direction: column; gap: 10px; }
+    .collection-preview-count { text-align: left; }
+    .collection-entry { grid-template-columns: auto minmax(0, 1fr); }
+    .collection-thumb { display: none; }
     .card, .task-panel { padding: 21px; }
     .btn-row { flex-direction: column; }
     .btn { width: 100%; }
@@ -742,7 +805,7 @@
             </span>
             <h3>最高音质音频</h3>
           </div>
-          <p>选择 MP3 V0，或在源站提供时保留原始 FLAC 无损音轨。</p>
+          <p>可输出 MP3 V0、源 FLAC、原始音轨或 WAV PCM。</p>
         </div>
         <textarea class="url-input" id="audioUrls" aria-label="音频链接" placeholder="粘贴音频链接或平台分享文案，一行一个"></textarea>
         <fieldset class="format-control" id="audioFormatControl">
@@ -754,6 +817,14 @@
           <label class="format-option">
             <input type="radio" name="audioFormat" id="audioFormatFlac" value="flac">
             <span>源 FLAC</span>
+          </label>
+          <label class="format-option">
+            <input type="radio" name="audioFormat" id="audioFormatSource" value="source">
+            <span>原始音轨</span>
+          </label>
+          <label class="format-option">
+            <input type="radio" name="audioFormat" id="audioFormatWav" value="wav">
+            <span>WAV PCM</span>
           </label>
         </fieldset>
         <div class="turbo-control">
@@ -769,12 +840,30 @@
         </div>
       </section>
     </div>
+
+    <section class="collection-preview" id="collectionPreview" aria-labelledby="collectionPreviewTitle" hidden>
+      <div class="collection-preview-header">
+        <div>
+          <span class="section-index">01 / PREVIEW</span>
+          <h3 class="collection-preview-title" id="collectionPreviewTitle">选择合集条目</h3>
+        </div>
+        <span class="collection-preview-count" id="collectionPreviewCount">最多选择 100 项</span>
+      </div>
+      <div class="collection-list" id="collectionPreviewList"></div>
+      <div class="collection-actions">
+        <button class="btn btn-primary" id="collectionSubmitButton" onclick="submitPreview()">下载所选条目 <span class="btn-arrow" aria-hidden="true">↘</span></button>
+        <button class="btn btn-secondary" onclick="cancelCollectionPreview()">返回修改</button>
+      </div>
+    </section>
   </section>
 
   <section class="task-panel" id="task-card" data-reveal aria-labelledby="task-title">
     <div class="task-header">
       <div class="task-heading-group"><span class="section-index">02 / OPERATIONS</span><span class="task-title" id="task-title">下载任务</span></div>
-      <span class="task-count" id="task-summary">等待链接输入</span>
+      <div class="task-header-actions">
+        <button class="task-action" id="retryFailedButton" onclick="retryFailedTasks()" hidden>重试全部失败项</button>
+        <span class="task-count" id="task-summary">等待链接输入</span>
+      </div>
     </div>
     <div id="task-container" aria-live="polite">
       <div class="empty-state"><div class="icon">↘</div><p>在上方对应区块粘贴链接并开始下载</p></div>
@@ -815,11 +904,19 @@
   const taskContainer = document.getElementById("task-container");
   const activeMetric = document.getElementById("metric-active");
   const queueMetric = document.getElementById("metric-queue");
+  const collectionPreview = document.getElementById("collectionPreview");
+  const collectionPreviewList = document.getElementById("collectionPreviewList");
+  const collectionPreviewTitle = document.getElementById("collectionPreviewTitle");
+  const collectionPreviewCount = document.getElementById("collectionPreviewCount");
+  const collectionSubmitButton = document.getElementById("collectionSubmitButton");
+  const retryFailedButton = document.getElementById("retryFailedButton");
 
   let pollingTimer = null;
   let currentBatchId = null;
   let isDownloading = false;
   let aria2Available = false;
+  let pendingPreview = null;
+  let pendingDownloadSettings = null;
 
   function clearInput(mediaType) {
     if (isDownloading) return;
@@ -873,9 +970,30 @@
 
   function updateOperationalMetrics(batch) {
     const tasks = Array.isArray(batch.tasks) ? batch.tasks : [];
-    const active = tasks.filter(task => task.status === "downloading").length;
-    const queue = tasks.filter(task => task.status === "pending").length;
+    const active = Number.isInteger(batch.active)
+      ? batch.active
+      : tasks.filter(task => ["running", "running_uninterruptible"].includes(task.status)).length;
+    const queue = Number.isInteger(batch.queued)
+      ? batch.queued
+      : tasks.filter(task => task.status === "queued").length;
     setOperationalMetrics(active, queue);
+  }
+
+  function audioFormatTitle(audioFormat) {
+    return {
+      mp3: "MP3 V0",
+      flac: "源 FLAC",
+      source: "原始音轨",
+      wav: "WAV PCM",
+    }[audioFormat] || "音频";
+  }
+
+  function formatApiError(data, fallback = "请求失败") {
+    if (!data || typeof data !== "object") return fallback;
+    const code = data.error_code ? `[${data.error_code}] ` : "";
+    const message = data.message || data.error || fallback;
+    const suggestion = data.suggestion ? `\n建议：${data.suggestion}` : "";
+    return `${code}${message}${suggestion}`;
   }
 
   async function startDownload(mediaType) {
@@ -900,35 +1018,132 @@
       ? document.querySelector('input[name="audioFormat"]:checked').value
       : "mp3";
 
+    pendingDownloadSettings = { mediaType, speedMode, audioFormat };
     isDownloading = true;
     setControlsDisabled(true);
-    setOperationalMetrics(0, urls.length);
-    renderPendingSkeleton(urls.length);
-    taskTitle.textContent = mediaType === "audio"
-      ? (audioFormat === "flac" ? "源 FLAC 音频下载任务" : "MP3 音频下载任务")
-      : "视频下载任务";
-    taskSummary.textContent = "正在提交...";
+    taskTitle.textContent = "正在解析输入";
+    taskSummary.textContent = "读取播放列表、合集与分 P 信息...";
+    await previewInput(mediaType, urls);
+  }
 
+  async function previewInput(mediaType, inputs) {
     try {
-      const resp = await fetch("/api/download", {
+      const response = await fetch("/api/preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ urls, media_type: mediaType, speed_mode: speedMode, audio_format: audioFormat }),
+        body: JSON.stringify({ inputs }),
       });
-      const data = await resp.json();
-
-      if (!resp.ok) {
-        alert("❌ " + (data.error || "请求失败"));
+      const preview = await response.json();
+      if (!response.ok) {
+        alert("❌ " + formatApiError(preview));
         resetUI();
         return;
       }
+      pendingPreview = preview;
+      renderCollectionPreview(preview, mediaType);
+      if (!preview.requires_selection) await submitPreview(mediaType);
+    } catch (error) {
+      alert("❌ 网络错误：" + error.message);
+      resetUI();
+    }
+  }
 
+  function renderCollectionPreview(preview, mediaType) {
+    const entries = Array.isArray(preview.entries) ? preview.entries : [];
+    collectionPreviewTitle.textContent = preview.is_single
+      ? "确认下载内容"
+      : `${preview.title || "下载合集"} · 选择条目`;
+    let selectableSeen = 0;
+    collectionPreviewList.innerHTML = entries.map((entry, index) => {
+      const selectable = entry.selectable === true;
+      const checked = selectable && selectableSeen++ < 100;
+      const thumbnail = entry.thumbnail
+        ? `<img class="collection-thumb" src="${escHtml(entry.thumbnail)}" alt="" loading="lazy">`
+        : `<span class="collection-thumb collection-thumb-placeholder">${String(index + 1).padStart(2, "0")}</span>`;
+      return `
+        <label class="collection-entry ${selectable ? "" : "is-unavailable"}">
+          <input type="checkbox" class="collection-entry-checkbox" data-entry-id="${escHtml(entry.id)}" ${checked ? "checked" : ""} ${selectable ? "" : "disabled"} onchange="updateCollectionSelection()">
+          ${thumbnail}
+          <span class="collection-entry-copy">
+            <span class="collection-entry-title">${escHtml(entry.title || `第 ${index + 1} 项`)}</span>
+            <span class="collection-entry-meta">${selectable ? `第 ${entry.position || index + 1} 项 · ${mediaType === "audio" ? "音频" : "视频"}` : escHtml(entry.unavailable_reason || "不可下载")}</span>
+          </span>
+        </label>`;
+    }).join("");
+    collectionPreview.hidden = false;
+    updateCollectionSelection();
+    collectionPreview.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  function selectedEntryIds() {
+    return Array.from(collectionPreviewList.querySelectorAll(".collection-entry-checkbox:checked"))
+      .map(input => input.dataset.entryId);
+  }
+
+  function updateCollectionSelection() {
+    const selected = selectedEntryIds();
+    collectionPreviewCount.textContent = `已选择 ${selected.length} 项 · 最多选择 100 项`;
+    collectionSubmitButton.disabled = selected.length === 0 || selected.length > 100;
+  }
+
+  function cancelCollectionPreview() {
+    pendingPreview = null;
+    pendingDownloadSettings = null;
+    collectionPreview.hidden = true;
+    collectionPreviewList.innerHTML = "";
+    resetUI();
+  }
+
+  async function submitPreview(mediaType = pendingDownloadSettings && pendingDownloadSettings.mediaType) {
+    if (!pendingPreview || !pendingDownloadSettings) return;
+    const selected = selectedEntryIds();
+    if (selected.length === 0) {
+      alert("请至少选择一个可下载条目。");
+      return;
+    }
+    if (selected.length > 100) {
+      alert("一次最多选择 100 项。");
+      return;
+    }
+
+    collectionSubmitButton.disabled = true;
+    collectionPreview.hidden = true;
+    setOperationalMetrics(0, selected.length);
+    renderPendingSkeleton(selected.length);
+    taskTitle.textContent = mediaType === "audio"
+      ? `${audioFormatTitle(pendingDownloadSettings.audioFormat)} 音频下载任务`
+      : "视频下载任务";
+    taskSummary.textContent = "正在提交...";
+
+    const payload = {
+      preview_id: pendingPreview.preview_id,
+      selected_entry_ids: selected,
+      media_type: mediaType,
+      speed_mode: pendingDownloadSettings.speedMode,
+      audio_format: pendingDownloadSettings.audioFormat,
+    };
+    try {
+      const response = await fetch("/api/download", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        alert("❌ " + formatApiError(data));
+        collectionPreview.hidden = false;
+        collectionSubmitButton.disabled = false;
+        return;
+      }
       currentBatchId = data.batch_id;
+      pendingPreview = null;
+      pendingDownloadSettings = null;
       taskSummary.textContent = `共 ${data.task_count} 个任务 · 批次 ${currentBatchId}`;
       startPolling();
-    } catch (err) {
-      alert("❌ 网络错误：" + err.message);
-      resetUI();
+    } catch (error) {
+      alert("❌ 网络错误：" + error.message);
+      collectionPreview.hidden = false;
+      collectionSubmitButton.disabled = false;
     }
   }
 
@@ -955,14 +1170,16 @@
       renderTasks(batch);
 
       taskTitle.textContent = batch.media_type === "audio"
-        ? (batch.audio_format === "flac" ? "源 FLAC 音频下载任务" : "MP3 音频下载任务")
+        ? `${audioFormatTitle(batch.audio_format)} 音频下载任务`
         : "视频下载任务";
       taskSummary.textContent =
-        `共 ${batch.total} 个 · 完成 ${batch.completed} · 失败 ${batch.failed} · 批次 ${batch.id}`;
+        `共 ${batch.total} 个 · 完成 ${batch.completed} · 失败 ${batch.failed} · 取消 ${batch.cancelled || 0} · 批次 ${batch.id}`;
+      retryFailedButton.hidden = !batch.tasks.some(task => task.can_retry && task.status === "failed");
 
       if (batch.all_done) {
         stopPolling();
-        resetUI(false);
+        isDownloading = false;
+        setControlsDisabled(false);
       }
     } catch (_) { /* retry on next tick */ }
   }
@@ -971,10 +1188,10 @@
     let html = '<ul class="task-list">';
     for (let i = 0; i < count; i++) {
       html += `
-        <li class="task-item task-item-enter status-pending">
+        <li class="task-item task-item-enter status-queued">
           <span class="task-index">${String(i + 1).padStart(2, "0")}</span>
           <div class="task-body"><div class="task-meta">等待可用下载槽位</div></div>
-          <span class="badge badge-pending">等待中</span>
+          <span class="badge badge-queued">等待中</span>
         </li>`;
     }
     html += "</ul>";
@@ -986,10 +1203,12 @@
     batch.tasks.forEach((t, i) => {
       const cls = "status-" + t.status;
       const badgeMap = {
-        pending: ["等待中", "badge-pending"],
-        downloading: ["下载中", "badge-downloading"],
+        queued: ["等待中", "badge-queued"],
+        running: ["下载中", "badge-running"],
+        running_uninterruptible: ["极速下载", "badge-running"],
         completed: ["下载完成", "badge-completed"],
         failed: ["下载失败", "badge-failed"],
+        cancelled: ["已取消", "badge-cancelled"],
       };
       const [label, badgeCls] = badgeMap[t.status] || ["未知", ""];
 
@@ -1016,12 +1235,12 @@
           html += `分辨率: ${escHtml(r.resolution || "?")} · `;
         }
         html += `大小: ${escHtml(r.filesize || "?")}`;
-        if (batch.media_type === "audio" && t.audio_format_fallback) {
+        if (batch.media_type === "audio" && r.audio_format_fallback) {
           html += `<br>源站未提供 FLAC，已自动回退至 MP3 V0`;
         }
         if (r.filepath) html += `<br>保存路径: ${escHtml(r.filepath)}`;
         html += `</div>`;
-      } else if (t.status === "downloading") {
+      } else if (["running", "running_uninterruptible"].includes(t.status)) {
         if (t.speed_mode_used === "turbo" && !t.turbo_fallback) {
           html += `<div class="task-meta"><span class="spinner"></span> 高速下载中</div>`;
         } else {
@@ -1031,19 +1250,79 @@
           html += `<div class="task-meta"><span class="spinner"></span> 正在下载，请稍候…</div>`;
           html += renderDownloadProgress(t.progress);
         }
-      } else if (t.status === "pending") {
+        if (t.status === "running_uninterruptible") {
+          html += `<div class="task-meta">aria2c 极速任务不可取消，将继续下载直至完成</div>`;
+        }
+      } else if (t.status === "queued") {
         html += `<div class="task-meta">等待可用下载槽位</div>`;
       } else if (t.status === "failed") {
         html += `<div class="task-meta">下载失败</div>`;
-        if (t.error) html += `<div class="task-error">${escHtml(t.error)}</div>`;
+        if (t.error) {
+          html += `<div class="task-error"><span class="task-error-code">${escHtml(t.error.error_code || "DOWNLOAD_FAILED")}</span> · ${escHtml(t.error.message || "下载失败")}`;
+          if (t.error.suggestion) html += `<br>建议：${escHtml(t.error.suggestion)}`;
+          html += `</div>`;
+        }
+      } else if (t.status === "cancelled") {
+        html += `<div class="task-meta">任务已取消，已完成文件仍然保留。</div>`;
       }
 
+      if (t.attempt_count > 0 && Array.isArray(t.attempts)) {
+        html += `<details class="task-attempts"><summary>尝试记录 ${t.attempt_count}</summary><div class="task-attempts-list">`;
+        t.attempts.forEach(attempt => {
+          html += `<span class="task-attempt">#${attempt.number} · ${escHtml(attempt.status)}${attempt.output_version > 1 ? ` · 版本 ${attempt.output_version}` : ""}</span>`;
+        });
+        html += `</div></details>`;
+      }
+
+      html += `<div class="task-actions">`;
+      if (t.can_cancel) html += `<button class="task-action" onclick="operateTask('cancel', '${escHtml(t.id)}')">取消</button>`;
+      if (t.can_retry) html += `<button class="task-action" onclick="operateTask('retry', '${escHtml(t.id)}')">重试</button>`;
+      if (t.can_redownload) html += `<button class="task-action" onclick="operateTask('redownload', '${escHtml(t.id)}')">重新下载</button>`;
       html += `</div>`;
-      html += `<span class="badge ${badgeCls}">${t.status === "downloading" ? '<span class="spinner"></span>' : ""}${label}</span>`;
+
+      html += `</div>`;
+      html += `<span class="badge ${badgeCls}">${["running", "running_uninterruptible"].includes(t.status) ? '<span class="spinner"></span>' : ""}${label}</span>`;
       html += `</li>`;
     });
     html += "</ul>";
     taskContainer.innerHTML = html;
+  }
+
+  async function operateTask(action, taskId) {
+    if (!currentBatchId) return;
+    try {
+      const response = await fetch(`/api/batch/${currentBatchId}/task/${taskId}/${action}`, { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) {
+        alert("❌ " + formatApiError(data));
+        return;
+      }
+      if (["retry", "redownload"].includes(action)) {
+        isDownloading = true;
+        setControlsDisabled(true);
+      }
+      startPolling();
+    } catch (error) {
+      alert("❌ 网络错误：" + error.message);
+    }
+  }
+
+  async function retryFailedTasks() {
+    if (!currentBatchId) return;
+    try {
+      const response = await fetch(`/api/batch/${currentBatchId}/retry-failed`, { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) {
+        alert("❌ " + formatApiError(data));
+        return;
+      }
+      retryFailedButton.hidden = true;
+      isDownloading = true;
+      setControlsDisabled(true);
+      startPolling();
+    } catch (error) {
+      alert("❌ 网络错误：" + error.message);
+    }
   }
 
   function renderDownloadProgress(progress) {
@@ -1064,7 +1343,9 @@
   function resetUI(resetMetrics = true) {
     isDownloading = false;
     setControlsDisabled(false);
-    currentBatchId = null;
+    pendingPreview = null;
+    pendingDownloadSettings = null;
+    collectionPreview.hidden = true;
     if (resetMetrics) setOperationalMetrics(0, 0);
   }
 

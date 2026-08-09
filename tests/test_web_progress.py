@@ -43,6 +43,33 @@ class WebConfigurationTests(unittest.TestCase):
 
 
 class WebProgressStateTests(unittest.TestCase):
+    def test_frontend_has_four_audio_formats_and_collection_preview(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8")
+
+        for value in ("mp3", "flac", "source", "wav"):
+            self.assertIn(f'value="{value}"', html)
+        self.assertIn('id="collectionPreview"', html)
+        self.assertIn("renderCollectionPreview", html)
+        self.assertIn("selectedEntryIds", html)
+        self.assertIn("最多选择 100 项", html)
+
+    def test_frontend_has_cancel_retry_redownload_and_retry_failed_actions(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8")
+
+        self.assertIn("operateTask('cancel'", html)
+        self.assertIn("operateTask('retry'", html)
+        self.assertIn("operateTask('redownload'", html)
+        self.assertIn("retryFailedTasks", html)
+        self.assertIn("极速任务不可取消", html)
+
+    def test_frontend_renders_structured_error_and_attempt_history(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8")
+
+        self.assertIn("error_code", html)
+        self.assertIn("suggestion", html)
+        self.assertIn("attempt_count", html)
+        self.assertIn("attempts", html)
+
     def test_frontend_renders_speed_and_eta_inside_task_card(self):
         html = Path("templates/index.html").read_text(encoding="utf-8")
 
@@ -84,13 +111,16 @@ class WebProgressStateTests(unittest.TestCase):
             ".format-control, .format-control-spacer",
             html,
         )
-        self.assertIn("min-height: 52px", html)
+        self.assertIn("min-height: 98px", html)
         self.assertIn(".format-control-spacer { display: none; }", html)
 
     def test_frontend_submits_and_renders_audio_format_details(self):
         html = Path("templates/index.html").read_text(encoding="utf-8")
 
-        self.assertIn("audio_format: audioFormat", html)
+        self.assertIn(
+            "audio_format: pendingDownloadSettings.audioFormat",
+            html,
+        )
         self.assertIn('input[name="audioFormat"]:checked', html)
         self.assertIn("源站未提供 FLAC，已自动回退至 MP3 V0", html)
         self.assertIn("source_acodec", html)
@@ -124,9 +154,10 @@ class WebProgressStateTests(unittest.TestCase):
             html,
         )
         self.assertIn(
-            "JSON.stringify({ urls, media_type: mediaType, speed_mode: speedMode, audio_format: audioFormat })",
+            "speed_mode: pendingDownloadSettings.speedMode",
             html,
         )
+        self.assertIn("body: JSON.stringify(payload)", html)
 
     def test_frontend_renders_turbo_and_fallback_states(self):
         html = Path("templates/index.html").read_text(encoding="utf-8")
@@ -178,8 +209,9 @@ class WebProgressStateTests(unittest.TestCase):
         html = Path("templates/index.html").read_text(encoding="utf-8")
 
         self.assertIn("function updateOperationalMetrics(batch)", html)
-        self.assertIn('task.status === "downloading"', html)
-        self.assertIn('task.status === "pending"', html)
+        self.assertIn("Number.isInteger(batch.active)", html)
+        self.assertIn("Number.isInteger(batch.queued)", html)
+        self.assertIn('task.status === "queued"', html)
         self.assertIn('padStart(2, "0")', html)
 
     def test_frontend_has_progressive_motion_and_reduced_motion_fallback(self):
