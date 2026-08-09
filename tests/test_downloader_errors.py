@@ -105,6 +105,67 @@ class DownloadOutputTemplateTests(unittest.TestCase):
 
 
 class DownloadAudioOptionsTests(unittest.TestCase):
+    def test_flac_source_builds_mp3_profile_and_quality_filename(self):
+        info = {"vcodec": "none", "acodec": "flac", "abr": 1521.267}
+
+        profile = downloader._audio_output_profile(info, downloader.MP3)
+
+        self.assertEqual(profile.used, downloader.MP3)
+        self.assertFalse(profile.fallback)
+        self.assertEqual(profile.source_acodec, "FLAC")
+        self.assertEqual(profile.source_abr_kbps, 1521)
+        self.assertEqual(
+            downloader._audio_quality_label(profile),
+            "MP3 V0 · 源FLAC 1521kbps",
+        )
+
+    def test_requested_flac_uses_real_flac_and_falls_back_for_aac(self):
+        lossless = downloader._audio_output_profile(
+            {"vcodec": "none", "acodec": "flac", "tbr": 1521.267},
+            downloader.FLAC,
+        )
+        fallback = downloader._audio_output_profile(
+            {"vcodec": "none", "acodec": "mp4a.40.2", "abr": 245.75},
+            downloader.FLAC,
+        )
+
+        self.assertEqual(lossless.used, downloader.FLAC)
+        self.assertFalse(lossless.fallback)
+        self.assertEqual(
+            downloader._audio_quality_label(lossless),
+            "FLAC Lossless · 1521kbps",
+        )
+        self.assertEqual(fallback.used, downloader.MP3)
+        self.assertTrue(fallback.fallback)
+        self.assertEqual(fallback.source_acodec, "AAC")
+
+    def test_unknown_source_fields_do_not_leak_placeholders(self):
+        profile = downloader._audio_output_profile({}, downloader.MP3)
+
+        label = downloader._audio_quality_label(profile)
+
+        self.assertEqual(label, "MP3 V0")
+        self.assertNotIn("NA", label)
+        self.assertNotIn("None", label)
+
+    def test_audio_output_is_renamed_after_platform_id(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source = Path(temp_dir) / "Example [BV123].mp3"
+            source.touch()
+            profile = downloader._audio_output_profile(
+                {"acodec": "flac", "abr": 1521.267},
+                downloader.MP3,
+            )
+
+            actual = downloader._rename_audio_output(source, profile)
+
+            self.assertEqual(
+                actual.name,
+                "Example [BV123] [MP3 V0 · 源FLAC 1521kbps].mp3",
+            )
+            self.assertTrue(actual.is_file())
+            self.assertFalse(source.exists())
+
     def test_audio_options_select_best_audio_and_extract_highest_quality_mp3(self):
         output_dir = Path("/tmp/downloads")
 
@@ -163,6 +224,26 @@ class DownloadAudioOptionsTests(unittest.TestCase):
                 {"title": "Example", "ext": "webm"},
                 output_dir,
                 media_type=downloader.AUDIO,
+            )
+
+        self.assertEqual(actual, expected)
+
+    def test_audio_output_path_resolves_postprocessed_flac(self):
+        class FakeYdl:
+            def prepare_filename(self, info):
+                return str(output_dir / "Example.m4a")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir)
+            expected = output_dir / "Example.flac"
+            expected.touch()
+
+            actual = downloader._resolve_output_path(
+                FakeYdl(),
+                {"title": "Example", "ext": "m4a"},
+                output_dir,
+                media_type=downloader.AUDIO,
+                audio_format=downloader.FLAC,
             )
 
         self.assertEqual(actual, expected)

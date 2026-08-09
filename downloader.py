@@ -11,6 +11,7 @@ import re
 import shutil
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional
 from urllib.parse import parse_qs, urlparse
@@ -44,6 +45,9 @@ BILIBILI = "bilibili"
 VIDEO = "video"
 AUDIO = "audio"
 MEDIA_TYPES = {VIDEO, AUDIO}
+MP3 = "mp3"
+FLAC = "flac"
+AUDIO_FORMATS = {MP3, FLAC}
 PLATFORM_NAMES = {
     YOUTUBE: "YouTube",
     INSTAGRAM: "Instagram",
@@ -63,6 +67,15 @@ YtdlpProgressCallback = Callable[[str, dict[str, object]], None] | None
 # ProgressCallback(task_index, event, data)
 #   event: 'started' | 'progress' | 'completed' | 'failed'
 #   data:  dict — 具体字段视 event 而定
+
+
+@dataclass(frozen=True)
+class AudioOutputProfile:
+    requested: str
+    used: str
+    fallback: bool
+    source_acodec: str | None
+    source_abr_kbps: int | None
 
 
 class _QuietYtdlpLogger:
@@ -405,17 +418,90 @@ def _build_ydl_options(
 
 
 # ---------------------------------------------------------------------------
-# 文件路径与大小
+# 音频质量与文件路径
 # ---------------------------------------------------------------------------
+def _selected_audio_info(info: dict) -> dict:
+    requested = info.get("requested_formats")
+    if isinstance(requested, list):
+        for candidate in requested:
+            if (
+                isinstance(candidate, dict)
+                and candidate.get("acodec") not in {None, "none"}
+            ):
+                return candidate
+    return info
+
+
+def _display_audio_codec(value: object) -> str | None:
+    codec = str(value or "").lower()
+    if codec.startswith("flac"):
+        return "FLAC"
+    if codec.startswith(("aac", "mp4a")):
+        return "AAC"
+    if "opus" in codec:
+        return "Opus"
+    if codec.startswith("mp3"):
+        return "MP3"
+    return codec.upper() or None
+
+
+def _audio_output_profile(info: dict, requested: str) -> AudioOutputProfile:
+    if requested not in AUDIO_FORMATS:
+        raise ValueError(f"不支持的音频格式: {requested}")
+    selected = _selected_audio_info(info)
+    source_acodec = _display_audio_codec(selected.get("acodec"))
+    raw_bitrate = selected.get("abr") or selected.get("tbr")
+    source_abr_kbps = (
+        round(raw_bitrate)
+        if isinstance(raw_bitrate, (int, float)) and raw_bitrate > 0
+        else None
+    )
+    used = FLAC if requested == FLAC and source_acodec == "FLAC" else MP3
+    return AudioOutputProfile(
+        requested=requested,
+        used=used,
+        fallback=requested == FLAC and used == MP3,
+        source_acodec=source_acodec,
+        source_abr_kbps=source_abr_kbps,
+    )
+
+
+def _audio_quality_label(profile: AudioOutputProfile) -> str:
+    parts = ["FLAC Lossless" if profile.used == FLAC else "MP3 V0"]
+    if profile.used == FLAC:
+        if profile.source_abr_kbps:
+            parts.append(f"{profile.source_abr_kbps}kbps")
+    elif profile.source_acodec:
+        source = f"源{profile.source_acodec}"
+        if profile.source_abr_kbps:
+            source += f" {profile.source_abr_kbps}kbps"
+        parts.append(source)
+    return " · ".join(parts)
+
+
+def _rename_audio_output(
+    filepath: Path,
+    profile: AudioOutputProfile,
+) -> Path:
+    target = filepath.with_name(
+        f"{filepath.stem} [{_audio_quality_label(profile)}]{filepath.suffix}"
+    )
+    filepath.replace(target)
+    return target
+
+
 def _resolve_output_path(
     ydl,
     info: dict,
     output_dir: Path,
     media_type: str = VIDEO,
+    audio_format: str = MP3,
 ) -> Path:
     """根据 yt-dlp 的输出信息定位后处理后的实际文件。"""
+    if audio_format not in AUDIO_FORMATS:
+        raise ValueError(f"不支持的音频格式: {audio_format}")
     prepared = Path(ydl.prepare_filename(info))
-    output_suffix = ".mp3" if media_type == AUDIO else ".mp4"
+    output_suffix = f".{audio_format}" if media_type == AUDIO else ".mp4"
     candidates = [prepared.with_suffix(output_suffix), prepared]
 
     for candidate in candidates:
