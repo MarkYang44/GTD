@@ -6,6 +6,7 @@ YouTube & Instagram 视频下载核心逻辑。
 main.py（命令行）和 app.py（Web 服务）均通过导入本模块复用下载能力。
 """
 
+import copy
 import re
 import shutil
 import threading
@@ -15,6 +16,21 @@ from typing import Callable, Optional
 from urllib.parse import parse_qs, urlparse
 
 import yt_dlp
+
+from bilibili_acceleration import (
+    BILIBILI_HTTP_CHUNK_SIZE,
+    SPEED_MODES,
+    STANDARD,
+    TURBO,
+    AccelerationPlan,
+    apply_cdn_host,
+    aria2c_path,
+    build_acceleration_plan,
+    configure_aria2,
+    effective_speed_mode,
+    primary_host,
+    register_bilibili_extractor,
+)
 
 # ---------------------------------------------------------------------------
 # 常量
@@ -35,7 +51,6 @@ PLATFORM_NAMES = {
 }
 MAX_PARALLEL_DOWNLOADS = 3
 MAX_PARALLEL_BILIBILI_DOWNLOADS = 2
-BILIBILI_HTTP_CHUNK_SIZE = 10 * 1024 * 1024
 ANSI_ESCAPE_RE = re.compile(r"\x1b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 SHARE_URL_RE = re.compile(r"https?://[^\s]+", re.IGNORECASE)
 TRAILING_URL_PUNCTUATION = "】）》」』〕〉)]}>\"',.!?;:，。！？；："
@@ -278,10 +293,14 @@ def _build_ydl_options(
     total: int,
     progress_callback: YtdlpProgressCallback = None,
     media_type: str = VIDEO,
+    speed_mode: str = STANDARD,
+    aria2_executable: str | None = None,
 ) -> dict:
     """生成公共配置，并追加平台专用配置。"""
     if media_type not in MEDIA_TYPES:
         raise ValueError(f"不支持的下载类型: {media_type}")
+    if speed_mode not in SPEED_MODES:
+        raise ValueError(f"不支持的速度模式: {speed_mode}")
 
     options = {
         "outtmpl": str(output_dir / "%(title)s.%(ext)s"),
@@ -378,6 +397,9 @@ def _build_ydl_options(
     cookie_file = _find_cookie_file(platform)
     if cookie_file:
         options["cookiefile"] = str(cookie_file)
+
+    if platform == BILIBILI and speed_mode == TURBO and aria2_executable:
+        configure_aria2(options, aria2_executable)
 
     return options
 
@@ -492,6 +514,244 @@ def _handle_download_error(
 
 
 # ---------------------------------------------------------------------------
+# Bilibili 自适应下载
+# ---------------------------------------------------------------------------
+def _extract_bilibili_info(url: str, options: dict):
+    """使用实例级适配器提取一次已选格式信息，但不下载媒体。"""
+    ydl = yt_dlp.YoutubeDL(options)
+    register_bilibili_extractor(ydl)
+    try:
+        info = ydl.extract_info(url, download=False)
+        return ydl, info
+    except Exception:
+        ydl.close()
+        raise
+
+
+def _temporary_snapshot(output_dir: Path) -> set[Path]:
+    if not output_dir.is_dir():
+        return set()
+    return {path.resolve() for path in output_dir.iterdir()}
+
+
+def _cleanup_new_attempt_files(
+    output_dir: Path,
+    before: set[Path],
+) -> None:
+    """只移除当前失败尝试新建的 yt-dlp/aria2 临时文件。"""
+    if not output_dir.is_dir():
+        return
+    for path in output_dir.iterdir():
+        resolved = path.resolve()
+        name = path.name
+        is_attempt_file = (
+            name.endswith((".part", ".aria2", ".ytdl"))
+            or ".part." in name
+            or re.search(r"\.f[^.]+\.[^.]+$", name) is not None
+        )
+        if resolved not in before and path.is_file() and is_attempt_file:
+            path.unlink(missing_ok=True)
+
+
+def _process_bilibili_attempt(
+    prepared_info: dict,
+    options: dict,
+    output_dir: Path,
+) -> tuple[dict, Path]:
+    """处理已提取的格式信息，执行传输与 yt-dlp 后处理。"""
+    with yt_dlp.YoutubeDL(options) as ydl:
+        ydl.process_info(prepared_info)
+        filepath = _resolve_output_path(
+            ydl,
+            prepared_info,
+            output_dir,
+            prepared_info["_media_type"],
+        )
+    return prepared_info, filepath
+
+
+def _is_aria2_failure(error: Exception) -> bool:
+    message = str(error).lower()
+    return "aria2c" in message and (
+        "exited" in message or "external downloader" in message
+    )
+
+
+def _is_cdn_access_failure(error: Exception) -> bool:
+    message = str(error).lower()
+    return "http error 403" in message or "http error 412" in message
+
+
+def _build_download_result(
+    info: dict,
+    filepath: Path,
+    platform_name: str,
+    media_type: str,
+    requested_mode: str,
+    used_mode: str,
+    turbo_fallback: bool,
+    plan: AccelerationPlan,
+) -> DownloadResult:
+    resolution = info.get("resolution") or (
+        f"{info.get('width')}x{info.get('height')}"
+        if info.get("width") and info.get("height")
+        else "未知"
+    )
+    result = {
+        "platform": platform_name,
+        "title": info.get("title", "未知标题"),
+        "filepath": str(filepath),
+        "filesize": _format_filesize(filepath, info),
+        "media_type": media_type,
+        "speed_mode_requested": requested_mode,
+        "speed_mode_used": used_mode,
+        "turbo_fallback": turbo_fallback,
+        "cdn_host": plan.cdn_host or "未知",
+        "http_chunk_size": plan.http_chunk_size,
+    }
+    if media_type == AUDIO:
+        result.update({"format": "MP3", "acodec": "mp3"})
+    else:
+        result.update(
+            {
+                "resolution": resolution,
+                "fps": info.get("fps") or "未知",
+                "vcodec": info.get("vcodec") or "未知",
+                "acodec": info.get("acodec") or "未知",
+            }
+        )
+    return result
+
+
+def _download_bilibili(
+    url: str,
+    index: int,
+    total: int,
+    output_dir: Path,
+    progress_callback: YtdlpProgressCallback,
+    media_type: str,
+    speed_mode: str,
+) -> DownloadResult:
+    executable = aria2c_path()
+    used_mode = effective_speed_mode(BILIBILI, speed_mode, executable)
+    metadata_options = _build_ydl_options(
+        BILIBILI,
+        output_dir,
+        index,
+        total,
+        progress_callback=progress_callback,
+        media_type=media_type,
+        speed_mode=STANDARD,
+    )
+    media_name = "音频" if media_type == AUDIO else "视频"
+    print(f"\n{'─' * 56}")
+    print(
+        f"[{index}/{total}] [{PLATFORM_NAMES[BILIBILI]}] "
+        f"🔍 正在获取{media_name}信息: {url}\n"
+    )
+
+    metadata_ydl, extracted = _extract_bilibili_info(url, metadata_options)
+    try:
+        if not extracted:
+            raise yt_dlp.utils.DownloadError("下载器未返回视频信息")
+        plan = build_acceleration_plan(metadata_ydl, extracted)
+    finally:
+        metadata_ydl.close()
+
+    original_info = copy.deepcopy(extracted)
+    optimized_info = copy.deepcopy(extracted)
+    apply_cdn_host(optimized_info, plan.cdn_host)
+    for prepared in (original_info, optimized_info):
+        prepared["_media_type"] = media_type
+
+    attempts = [(used_mode, optimized_info, plan, False)]
+    if used_mode == TURBO:
+        attempts.append(
+            (STANDARD, copy.deepcopy(optimized_info), plan, True)
+        )
+
+    original_plan = AccelerationPlan(
+        False,
+        primary_host(original_info),
+        BILIBILI_HTTP_CHUNK_SIZE,
+    )
+    if plan.cdn_host and plan.cdn_host != primary_host(original_info):
+        attempts.append(
+            (
+                STANDARD,
+                original_info,
+                original_plan,
+                used_mode == TURBO,
+            )
+        )
+
+    last_error = None
+    for attempt_index, (
+        attempt_mode,
+        prepared_info,
+        attempt_plan,
+        fallback,
+    ) in enumerate(attempts):
+        options = _build_ydl_options(
+            BILIBILI,
+            output_dir,
+            index,
+            total,
+            progress_callback=progress_callback,
+            media_type=media_type,
+            speed_mode=attempt_mode,
+            aria2_executable=executable,
+        )
+        options["http_chunk_size"] = attempt_plan.http_chunk_size
+        if progress_callback:
+            progress_callback(
+                "mode",
+                {
+                    "speed_mode": attempt_mode,
+                    "turbo_fallback": fallback,
+                },
+            )
+
+        before = _temporary_snapshot(output_dir)
+        try:
+            final_info, filepath = _process_bilibili_attempt(
+                prepared_info,
+                options,
+                output_dir,
+            )
+            return _build_download_result(
+                final_info,
+                filepath,
+                PLATFORM_NAMES[BILIBILI],
+                media_type,
+                speed_mode,
+                attempt_mode,
+                fallback,
+                attempt_plan,
+            )
+        except yt_dlp.utils.DownloadError as error:
+            _cleanup_new_attempt_files(output_dir, before)
+            last_error = error
+            next_is_standard = (
+                attempt_index + 1 < len(attempts)
+                and attempts[attempt_index + 1][0] == STANDARD
+            )
+            can_retry_aria2 = (
+                attempt_mode == TURBO
+                and _is_aria2_failure(error)
+                and next_is_standard
+            )
+            can_retry_cdn = (
+                _is_cdn_access_failure(error)
+                and attempt_plan.cdn_host != primary_host(original_info)
+            )
+            if not can_retry_aria2 and not can_retry_cdn:
+                raise
+
+    raise last_error or yt_dlp.utils.DownloadError("Bilibili 下载失败")
+
+
+# ---------------------------------------------------------------------------
 # 单视频下载
 # ---------------------------------------------------------------------------
 def download_video(
@@ -501,14 +761,35 @@ def download_video(
     platform: Optional[str] = None,
     progress_callback: YtdlpProgressCallback = None,
     media_type: str = VIDEO,
+    speed_mode: str = STANDARD,
 ) -> Optional[DownloadResult]:
     """自动识别平台并使用 yt-dlp 下载单个视频。"""
     platform = platform or detect_platform(url)
     if platform is None:
         print(f"\n❌ 无法识别视频平台: {url}")
         return None
+    if speed_mode not in SPEED_MODES:
+        raise ValueError(f"不支持的速度模式: {speed_mode}")
 
     output_dir = ensure_downloads_dir()
+    if platform == BILIBILI:
+        try:
+            return _download_bilibili(
+                url,
+                index,
+                total,
+                output_dir,
+                progress_callback,
+                media_type,
+                speed_mode,
+            )
+        except yt_dlp.utils.DownloadError as error:
+            _handle_download_error(str(error), platform, media_type)
+            return None
+        except Exception as error:
+            print(f"\n❌ 发生未知错误: {error}")
+            return None
+
     options = _build_ydl_options(
         platform,
         output_dir,
@@ -547,6 +828,11 @@ def download_video(
                 "filepath": str(filepath),
                 "filesize": _format_filesize(filepath, info),
                 "media_type": media_type,
+                "speed_mode_requested": speed_mode,
+                "speed_mode_used": STANDARD,
+                "turbo_fallback": False,
+                "cdn_host": "未知",
+                "http_chunk_size": 0,
             }
             if media_type == AUDIO:
                 result.update({"format": "MP3", "acodec": "mp3"})

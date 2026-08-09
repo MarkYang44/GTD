@@ -3,7 +3,7 @@ import io
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import app as web_app
 import downloader
@@ -225,6 +225,210 @@ class BilibiliDownloadOptionsTests(unittest.TestCase):
         self.assertIn("Bilibili 风控", output.getvalue())
         self.assertIn("bilibili_cookies.txt", output.getvalue())
         self.assertIn("稍后重试", output.getvalue())
+
+
+class BilibiliTurboDownloadTests(unittest.TestCase):
+    def test_turbo_options_only_apply_to_bilibili(self):
+        output_dir = Path("/tmp/downloads")
+        bili = downloader._build_ydl_options(
+            downloader.BILIBILI,
+            output_dir,
+            1,
+            1,
+            speed_mode=downloader.TURBO,
+            aria2_executable="/bin/aria2c",
+        )
+        youtube = downloader._build_ydl_options(
+            downloader.YOUTUBE,
+            output_dir,
+            1,
+            1,
+            speed_mode=downloader.TURBO,
+            aria2_executable="/bin/aria2c",
+        )
+
+        self.assertEqual(
+            bili["external_downloader"]["http"],
+            "/bin/aria2c",
+        )
+        self.assertNotIn("external_downloader", youtube)
+
+    def test_unknown_speed_mode_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "速度模式"):
+            downloader._build_ydl_options(
+                downloader.BILIBILI,
+                Path("/tmp/downloads"),
+                1,
+                1,
+                speed_mode="warp",
+            )
+
+    def test_aria2_failure_retries_once_with_standard_mode(self):
+        info = {
+            "id": "BV1TEST",
+            "title": "Example",
+            "url": "https://primary.example/audio.m4s?token=secret",
+            "filesize": 60 * 1024 * 1024,
+            "ext": "m4a",
+        }
+        events = []
+        attempts = []
+
+        def fake_attempt(prepared_info, options, output_dir):
+            attempts.append(options.get("external_downloader"))
+            if len(attempts) == 1:
+                raise downloader.yt_dlp.utils.DownloadError(
+                    "aria2c exited with code 1"
+                )
+            return prepared_info, output_dir / "Example [BV1TEST].mp3"
+
+        with (
+            patch("downloader.aria2c_path", return_value="/bin/aria2c"),
+            patch(
+                "downloader._extract_bilibili_info",
+                return_value=(Mock(), info),
+            ),
+            patch(
+                "downloader.build_acceleration_plan",
+                return_value=Mock(
+                    adaptive=True,
+                    cdn_host="primary.example",
+                    http_chunk_size=4 * 1024 * 1024,
+                ),
+            ),
+            patch(
+                "downloader._process_bilibili_attempt",
+                side_effect=fake_attempt,
+            ),
+            patch("downloader._format_filesize", return_value="60.00 MB"),
+        ):
+            result = downloader.download_video(
+                "https://b23.tv/example",
+                platform=downloader.BILIBILI,
+                media_type=downloader.AUDIO,
+                speed_mode=downloader.TURBO,
+                progress_callback=lambda event, data: events.append(
+                    (event, data)
+                ),
+            )
+
+        self.assertEqual(attempts, [{"http": "/bin/aria2c"}, None])
+        self.assertEqual(result["speed_mode_used"], downloader.STANDARD)
+        self.assertTrue(result["turbo_fallback"])
+        self.assertNotIn("token=", repr(result))
+        self.assertIn(("mode", {
+            "speed_mode": downloader.STANDARD,
+            "turbo_fallback": True,
+        }), events)
+
+    def test_non_aria2_download_error_does_not_retry_as_standard(self):
+        info = {
+            "id": "BV1TEST",
+            "title": "Example",
+            "url": "https://a.example/v",
+            "filesize": 60,
+        }
+        with (
+            patch("downloader.aria2c_path", return_value="/bin/aria2c"),
+            patch(
+                "downloader._extract_bilibili_info",
+                return_value=(Mock(), info),
+            ),
+            patch(
+                "downloader.build_acceleration_plan",
+                return_value=Mock(
+                    adaptive=False,
+                    cdn_host="a.example",
+                    http_chunk_size=10 * 1024 * 1024,
+                ),
+            ),
+            patch(
+                "downloader._process_bilibili_attempt",
+                side_effect=downloader.yt_dlp.utils.DownloadError(
+                    "ffmpeg merge failed"
+                ),
+            ) as process,
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            result = downloader.download_video(
+                "https://b23.tv/example",
+                platform=downloader.BILIBILI,
+                speed_mode=downloader.TURBO,
+            )
+
+        self.assertIsNone(result)
+        self.assertEqual(process.call_count, 1)
+
+    def test_selected_cdn_403_retries_original_url_and_ten_mib_chunk(self):
+        info = {
+            "id": "BV1TEST",
+            "title": "Example",
+            "url": "https://primary.example/audio.m4s",
+            "filesize": 60 * 1024 * 1024,
+            "ext": "m4a",
+            "_bilibili_cdn_candidates": (
+                "https://primary.example/audio.m4s",
+                "https://fast.example/audio.m4s",
+            ),
+        }
+        seen = []
+
+        def fake_attempt(prepared_info, options, output_dir):
+            seen.append((prepared_info["url"], options["http_chunk_size"]))
+            if len(seen) == 1:
+                raise downloader.yt_dlp.utils.DownloadError("HTTP Error 403")
+            return prepared_info, output_dir / "Example [BV1TEST].mp3"
+
+        with (
+            patch(
+                "downloader._extract_bilibili_info",
+                return_value=(Mock(), info),
+            ),
+            patch(
+                "downloader.build_acceleration_plan",
+                return_value=Mock(
+                    adaptive=True,
+                    cdn_host="fast.example",
+                    http_chunk_size=4 * 1024 * 1024,
+                ),
+            ),
+            patch(
+                "downloader._process_bilibili_attempt",
+                side_effect=fake_attempt,
+            ),
+            patch("downloader._format_filesize", return_value="60.00 MB"),
+        ):
+            result = downloader.download_video(
+                "https://b23.tv/example",
+                platform=downloader.BILIBILI,
+                media_type=downloader.AUDIO,
+            )
+
+        self.assertEqual(seen, [
+            ("https://fast.example/audio.m4s", 4 * 1024 * 1024),
+            ("https://primary.example/audio.m4s", 10 * 1024 * 1024),
+        ])
+        self.assertEqual(result["cdn_host"], "primary.example")
+
+    def test_failed_attempt_cleanup_only_removes_new_temporary_files(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir)
+            existing = output_dir / "existing.part"
+            existing.write_bytes(b"keep")
+            before = downloader._temporary_snapshot(output_dir)
+            new_part = output_dir / "Example.mp4.part"
+            new_format = output_dir / "Example.f137.mp4"
+            final_file = output_dir / "Example.mp4"
+            new_part.write_bytes(b"partial")
+            new_format.write_bytes(b"partial")
+            final_file.write_bytes(b"final")
+
+            downloader._cleanup_new_attempt_files(output_dir, before)
+
+            self.assertTrue(existing.exists())
+            self.assertFalse(new_part.exists())
+            self.assertFalse(new_format.exists())
+            self.assertTrue(final_file.exists())
 
 
 class BilibiliSurfaceIntegrationTests(unittest.TestCase):
