@@ -1,4 +1,6 @@
-# YouTube + Instagram + Bilibili 视频与 MP3 / FLAC 音频批量下载工具
+# Multiple_Video_Downloader
+
+YouTube + Instagram + Bilibili 视频与 MP3 / FLAC 音频批量下载工具。
 
 这是一个基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 的程序，支持**命令行**和**网页**两种使用方式。它可以在同一批任务中自动识别 YouTube、Instagram 和 Bilibili 链接，既能下载视频，也能按用户选择输出 **MP3 V0 / 源 FLAC** 音频。最终文件统一保存到项目内的 `downloads/` 文件夹。
 
@@ -281,7 +283,7 @@ python app.py
 
 ```text
 ========================================================
-  🎬 Ytb/Ins/Bili Downloader — Web 模式
+  🎬 Multiple_Video_Downloader — Web 模式
 ========================================================
   浏览器访问:  http://127.0.0.1:8233
   下载目录:    downloader.py 同级的 downloads/
@@ -295,7 +297,7 @@ python app.py
 
 ### 网页操作流程
 
-1. 下载视频时，在上方 **“视频下载”** 区块粘贴 YouTube、Instagram 或 Bilibili 链接，**一行一个**，再点击 **“下载最高质量视频”**。
+1. 下载视频时，在上方 **“最高画质视频”** 区块粘贴 YouTube、Instagram 或 Bilibili 链接，**一行一个**，再点击 **“下载视频”**。
 2. 只需要音频时，在独立的 **“最高音质音频”** 区块粘贴链接，选择 **“MP3 V0”** 或 **“源 FLAC”**，再点击 **“下载音频”**。源站没有 FLAC 时会自动回退 MP3 V0，并在任务结果中明确提示。
 3. 视频卡片与音频卡片各有一个独立的 **“极速模式”** 开关。检测不到 aria2c 时，开关会禁用并显示标准模式提示；该开关只加速 Bilibili 任务。
 4. 后端每批最多同时处理 3 个链接，超过上限的任务会保持“等待中”，直到有下载位置空闲。网页同一时间只运行一个批次；任一批次运行时，视频和音频两个输入区都会暂时禁用。

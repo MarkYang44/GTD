@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,400&amp;display=swap" rel="stylesheet">
-<title>YTB / Ins Downloader - Designed By Mark Yang</title>
+<title>Multiple_Video_Downloader - Designed by Mark Yang</title>
 <style>
   @font-face {
     font-family: "Palatino UI Italic";
@@ -600,11 +600,15 @@
     width: min(1180px, calc(100% - 40px));
     margin: 0 auto;
     padding: 25px 0 34px;
+    display: grid;
+    gap: 7px;
     border-top: 1px solid var(--border);
     color: var(--muted);
     font-size: 11px;
     text-align: center;
   }
+  .footer-line { display: block; }
+  .footer-line-en { color: rgba(148, 163, 184, .78); }
 
   [data-reveal] { opacity: 1; transform: none; }
   .motion-ready [data-reveal] {
@@ -680,10 +684,10 @@
 <main class="main">
   <section class="hero" aria-labelledby="hero-title">
     <div class="hero-copy">
-      <div class="hero-kicker" data-reveal>YOUTUBE + INSTAGRAM + BILIBILI / ONLINE</div>
+      <div class="hero-kicker" data-reveal>YOUTUBE + INSTAGRAM + BILIBILI</div>
       <h1 id="hero-title" data-reveal>Capture. Convert. Keep.</h1>
       <p class="hero-description" data-reveal>
-        <strong>最高质量视频，或最高音质音频下载。</strong><br>
+        <strong>最高画质视频，或最高音质音频下载。</strong><br>
         粘贴链接，其余交给下载队列。
       </p>
     </div>
@@ -710,9 +714,9 @@
             <span class="card-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="m10 9 5 3-5 3Z"/></svg>
             </span>
-            <h3>最高质量视频</h3>
+            <h3>最高画质视频</h3>
           </div>
-          <p>下载源站可获取的最高质量视频，并统一输出为 MP4。</p>
+          <p>下载源站可获取的最高画质视频，并统一输出为 MP4。</p>
         </div>
         <textarea class="url-input" id="videoUrls" aria-label="视频链接" placeholder="粘贴 YouTube / Instagram / Bilibili 链接或平台分享文案，一行一个"></textarea>
         <div class="format-control-spacer" aria-hidden="true"></div>
@@ -778,7 +782,10 @@
   </section>
 </main>
 
-<footer class="footer">请仅下载自己拥有权利、获得授权或平台允许下载的视频或音频。 -- Kozeki Ui</footer>
+<footer class="footer">
+  <span class="footer-line footer-line-zh">请仅下载自己拥有权利、获得授权或平台允许下载的视频或音频。 -- Kozeki Ui</span>
+  <span class="footer-line footer-line-en" lang="en">Please only download videos or audio that you own, are authorized to use, or the platform permits you to download. -- Kozeki Ui</span>
+</footer>
 
 <script>
   const videoDownloadButton = document.getElementById("videoDownloadButton");

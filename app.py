@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-YouTube、Instagram 与 Bilibili 视频批量下载工具 — Web 界面入口。
+Multiple_Video_Downloader — Web 界面入口。
 
 启动本地 Flask 服务，通过浏览器访问网页界面进行批量下载操作。
 """
@@ -238,7 +238,7 @@ if __name__ == "__main__":
         print("⚠️  警告：未检测到 FFmpeg，最高质量下载需要 FFmpeg。")
 
     print("=" * 56)
-    print("  🎬 Ytb/Ins/Bili Downloader — Web 模式")
+    print("  🎬 Multiple_Video_Downloader — Web 模式")
     print("=" * 56)
     print(f"  浏览器访问:  http://{WEB_HOST}:{WEB_PORT}")
     print(f"  下载目录:    downloader.py 同级的 downloads/")

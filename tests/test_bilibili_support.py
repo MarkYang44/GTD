@@ -579,7 +579,8 @@ class BilibiliSurfaceIntegrationTests(unittest.TestCase):
     def test_page_names_bilibili_without_adding_new_input(self):
         html = Path("templates/index.html").read_text(encoding="utf-8")
 
-        self.assertIn("YOUTUBE + INSTAGRAM + BILIBILI / ONLINE", html)
+        self.assertIn("YOUTUBE + INSTAGRAM + BILIBILI", html)
+        self.assertNotIn("/ ONLINE", html)
         self.assertIn("YouTube / Instagram / Bilibili", html)
         self.assertEqual(html.count('id="videoUrls"'), 1)
         self.assertEqual(html.count('id="audioUrls"'), 1)

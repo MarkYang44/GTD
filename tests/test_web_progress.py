@@ -11,8 +11,19 @@ class WebConfigurationTests(unittest.TestCase):
     def test_readme_uses_current_project_directory_name(self):
         readme = Path("README.md").read_text(encoding="utf-8")
 
+        self.assertTrue(readme.startswith("# Multiple_Video_Downloader\n"))
         self.assertIn("Multiple_Video_Downloader", readme)
         self.assertNotIn("Ytb_Ins_Video_Download", readme)
+
+    def test_web_startup_banner_uses_current_project_name(self):
+        source = Path("app.py").read_text(encoding="utf-8")
+        readme = Path("README.md").read_text(encoding="utf-8")
+
+        expected = "🎬 Multiple_Video_Downloader — Web 模式"
+        self.assertIn(expected, source)
+        self.assertIn(expected, readme)
+        self.assertNotIn("Ytb/Ins/Bili Downloader", source)
+        self.assertNotIn("Ytb/Ins/Bili Downloader", readme)
 
     def test_default_web_port_and_readme_are_8233(self):
         readme = Path("README.md").read_text(encoding="utf-8")
@@ -246,7 +257,7 @@ class WebProgressStateTests(unittest.TestCase):
         html = Path("templates/index.html").read_text(encoding="utf-8")
 
         self.assertIn(
-            "<title>YTB / Ins Downloader - Designed By Mark Yang</title>",
+            "<title>Multiple_Video_Downloader - Designed by Mark Yang</title>",
             html,
         )
         self.assertIn(
@@ -254,14 +265,22 @@ class WebProgressStateTests(unittest.TestCase):
             html,
         )
         self.assertIn(
-            "<strong>最高质量视频，或最高音质音频下载。</strong><br>",
+            "<strong>最高画质视频，或最高音质音频下载。</strong><br>",
             html,
         )
+        self.assertIn("<h3>最高画质视频</h3>", html)
+        self.assertIn("下载源站可获取的最高画质视频，并统一输出为 MP4。", html)
+        self.assertNotIn("最高质量视频", html)
         self.assertIn("粘贴链接，其余交给下载队列。", html)
         self.assertIn(
             "请仅下载自己拥有权利、获得授权或平台允许下载的视频或音频。 -- Kozeki Ui",
             html,
         )
+        self.assertIn(
+            "Please only download videos or audio that you own, are authorized to use, or the platform permits you to download. -- Kozeki Ui",
+            html,
+        )
+        self.assertIn('class="footer-line footer-line-en"', html)
         self.assertNotIn('<span class="brand-mark">YD</span>', html)
         self.assertNotIn('<span class="brand-mark">MARK YANG</span>', html)
 
