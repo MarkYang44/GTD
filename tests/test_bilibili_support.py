@@ -717,8 +717,9 @@ class BilibiliDocumentationTests(unittest.TestCase):
             "https://www.bilibili.com/video/av",
             "https://b23.tv/",
             "分 P",
-            "只下载链接指定的分 P",
-            "不自动展开合集、收藏夹或番剧",
+            "预览并选择 YouTube 播放列表、Bilibili 多分 P",
+            "不承诺支持需要额外业务接口、DRM 或特殊账号权限的 Bilibili 番剧",
+            "一次最多选择 100 项",
             "标题 [内容ID].mp4",
             "标题 [内容ID].mp3",
             "Bilibili 风控或 `HTTP 412`",
@@ -732,7 +733,7 @@ class BilibiliDocumentationTests(unittest.TestCase):
             "--audio --turbo",
             "50 MiB",
             "30 分钟",
-            "高速下载中",
+            "不可中断",
             "自动切换回标准模式",
             "最多测试 4 个",
             "不修改或猜测 CDN 域名",
@@ -748,7 +749,7 @@ class CookieExtensionDocumentationTests(unittest.TestCase):
         cookie_section = readme.split(
             "## 六、需要登录时配置 Cookie",
             maxsplit=1,
-        )[1].split("## 七、常见问题", maxsplit=1)[0]
+        )[1].split("## 七、浏览器扩展开发路线", maxsplit=1)[0]
 
         required = [
             "Get cookies.txt LOCALLY",

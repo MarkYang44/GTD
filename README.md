@@ -1,24 +1,26 @@
 # Multiple_Video_Downloader
 
-YouTube + Instagram + Bilibili 视频与 MP3 / FLAC 音频批量下载工具。
+YouTube + Instagram + Bilibili 视频与多格式音频批量下载工具。
 
-这是一个基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 的程序，支持**命令行**和**网页**两种使用方式。它可以在同一批任务中自动识别 YouTube、Instagram 和 Bilibili 链接，既能下载视频，也能按用户选择输出 **MP3 V0 / 源 FLAC** 音频。最终文件统一保存到项目内的 `downloads/` 文件夹。
+这是一个基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 的程序，支持**命令行**和**网页**两种使用方式。它可以在同一批任务中自动识别 YouTube、Instagram 和 Bilibili 链接，预览播放列表、合集与分 P，既能下载视频，也能按用户选择输出 **MP3 V0 / 源 FLAC / 原始音频 / WAV PCM**。最终文件统一保存到项目内的 `downloads/` 文件夹。
 
 ## 功能
 
 - 一次输入多个 YouTube、Instagram 与 Bilibili 链接
 - 一批任务最多同时处理 3 个链接，超过上限的任务自动排队
 - 三个平台的链接可以任意混合，程序自动识别平台
+- 提交前预览并选择播放列表、合集与分 P 条目；每批最多选择 100 项
 - YouTube 自动选择可用的最高画质与最高音质
-- 音频模式选择源站可获取的最高质量音轨，可输出 MP3 V0，或在源站提供时保留 FLAC 无损音轨
+- 音频模式选择源站可获取的最高质量音轨，可输出 MP3 V0、真实源 FLAC、原始音频或 WAV PCM
 - 音频文件自动嵌入视频封面；没有封面时仍正常输出音频
 - Instagram 支持 Reels、视频帖子、IGTV 和有效期内的 Stories
 - Bilibili 支持 `BV`、`av`、移动端视频、分 P 链接和 `b23.tv` 短链接
 - Bilibili 大于 50 MiB 的文件可在源站返回的最多 4 个 CDN 主机间自适应测速；aria2c 极速模式为可选功能
-- 使用 FFmpeg 合并音视频并输出 MP4，或处理 MP3 / FLAC 音频
+- 使用 FFmpeg 合并音视频并输出 MP4，或处理 MP3 / FLAC / WAV 音频
 - **命令行模式**：交互式输入和命令行参数两种运行方式
-- **网页模式**：视频与音频使用两个独立输入区，音频区可选择 MP3 V0 或源 FLAC，并实时显示任务状态、下载速度和预计剩余时间
+- **网页模式**：视频与音频使用两个独立输入区，支持合集选择、取消、重试与重新下载，并实时显示任务状态、下载速度和预计剩余时间
 - 单个链接下载失败时继续处理后续任务
+- 错误使用稳定错误码和可执行建议；脱敏 JSONL 日志自动轮转
 - 支持通用或平台专用 Cookie 文件
 - 下载完成后显示成功、失败及文件路径汇总
 
@@ -30,6 +32,10 @@ Multiple_Video_Downloader/
 ├── app.py                       # Web 服务入口
 ├── downloader.py                # 通用下载核心逻辑（main.py 与 app.py 共用）
 ├── bilibili_acceleration.py     # Bilibili CDN 测速、缓存与极速模式策略
+├── collection_resolver.py       # 播放列表、合集与分 P 预览/选择
+├── task_control.py              # Web 队列、取消、重试与重新下载
+├── download_errors.py           # 结构化错误码与用户建议
+├── download_logging.py          # 脱敏 JSONL 轮转日志
 ├── templates/
 │   └── index.html               # Web 前端页面
 ├── requirements.txt             # Python 依赖
@@ -38,7 +44,8 @@ Multiple_Video_Downloader/
 ├── youtube_cookies.txt          # 可选：YouTube 专用 Cookie
 ├── instagram_cookies.txt        # 可选：Instagram 专用 Cookie
 ├── bilibili_cookies.txt         # 可选：Bilibili 专用 Cookie
-└── downloads/                   # 首次下载时自动创建
+├── downloads/                   # 首次下载时自动创建
+└── logs/                        # 首次记录任务事件时自动创建
 ```
 
 Cookie 文件均为可选文件，不配置时无需创建。平台专用 Cookie 的优先级高于 `cookies.txt`。
@@ -125,7 +132,7 @@ Windows PowerShell（无需激活虚拟环境）：
 
 ## 二、安装 FFmpeg
 
-FFmpeg 用于合并最高质量的视频流和音频流、封装 MP4，以及处理 MP3 / FLAC 音频和封面。没有 FFmpeg 时无法完成音频输出。
+FFmpeg 用于合并最高质量的视频流和音频流、封装 MP4，以及处理 MP3、FLAC、原始音轨封装、WAV 和封面。没有 FFmpeg 时部分音视频输出无法完成。
 
 macOS：
 
@@ -173,7 +180,7 @@ aria2c --version
 python main.py
 ```
 
-程序会先要求选择下载类型：直接回车或输入 `1` 下载视频，输入 `2` 下载音频。选择音频后，可继续选择默认的 MP3 V0 或源 FLAC；随后逐行请求链接，YouTube、Instagram 与 Bilibili 链接可以交替输入，例如：
+程序会先要求选择下载类型：直接回车或输入 `1` 下载视频，输入 `2` 下载音频。选择音频后，可继续选择 MP3 V0、源 FLAC、原始音频或 WAV PCM；随后逐行请求链接，YouTube、Instagram 与 Bilibili 链接可以交替输入。
 
 可以直接粘贴平台生成的分享文案，每行仍表示一个任务。程序会自动忽略标题并提取其中的第一个 HTTP(S) 链接，例如：
 
@@ -188,7 +195,7 @@ python main.py
 链接 4（空行结束）:
 ```
 
-输入最后一个链接后，再按一次回车提交空行。检查程序列出的平台与链接，然后在 `开始下载？(Y/n):` 后直接按回车或输入 `y`。
+输入最后一个链接后，再按一次回车提交空行。若检测到播放列表、合集或分 P，程序会先显示有序条目；输入 `all`、`1,3-5` 等选择（最多 100 项），再检查任务并在 `开始下载？(Y/n):` 后直接按回车或输入 `y`。
 
 ### 方式 B：通过命令行一次传入多个链接
 
@@ -240,6 +247,28 @@ python main.py --audio --flac "https://www.bilibili.com/video/BV1fsTM6CE9P"
 
 如果该内容没有 FLAC 音轨，任务不会失败，而是显示“源站未提供 FLAC，已自动回退至 MP3 V0”并输出 MP3 V0。
 
+使用统一的 `--audio-format` 参数选择四种音频输出：
+
+```bash
+python main.py --audio --audio-format mp3 "https://youtu.be/xxxx"
+python main.py --audio --audio-format flac "https://www.bilibili.com/video/BV1fsTM6CE9P"
+python main.py --audio --audio-format source "https://youtu.be/xxxx"
+python main.py --audio --audio-format wav "https://youtu.be/xxxx"
+```
+
+`source` 保留 yt-dlp 选中源音轨的实际编码与扩展名；`wav` 解码为未压缩 PCM，文件通常明显更大，但不会让有损源恢复为无损音质。旧命令 `--audio --flac` 仍然兼容，等价于 `--audio --audio-format flac`。
+
+下载播放列表、合集或 Bilibili 分 P 时，命令行参数模式必须明确指定条目：
+
+```bash
+# 下载前 5 项
+python main.py --items 1-5 "https://www.youtube.com/playlist?list=xxxx"
+
+# 下载全部可用项；超过 100 项时会拒绝并要求缩小范围
+python main.py --audio --audio-format source --items all \
+  "https://www.bilibili.com/video/BVxxxxxxxxxx"
+```
+
 为 Bilibili 视频启用可选极速模式：
 
 ```bash
@@ -252,7 +281,7 @@ python main.py --turbo "https://www.bilibili.com/video/BV1xRuu6fEeA"
 python main.py --audio --turbo "https://www.bilibili.com/video/BV1xRuu6fEeA"
 ```
 
-命令行参数模式不再二次询问，会立即开始下载。`--flac` 只能与 `--audio` 一起使用；`--audio`、`--flac` 与 `--turbo` 可放在 URL 参数之间，但建议放在最前面。未带 `--turbo` 时始终使用标准模式。始终用引号包住链接，避免链接中的 `&` 等字符被终端解释。macOS 终端使用反斜杠 `\` 续行，Windows PowerShell 使用反引号 `` ` `` 续行；也可以将整条命令写在同一行。
+命令行参数模式不再二次确认，会立即开始下载。合集未带 `--items` 时会停止并给出中文提示，避免意外下载整个列表。`--flac` 与 `--audio-format` 只能和 `--audio` 一起使用；`--audio`、`--audio-format`、`--items` 与 `--turbo` 建议放在 URL 前面。未带 `--turbo` 时始终使用标准模式。始终用引号包住链接，避免链接中的 `&` 等字符被终端解释。macOS 终端使用反斜杠 `\` 续行，Windows PowerShell 使用反引号 `` ` `` 续行；也可以将整条命令写在同一行。
 
 ### 查看下载结果
 
@@ -297,18 +326,23 @@ python app.py
 
 ### 网页操作流程
 
-1. 下载视频时，在上方 **“最高画质视频”** 区块粘贴 YouTube、Instagram 或 Bilibili 链接，**一行一个**，再点击 **“下载视频”**。
-2. 只需要音频时，在独立的 **“最高音质音频”** 区块粘贴链接，选择 **“MP3 V0”** 或 **“源 FLAC”**，再点击 **“下载音频”**。源站没有 FLAC 时会自动回退 MP3 V0，并在任务结果中明确提示。
-3. 视频卡片与音频卡片各有一个独立的 **“极速模式”** 开关。检测不到 aria2c 时，开关会禁用并显示标准模式提示；该开关只加速 Bilibili 任务。
-4. 后端每批最多同时处理 3 个链接，超过上限的任务会保持“等待中”，直到有下载位置空闲。网页同一时间只运行一个批次；任一批次运行时，视频和音频两个输入区都会暂时禁用。
-5. 下方任务列表会实时显示每个链接的状态：
-   - **等待中** — 尚未开始下载
-   - **下载中** — 极速任务显示“高速下载中”；标准任务继续显示准确的下载速度、预计剩余时间和进度百分比
-   - **下载完成** — 视频显示标题、分辨率和文件大小；音频显示实际格式、源编码/码率、文件大小、回退提示和保存路径
-   - **下载失败** — 下载失败，显示错误原因
-6. 每个区块都有独立的 **“清空输入”**；下载期间不可清空，另一区块中尚未提交的内容会保留。
-7. 所有任务完成后，两个区块恢复可用，可继续提交下一批链接。
-8. 下载的文件保存在 `downloads/` 目录中。
+1. 下载视频时，在 **“最高画质视频”** 区块粘贴链接或分享文案；只需要音频时，在独立的 **“最高音质音频”** 区块操作。
+2. 音频可选 **MP3 V0**、**源 FLAC**、**原始音频**或 **WAV PCM**。原始音频的扩展名取决于源流；WAV 文件较大且不会提升源音质；源站没有 FLAC 时会自动回退 MP3 V0。
+3. 点击下载后，系统先读取输入。单条内容保持一键提交；播放列表、合集与分 P 会显示共享预览面板，可勾选条目、全选并查看计数，一次最多提交 100 项。
+4. 视频卡片与音频卡片各有独立的 **“极速模式”** 开关。检测不到 aria2c 时，开关会禁用；该开关只用于 Bilibili。
+5. 后端所有批次共用最多 3 个工作槽，其中 Bilibili 最多同时运行 2 项。超过上限的任务保持“等待中”，有空位后自动开始。
+6. 下方任务列表会显示等待、下载、不可中断的极速下载、完成、失败和已取消状态，并显示下载速度、预计剩余时间、进度、输出规格及保存路径。
+7. 失败任务显示稳定的 `error_code`、中文说明和建议；每次尝试可展开查看状态和时间。
+8. 可取消等待中或标准下载任务；失败/取消后可重试，批次中可一次重试所有可重试失败项；完成后可重新下载并保留旧文件。
+9. 每个输入区都有独立的 **“清空输入”**。下载文件保存在 `downloads/` 目录中。
+
+### 取消、重试与重新下载
+
+- **取消**：等待任务立即取消；正在运行的标准任务在下载器的下一个协作检查点停止，并清理本次新生成的临时文件。
+- **aria2c 极速任务**：进入“不可中断”状态后不提供取消按钮，必须等待该任务完成；这是已确认的极速模式行为。
+- **重试**：失败或取消任务重新进入同一队列，并保留每一次尝试记录。不可重试错误不会显示重试操作。
+- **重新下载**：只针对已完成任务，生成新任务且不覆盖原文件；新文件使用 `(2)`、`(3)` 等递增后缀。
+- **批次保留**：服务在内存中最多保留 100 个批次，重启 Web 服务后历史任务状态清空，但已经下载的文件不会被删除。
 
 ### 测试批量下载
 
@@ -337,6 +371,8 @@ https://www.youtube.com/watch?v=BaW_jenozKc
 | YouTube | 直播或回放 | `https://www.youtube.com/live/xxxx` |
 | YouTube | 嵌入视频 | `https://www.youtube.com/embed/xxxx` |
 | YouTube Music | 视频 | `https://music.youtube.com/watch?v=xxxx` |
+| YouTube | 播放列表 | `https://www.youtube.com/playlist?list=xxxx` |
+| YouTube | 带列表参数的视频 | `https://www.youtube.com/watch?v=xxxx&list=yyyy` |
 | Instagram | Reels | `https://www.instagram.com/reel/xxxx/` |
 | Instagram | 视频帖子 | `https://www.instagram.com/p/xxxx/` |
 | Instagram | IGTV | `https://www.instagram.com/tv/xxxx/` |
@@ -345,9 +381,14 @@ https://www.youtube.com/watch?v=BaW_jenozKc
 | Bilibili | av 视频 | `https://www.bilibili.com/video/av170001` |
 | Bilibili | 移动端视频 | `https://m.bilibili.com/video/BV1GJ411x7h7` |
 | Bilibili | 指定分 P | `https://www.bilibili.com/video/BV1GJ411x7h7?p=2` |
+| Bilibili | 多分 P 视频 | `https://www.bilibili.com/video/BVxxxxxxxxxx` |
+| Bilibili | 合集 / 列表 | `https://www.bilibili.com/list/...`、`/medialist/...` |
+| Bilibili | UP 主合集 | `https://space.bilibili.com/123/lists/...` |
 | Bilibili | 短链接 | `https://b23.tv/BV1GJ411x7h7` |
 
-YouTube 播放列表链接不会整表下载；程序按单个视频处理。Instagram 图片帖子没有视频内容时无法生成视频文件。Bilibili 分 P 视频只下载链接指定的分 P，未带 `?p=` 时下载第 1 P；程序不自动展开合集、收藏夹或番剧。
+程序会预览并选择 YouTube 播放列表、Bilibili 多分 P、`list` / `medialist` 及 UP 主 `lists` 页面；能否展开仍取决于 yt-dlp、页面公开状态和当前 Cookie 权限。Instagram 多视频帖子可按提取器返回结果预览，图片条目会标记为不可下载。
+
+当前不承诺支持需要额外业务接口、DRM 或特殊账号权限的 Bilibili 番剧批量页、稍后再看、私密收藏夹，以及平台未向 yt-dlp 暴露条目的页面。无法解析时会返回 `COLLECTION_EXTRACT_FAILED`，不会静默下载错误内容。无论来源有多少条，一次最多选择 100 项。
 
 ### 输出文件名与音质说明
 
@@ -355,7 +396,7 @@ YouTube 播放列表链接不会整表下载；程序按单个视频处理。Ins
 - 实际音频文件名会在扩展名前追加真实规格。例如，以约 1521 kbps 的源 FLAC 转换 MP3 时得到 `标题 [内容ID] [MP3 V0 · 源FLAC 1521kbps].mp3`；保留源文件时得到 `标题 [内容ID] [FLAC Lossless · 1521kbps].flac`。
 - MP3 V0 会先选取源站可获取的最高质量音轨，再使用 FFmpeg 的最高 VBR 品质设置转换。即使输入是 Hi-Res FLAC，MP3 成品仍是有损音频，不能保留真正的无损数据。
 - “源 FLAC”只在提取结果确实包含 FLAC 音轨时直接输出 FLAC；程序不会把 AAC、Opus 等有损源转码并伪装成 FLAC。没有 FLAC 时自动回退 MP3 V0。
-- MP3 和 FLAC 会自动嵌入视频封面，不额外保留封面图片；源内容没有封面时仍正常输出音频，行为与原来相同。
+- MP3 和 FLAC 会自动嵌入视频封面；原始 M4A 等支持封面的容器也会尝试嵌入。WebM 与 WAV 不支持当前封面写入流程，会正常输出无封面音频；源内容没有封面时所有格式都照常完成。
 
 ### Bilibili 下载加速策略
 
@@ -365,6 +406,20 @@ YouTube 播放列表链接不会整表下载；程序按单个视频处理。Ins
 - 程序不修改或猜测 CDN 域名，也不会绕过平台的权限、风控或限速机制。
 - aria2c 不可用、执行失败，或选中的 CDN 返回 `HTTP 403` / `HTTP 412` 时，会自动切换回标准模式或原始 CDN 继续尝试。
 - 实际速度仍取决于地区、网络路由、账号状态和 Bilibili 当前 CDN 负载，无法保证固定幅度的提升。
+
+### 结构化错误码与日志
+
+网页会显示稳定的错误码、中文说明和建议，例如 `AUTH_REQUIRED`、`NETWORK_TIMEOUT`、`RATE_LIMITED`、`FORMAT_UNAVAILABLE`、`COLLECTION_EXTRACT_FAILED`、`ARIA2_FAILED` 与 `POSTPROCESS_FAILED`。CLI 下载错误使用相同格式，便于区分凭证、网络、格式、合集解析和后处理问题。
+
+任务事件写入 `logs/downloader.jsonl`，每行一个 JSON 对象。单个日志达到 10 MiB 后自动轮转，最多保留 5 个备份。日志仅记录任务阶段、平台、媒体/音频格式、速度模式、尝试次数、耗时与错误字段；URL 查询参数、Cookie、Authorization、Token 和密码会被脱敏。日志目录不可写时只显示一次警告，不会让下载任务失败。
+
+排查问题时可以查看最近事件：
+
+```bash
+tail -n 50 logs/downloader.jsonl
+```
+
+不要将整个日志或 Cookie 文件公开上传；即使日志已自动脱敏，也应只分享解决问题所需的最小片段。
 
 ## 六、需要登录时配置 Cookie
 
@@ -418,7 +473,22 @@ YouTube、Instagram 和 Bilibili 分别执行一次以下步骤，不要把三�
 
 Cookie 文件等同于登录凭证。不要上传、分享、截图或提交到 Git，也不要粘贴到聊天、Issue 或日志中。扩展只应从上述官方商店链接安装。若 Cookie 已泄露，应立即在对应平台退出其他会话或撤销登录状态，必要时修改密码，然后删除旧文件并重新导出。
 
-## 七、常见问题
+## 七、浏览器扩展开发路线
+
+当前仓库尚未包含浏览器扩展。若要把“当前页面一键加入下载队列”做成可发布扩展，需要完成以下工作：
+
+1. **定义本地 API 契约**：为 `http://127.0.0.1:8233` 增加扩展专用健康检查、预览、提交和任务查询接口；保持现有结构化错误响应，并约定 API 版本。
+2. **增加本机配对安全**：Web 服务首次生成短期配对码，扩展交换得到本地访问令牌；限制允许的 Origin、请求方法和字段，令牌存入扩展本地存储。扩展不读取、不上传项目 Cookie 文件。
+3. **创建 Manifest V3 扩展**：实现 popup、后台 service worker 和右键菜单。popup 负责选择视频/音频、四种音频格式与极速模式；service worker 负责提取当前标签页 URL、调用本地 API、轮询状态及恢复中断的 UI。
+4. **坚持最小权限**：优先使用 `activeTab`、`contextMenus`、`storage` 和 `notifications`；`host_permissions` 只允许 `http://127.0.0.1:8233/*`。若不用内容脚本即可获得当前页面 URL，就不要申请读取所有网站内容的权限。
+5. **处理合集选择**：单条页面可直接提交；播放列表、合集或分 P 先调用预览 API。条目较少时在 popup 勾选，条目多时打开本地网站的选择面板，继续遵守 100 项上限。
+6. **状态与通知**：显示服务未启动、待配对、排队、下载中、不可取消的 aria2c、完成和结构化错误状态；下载完成后可用系统通知提示，但不要把敏感 URL 放进通知文本。
+7. **测试与打包**：为 URL 识别、配对、API 失败、service worker 重启和权限边界编写自动化测试；在 Chrome/Edge 手动验证后生成商店包、隐私说明、图标和版本更新流程。
+8. **适配 Safari 与 Firefox**：Firefox 需要核对当前 MV3 service worker、权限和商店签名差异；Safari 需通过 Xcode 转换为 Safari Web Extension、配置 App 容器并单独签名/公证。两者应复用协议和业务逻辑，但保留各自构建入口。
+
+建议先完成 Chrome/Edge MVP：当前标签页 → popup 选择 → 本地配对 → 预览/提交 → 状态通知。确认本地 API 和权限模型稳定后，再移植 Safari 与 Firefox。
+
+## 八、常见问题
 
 | 问题 | 处理方式 |
 |---|---|
@@ -438,7 +508,7 @@ Cookie 文件等同于登录凭证。不要上传、分享、截图或提交到 
 | Web 进度出现控制码或乱码 | 重启 Web 服务并强制刷新页面；新版会在后端清除 yt-dlp 的终端颜色控制码 |
 | Web 端口被占用 | 修改 `app.py` 中的 `WEB_PORT = 8233` 后重新启动服务 |
 
-## 八、退出状态（命令行模式）
+## 九、退出状态（命令行模式）
 
 - 所有任务成功：退出码 `0`
 - 任一任务失败或没有合法链接：退出码 `1`

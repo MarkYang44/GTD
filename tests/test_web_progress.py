@@ -41,6 +41,19 @@ class WebConfigurationTests(unittest.TestCase):
         )
         self.assertFalse(hasattr(web_app, "_batches"))
 
+    def test_readme_documents_new_task_collection_and_audio_features(self):
+        readme = Path("README.md").read_text(encoding="utf-8")
+
+        for text in (
+            "取消、重试与重新下载",
+            "播放列表、合集与分 P",
+            "原始音频",
+            "WAV",
+            "logs/downloader.jsonl",
+            "浏览器扩展",
+        ):
+            self.assertIn(text, readme)
+
 
 class WebProgressStateTests(unittest.TestCase):
     def test_frontend_has_four_audio_formats_and_collection_preview(self):
