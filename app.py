@@ -12,7 +12,11 @@ from flask import Flask, jsonify, render_template, request
 from downloader import (
     MEDIA_TYPES,
     PLATFORM_NAMES,
+    SPEED_MODES,
+    STANDARD,
+    TURBO,
     VIDEO,
+    aria2c_path,
     check_ffmpeg,
     download_tasks,
     make_task,
@@ -29,12 +33,17 @@ _lock = threading.Lock()
 _batches: dict[str, dict] = {}
 
 
-def _create_batch(tasks: list, media_type: str = VIDEO) -> dict:
+def _create_batch(
+    tasks: list,
+    media_type: str = VIDEO,
+    speed_mode: str = STANDARD,
+) -> dict:
     """根据任务列表创建初始 batch 数据结构。"""
     batch_id = uuid.uuid4().hex[:8]
     batch = {
         "id": batch_id,
         "media_type": media_type,
+        "speed_mode": speed_mode,
         "tasks": [
             {
                 "index": i,
@@ -46,6 +55,8 @@ def _create_batch(tasks: list, media_type: str = VIDEO) -> dict:
                 "result": None,
                 "error": None,
                 "progress": None,
+                "speed_mode_used": STANDARD,
+                "turbo_fallback": False,
             }
             for i, (platform, url) in enumerate(tasks)
         ],
@@ -79,8 +90,24 @@ def _apply_progress_event(batch: dict, task_index: int, event: str, data: object
             for key in ("percent_text", "speed_mbps", "speed_text", "eta_text")
             if key in data
         }
+    elif event == "mode" and isinstance(data, dict):
+        task["status"] = "downloading"
+        task["speed_mode_used"] = (
+            data.get("speed_mode")
+            if data.get("speed_mode") in SPEED_MODES
+            else STANDARD
+        )
+        task["turbo_fallback"] = bool(data.get("turbo_fallback"))
+        if task["speed_mode_used"] == TURBO:
+            task["progress"] = None
     elif event == "completed" and isinstance(data, dict):
         task["status"] = "completed"
+        task["speed_mode_used"] = str(
+            data.get("speed_mode_used", STANDARD)
+        )
+        task["turbo_fallback"] = bool(
+            data.get("turbo_fallback", False)
+        )
         task["result"] = {k: str(v) for k, v in data.items()}
         task["progress"] = None
         batch["completed"] += 1
@@ -91,7 +118,12 @@ def _apply_progress_event(batch: dict, task_index: int, event: str, data: object
         batch["failed"] += 1
 
 
-def _run_downloads(batch_id: str, tasks: list, media_type: str = VIDEO) -> None:
+def _run_downloads(
+    batch_id: str,
+    tasks: list,
+    media_type: str = VIDEO,
+    speed_mode: str = STANDARD,
+) -> None:
     """后台线程：并行执行下载并更新 batch 状态。"""
 
     def _on_progress(task_index: int, event: str, data: object) -> None:
@@ -105,6 +137,7 @@ def _run_downloads(batch_id: str, tasks: list, media_type: str = VIDEO) -> None:
         tasks,
         progress_callback=_on_progress,
         media_type=media_type,
+        speed_mode=speed_mode,
     )
 
     with _lock:
@@ -122,15 +155,24 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/api/capabilities")
+def api_capabilities():
+    """返回当前服务可用的可选下载能力。"""
+    return jsonify({"aria2c_available": aria2c_path() is not None})
+
+
 @app.route("/api/download", methods=["POST"])
 def api_download():
     """接收 URL 列表，启动后台下载线程，返回 batch_id。"""
     body = request.get_json(silent=True) or {}
     urls: list[str] = body.get("urls", [])
     media_type = body.get("media_type", VIDEO)
+    speed_mode = body.get("speed_mode", STANDARD)
 
     if not isinstance(media_type, str) or media_type not in MEDIA_TYPES:
         return jsonify({"error": "不支持的下载类型"}), 400
+    if not isinstance(speed_mode, str) or speed_mode not in SPEED_MODES:
+        return jsonify({"error": "不支持的速度模式"}), 400
 
     if not urls:
         return jsonify({"error": "请至少提供一个视频链接"}), 400
@@ -145,11 +187,15 @@ def api_download():
     if not tasks:
         return jsonify({"error": "未识别到任何受支持的 YouTube、Instagram 或 Bilibili 链接"}), 400
 
-    batch = _create_batch(tasks, media_type=media_type)
+    batch = _create_batch(
+        tasks,
+        media_type=media_type,
+        speed_mode=speed_mode,
+    )
 
     thread = threading.Thread(
         target=_run_downloads,
-        args=(batch["id"], tasks, media_type),
+        args=(batch["id"], tasks, media_type, speed_mode),
         daemon=True,
     )
     thread.start()

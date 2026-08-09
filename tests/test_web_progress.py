@@ -299,5 +299,91 @@ class WebDownloadApiTests(unittest.TestCase):
         thread_class.assert_not_called()
 
 
+class WebTurboApiTests(unittest.TestCase):
+    def setUp(self):
+        web_app._batches.clear()
+        self.client = web_app.app.test_client()
+
+    def test_capabilities_reports_aria2_boolean(self):
+        with patch(
+            "app.aria2c_path",
+            return_value="/opt/homebrew/bin/aria2c",
+        ):
+            response = self.client.get("/api/capabilities")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json(), {"aria2c_available": True})
+
+    def test_download_defaults_to_standard_speed_mode(self):
+        with patch("app.threading.Thread"):
+            response = self.client.post(
+                "/api/download",
+                json={"urls": ["https://b23.tv/example"]},
+            )
+
+        batch = web_app._batches[response.get_json()["batch_id"]]
+        self.assertEqual(batch["speed_mode"], downloader.STANDARD)
+        self.assertEqual(
+            batch["tasks"][0]["speed_mode_used"],
+            downloader.STANDARD,
+        )
+
+    def test_download_forwards_turbo_to_background_thread(self):
+        with patch("app.threading.Thread") as thread_class:
+            response = self.client.post(
+                "/api/download",
+                json={
+                    "urls": ["https://b23.tv/example"],
+                    "media_type": downloader.AUDIO,
+                    "speed_mode": downloader.TURBO,
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            thread_class.call_args.kwargs["args"][3],
+            downloader.TURBO,
+        )
+
+    def test_download_rejects_non_string_and_unknown_speed_modes(self):
+        for value in (["turbo"], "warp"):
+            with self.subTest(value=value), patch(
+                "app.threading.Thread"
+            ) as thread_class:
+                response = self.client.post(
+                    "/api/download",
+                    json={
+                        "urls": ["https://b23.tv/example"],
+                        "speed_mode": value,
+                    },
+                )
+
+                self.assertEqual(response.status_code, 400)
+                self.assertIn("速度模式", response.get_json()["error"])
+                thread_class.assert_not_called()
+
+    def test_mode_event_updates_task_without_creating_terminal_state(self):
+        batch = web_app._create_batch(
+            [(downloader.BILIBILI, "https://b23.tv/example")],
+            speed_mode=downloader.TURBO,
+        )
+
+        web_app._apply_progress_event(
+            batch,
+            0,
+            "mode",
+            {
+                "speed_mode": downloader.STANDARD,
+                "turbo_fallback": True,
+            },
+        )
+
+        task = batch["tasks"][0]
+        self.assertEqual(task["speed_mode_used"], downloader.STANDARD)
+        self.assertTrue(task["turbo_fallback"])
+        self.assertEqual(batch["completed"], 0)
+        self.assertEqual(batch["failed"], 0)
+
+
 if __name__ == "__main__":
     unittest.main()
