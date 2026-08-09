@@ -94,6 +94,28 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn("startDownload('video')", html)
         self.assertIn("startDownload('audio')", html)
 
+    def test_frontend_has_mp3_and_source_flac_selector(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8")
+
+        self.assertIn('id="audioFormatMp3"', html)
+        self.assertIn('id="audioFormatFlac"', html)
+        self.assertIn('name="audioFormat"', html)
+        self.assertRegex(
+            html,
+            r'id="audioFormatMp3"[^>]*value="mp3"[^>]*checked',
+        )
+        self.assertIn("formatInputs", html)
+        self.assertIn("formatInput.disabled = disabled", html)
+
+    def test_frontend_submits_and_renders_audio_format_details(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8")
+
+        self.assertIn("audio_format: audioFormat", html)
+        self.assertIn('input[name="audioFormat"]:checked', html)
+        self.assertIn("源站未提供 FLAC，已自动回退至 MP3 V0", html)
+        self.assertIn("source_acodec", html)
+        self.assertIn("source_abr_kbps", html)
+
     def test_frontend_sends_media_type_and_disables_both_sections(self):
         html = Path("templates/index.html").read_text(encoding="utf-8")
 
@@ -122,7 +144,7 @@ class WebProgressStateTests(unittest.TestCase):
             html,
         )
         self.assertIn(
-            "JSON.stringify({ urls, media_type: mediaType, speed_mode: speedMode })",
+            "JSON.stringify({ urls, media_type: mediaType, speed_mode: speedMode, audio_format: audioFormat })",
             html,
         )
 
@@ -294,6 +316,7 @@ class WebDownloadApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         batch = web_app._batches[response.get_json()["batch_id"]]
         self.assertEqual(batch["media_type"], downloader.VIDEO)
+        self.assertEqual(batch["audio_format"], downloader.MP3)
 
     def test_download_api_creates_audio_batch_and_forwards_media_type(self):
         with patch("app.threading.Thread") as thread_class:
@@ -308,7 +331,46 @@ class WebDownloadApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         batch = web_app._batches[response.get_json()["batch_id"]]
         self.assertEqual(batch["media_type"], downloader.AUDIO)
+        self.assertEqual(batch["audio_format"], downloader.MP3)
         self.assertEqual(thread_class.call_args.kwargs["args"][2], downloader.AUDIO)
+
+    def test_download_api_creates_flac_audio_batch(self):
+        with patch("app.threading.Thread") as thread_class:
+            response = self.client.post(
+                "/api/download",
+                json={
+                    "urls": ["https://b23.tv/example"],
+                    "media_type": downloader.AUDIO,
+                    "audio_format": downloader.FLAC,
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        batch = web_app._batches[response.get_json()["batch_id"]]
+        self.assertEqual(batch["audio_format"], downloader.FLAC)
+        self.assertEqual(
+            thread_class.call_args.kwargs["args"][4],
+            downloader.FLAC,
+        )
+
+    def test_download_api_rejects_unknown_and_non_string_audio_format(self):
+        for value in ("wav", [downloader.FLAC]):
+            with (
+                self.subTest(value=value),
+                patch("app.threading.Thread") as thread_class,
+            ):
+                response = self.client.post(
+                    "/api/download",
+                    json={
+                        "urls": ["https://youtu.be/example"],
+                        "media_type": downloader.AUDIO,
+                        "audio_format": value,
+                    },
+                )
+
+                self.assertEqual(response.status_code, 400)
+                self.assertIn("音频格式", response.get_json()["error"])
+                thread_class.assert_not_called()
 
     def test_download_api_rejects_unknown_media_type(self):
         with patch("app.threading.Thread") as thread_class:

@@ -10,7 +10,9 @@ import uuid
 from flask import Flask, jsonify, render_template, request
 
 from downloader import (
+    AUDIO_FORMATS,
     MEDIA_TYPES,
+    MP3,
     PLATFORM_NAMES,
     SPEED_MODES,
     STANDARD,
@@ -37,6 +39,7 @@ def _create_batch(
     tasks: list,
     media_type: str = VIDEO,
     speed_mode: str = STANDARD,
+    audio_format: str = MP3,
 ) -> dict:
     """根据任务列表创建初始 batch 数据结构。"""
     batch_id = uuid.uuid4().hex[:8]
@@ -44,6 +47,7 @@ def _create_batch(
         "id": batch_id,
         "media_type": media_type,
         "speed_mode": speed_mode,
+        "audio_format": audio_format,
         "tasks": [
             {
                 "index": i,
@@ -57,6 +61,7 @@ def _create_batch(
                 "progress": None,
                 "speed_mode_used": STANDARD,
                 "turbo_fallback": False,
+                "audio_format_fallback": False,
             }
             for i, (platform, url) in enumerate(tasks)
         ],
@@ -108,6 +113,9 @@ def _apply_progress_event(batch: dict, task_index: int, event: str, data: object
         task["turbo_fallback"] = bool(
             data.get("turbo_fallback", False)
         )
+        task["audio_format_fallback"] = bool(
+            data.get("audio_format_fallback", False)
+        )
         task["result"] = {k: str(v) for k, v in data.items()}
         task["progress"] = None
         batch["completed"] += 1
@@ -123,6 +131,7 @@ def _run_downloads(
     tasks: list,
     media_type: str = VIDEO,
     speed_mode: str = STANDARD,
+    audio_format: str = MP3,
 ) -> None:
     """后台线程：并行执行下载并更新 batch 状态。"""
 
@@ -138,6 +147,7 @@ def _run_downloads(
         progress_callback=_on_progress,
         media_type=media_type,
         speed_mode=speed_mode,
+        audio_format=audio_format,
     )
 
     with _lock:
@@ -168,11 +178,14 @@ def api_download():
     urls: list[str] = body.get("urls", [])
     media_type = body.get("media_type", VIDEO)
     speed_mode = body.get("speed_mode", STANDARD)
+    audio_format = body.get("audio_format", MP3)
 
     if not isinstance(media_type, str) or media_type not in MEDIA_TYPES:
         return jsonify({"error": "不支持的下载类型"}), 400
     if not isinstance(speed_mode, str) or speed_mode not in SPEED_MODES:
         return jsonify({"error": "不支持的速度模式"}), 400
+    if not isinstance(audio_format, str) or audio_format not in AUDIO_FORMATS:
+        return jsonify({"error": "不支持的音频格式"}), 400
 
     if not urls:
         return jsonify({"error": "请至少提供一个视频链接"}), 400
@@ -191,11 +204,12 @@ def api_download():
         tasks,
         media_type=media_type,
         speed_mode=speed_mode,
+        audio_format=audio_format,
     )
 
     thread = threading.Thread(
         target=_run_downloads,
-        args=(batch["id"], tasks, media_type, speed_mode),
+        args=(batch["id"], tasks, media_type, speed_mode, audio_format),
         daemon=True,
     )
     thread.start()

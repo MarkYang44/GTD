@@ -374,6 +374,46 @@
   .url-input::placeholder { color: #64748b; }
   .url-input:disabled { opacity: .58; cursor: wait; }
 
+  .format-control {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    margin-top: 14px;
+    padding: 5px;
+    border: 1px solid var(--border);
+    background: rgba(7, 12, 24, .48);
+  }
+  .format-control legend {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .format-option { position: relative; min-width: 0; }
+  .format-option input { position: absolute; opacity: 0; pointer-events: none; }
+  .format-option span {
+    display: grid;
+    min-height: 40px;
+    place-items: center;
+    padding: 8px 10px;
+    color: var(--muted);
+    font-size: 12px;
+    cursor: pointer;
+    transition: color .2s ease, background .2s ease, box-shadow .2s ease;
+  }
+  .format-option input:checked + span {
+    color: var(--foreground);
+    background: rgba(0, 161, 155, .16);
+    box-shadow: inset 0 0 0 1px var(--border-strong);
+  }
+  .format-option input:focus-visible + span {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .format-option input:disabled + span { opacity: .42; cursor: wait; }
+
   .turbo-control {
     display: flex;
     align-items: center;
@@ -690,11 +730,22 @@
             <span class="card-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24"><path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg>
             </span>
-            <h3>最高音质 MP3</h3>
+            <h3>最高音质音频</h3>
           </div>
-          <p>提取最佳可用音轨，并使用 FFmpeg 转换为高质量 MP3。</p>
+          <p>选择 MP3 V0，或在源站提供时保留原始 FLAC 无损音轨。</p>
         </div>
         <textarea class="url-input" id="audioUrls" aria-label="音频链接" placeholder="粘贴音频链接或平台分享文案，一行一个"></textarea>
+        <fieldset class="format-control" id="audioFormatControl">
+          <legend>音频输出格式</legend>
+          <label class="format-option">
+            <input type="radio" name="audioFormat" id="audioFormatMp3" value="mp3" checked>
+            <span>MP3 V0</span>
+          </label>
+          <label class="format-option">
+            <input type="radio" name="audioFormat" id="audioFormatFlac" value="flac">
+            <span>源 FLAC</span>
+          </label>
+        </fieldset>
         <div class="turbo-control">
           <span class="turbo-copy"><span class="turbo-title">极速模式</span><span class="turbo-hint" id="audioTurboHint">正在检测 aria2c…</span></span>
           <label class="turbo-switch" aria-label="音频极速模式">
@@ -703,7 +754,7 @@
           </label>
         </div>
         <div class="btn-row">
-          <button class="btn btn-audio" id="audioDownloadButton" onclick="startDownload('audio')">下载 MP3 <span class="btn-arrow" aria-hidden="true">↘</span></button>
+          <button class="btn btn-audio" id="audioDownloadButton" onclick="startDownload('audio')">下载音频 <span class="btn-arrow" aria-hidden="true">↘</span></button>
           <button class="btn btn-secondary" id="audioClearButton" onclick="clearInput('audio')">清空输入</button>
         </div>
       </section>
@@ -733,6 +784,7 @@
       clearButton: document.getElementById("videoClearButton"),
       turboToggle: document.getElementById("videoTurboToggle"),
       turboHint: document.getElementById("videoTurboHint"),
+      formatInputs: [],
       name: "视频",
     },
     audio: {
@@ -741,7 +793,8 @@
       clearButton: document.getElementById("audioClearButton"),
       turboToggle: document.getElementById("audioTurboToggle"),
       turboHint: document.getElementById("audioTurboHint"),
-      name: "MP3 音频",
+      formatInputs: Array.from(document.querySelectorAll('input[name="audioFormat"]')),
+      name: "音频",
     },
   };
   const taskTitle = document.getElementById("task-title");
@@ -768,6 +821,9 @@
       control.downloadButton.disabled = disabled;
       control.clearButton.disabled = disabled;
       control.turboToggle.disabled = disabled || !aria2Available;
+      control.formatInputs.forEach(formatInput => {
+        formatInput.disabled = disabled;
+      });
     });
   }
 
@@ -827,19 +883,24 @@
     }
 
     const speedMode = control.turboToggle.checked ? "turbo" : "standard";
+    const audioFormat = mediaType === "audio"
+      ? document.querySelector('input[name="audioFormat"]:checked').value
+      : "mp3";
 
     isDownloading = true;
     setControlsDisabled(true);
     setOperationalMetrics(0, urls.length);
     renderPendingSkeleton(urls.length);
-    taskTitle.textContent = mediaType === "audio" ? "MP3 音频下载任务" : "视频下载任务";
+    taskTitle.textContent = mediaType === "audio"
+      ? (audioFormat === "flac" ? "源 FLAC 音频下载任务" : "MP3 音频下载任务")
+      : "视频下载任务";
     taskSummary.textContent = "正在提交...";
 
     try {
       const resp = await fetch("/api/download", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ urls, media_type: mediaType, speed_mode: speedMode }),
+        body: JSON.stringify({ urls, media_type: mediaType, speed_mode: speedMode, audio_format: audioFormat }),
       });
       const data = await resp.json();
 
@@ -881,7 +942,7 @@
       renderTasks(batch);
 
       taskTitle.textContent = batch.media_type === "audio"
-        ? "MP3 音频下载任务"
+        ? (batch.audio_format === "flac" ? "源 FLAC 音频下载任务" : "MP3 音频下载任务")
         : "视频下载任务";
       taskSummary.textContent =
         `共 ${batch.total} 个 · 完成 ${batch.completed} · 失败 ${batch.failed} · 批次 ${batch.id}`;
@@ -931,10 +992,20 @@
         if (batch.media_type === "audio") {
           html += `格式: ${escHtml(r.format || "MP3")} · `;
           html += `音频编码: ${escHtml(r.acodec || "mp3")} · `;
+          if (r.source_acodec && r.source_acodec !== "未知") {
+            html += `源编码: ${escHtml(r.source_acodec)}`;
+            if (r.source_abr_kbps && r.source_abr_kbps !== "未知") {
+              html += ` ${escHtml(r.source_abr_kbps)} kbps`;
+            }
+            html += ` · `;
+          }
         } else {
           html += `分辨率: ${escHtml(r.resolution || "?")} · `;
         }
         html += `大小: ${escHtml(r.filesize || "?")}`;
+        if (batch.media_type === "audio" && t.audio_format_fallback) {
+          html += `<br>源站未提供 FLAC，已自动回退至 MP3 V0`;
+        }
         if (r.filepath) html += `<br>保存路径: ${escHtml(r.filepath)}`;
         html += `</div>`;
       } else if (t.status === "downloading") {
