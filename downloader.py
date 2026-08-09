@@ -306,12 +306,15 @@ def _build_ydl_options(
     total: int,
     progress_callback: YtdlpProgressCallback = None,
     media_type: str = VIDEO,
+    audio_format: str = MP3,
     speed_mode: str = STANDARD,
     aria2_executable: str | None = None,
 ) -> dict:
     """生成公共配置，并追加平台专用配置。"""
     if media_type not in MEDIA_TYPES:
         raise ValueError(f"不支持的下载类型: {media_type}")
+    if audio_format not in AUDIO_FORMATS:
+        raise ValueError(f"不支持的音频格式: {audio_format}")
     if speed_mode not in SPEED_MODES:
         raise ValueError(f"不支持的速度模式: {speed_mode}")
 
@@ -365,16 +368,32 @@ def _build_ydl_options(
         )
 
     if media_type == AUDIO:
-        # 选择源站可获取的最高质量音轨，再以 FFmpeg 的最高 VBR 品质输出 MP3。
+        extractor = {
+            "key": "FFmpegExtractAudio",
+            "preferredcodec": audio_format,
+        }
+        if audio_format == MP3:
+            extractor["preferredquality"] = "0"
         options.update(
             {
-                "format": "bestaudio/best",
+                "format": (
+                    "bestaudio[acodec^=flac]/bestaudio/best"
+                    if audio_format == FLAC
+                    else "bestaudio/best"
+                ),
+                "writethumbnail": True,
                 "postprocessors": [
+                    extractor,
                     {
-                        "key": "FFmpegExtractAudio",
-                        "preferredcodec": "mp3",
-                        "preferredquality": "0",
-                    }
+                        "key": "FFmpegMetadata",
+                        "add_metadata": True,
+                        "add_chapters": False,
+                        "add_infojson": False,
+                    },
+                    {
+                        "key": "EmbedThumbnail",
+                        "already_have_thumbnail": False,
+                    },
                 ],
             }
         )
@@ -652,6 +671,7 @@ def _process_bilibili_attempt(
             prepared_info,
             output_dir,
             prepared_info["_media_type"],
+            prepared_info.get("_audio_format_used", MP3),
         )
     return prepared_info, filepath
 
@@ -677,6 +697,7 @@ def _build_download_result(
     used_mode: str,
     turbo_fallback: bool,
     plan: AccelerationPlan,
+    audio_profile: AudioOutputProfile | None = None,
 ) -> DownloadResult:
     resolution = info.get("resolution") or (
         f"{info.get('width')}x{info.get('height')}"
@@ -696,7 +717,23 @@ def _build_download_result(
         "http_chunk_size": plan.http_chunk_size,
     }
     if media_type == AUDIO:
-        result.update({"format": "MP3", "acodec": "mp3"})
+        if audio_profile is None:
+            raise ValueError("音频结果缺少输出格式信息")
+        result.update(
+            {
+                "format": (
+                    "FLAC" if audio_profile.used == FLAC else "MP3 V0"
+                ),
+                "acodec": audio_profile.used,
+                "audio_format_requested": audio_profile.requested,
+                "audio_format_used": audio_profile.used,
+                "audio_format_fallback": audio_profile.fallback,
+                "source_acodec": audio_profile.source_acodec or "未知",
+                "source_abr_kbps": (
+                    audio_profile.source_abr_kbps or "未知"
+                ),
+            }
+        )
     else:
         result.update(
             {
@@ -717,6 +754,7 @@ def _download_bilibili(
     progress_callback: YtdlpProgressCallback,
     media_type: str,
     speed_mode: str,
+    audio_format: str,
 ) -> DownloadResult:
     executable = aria2c_path()
     used_mode = effective_speed_mode(BILIBILI, speed_mode, executable)
@@ -727,6 +765,7 @@ def _download_bilibili(
         total,
         progress_callback=progress_callback,
         media_type=media_type,
+        audio_format=audio_format,
         speed_mode=STANDARD,
     )
     media_name = "音频" if media_type == AUDIO else "视频"
@@ -744,11 +783,19 @@ def _download_bilibili(
     finally:
         metadata_ydl.close()
 
+    audio_profile = (
+        _audio_output_profile(extracted, audio_format)
+        if media_type == AUDIO
+        else None
+    )
+
     original_info = copy.deepcopy(extracted)
     optimized_info = copy.deepcopy(extracted)
     apply_cdn_host(optimized_info, plan.cdn_host)
     for prepared in (original_info, optimized_info):
         prepared["_media_type"] = media_type
+        if audio_profile:
+            prepared["_audio_format_used"] = audio_profile.used
 
     attempts = [(used_mode, optimized_info, plan, False)]
     if used_mode == TURBO:
@@ -785,6 +832,7 @@ def _download_bilibili(
             total,
             progress_callback=progress_callback,
             media_type=media_type,
+            audio_format=(audio_profile.used if audio_profile else MP3),
             speed_mode=attempt_mode,
             aria2_executable=executable,
         )
@@ -805,6 +853,8 @@ def _download_bilibili(
                 options,
                 output_dir,
             )
+            if audio_profile:
+                filepath = _rename_audio_output(filepath, audio_profile)
             return _build_download_result(
                 final_info,
                 filepath,
@@ -814,6 +864,7 @@ def _download_bilibili(
                 attempt_mode,
                 fallback,
                 attempt_plan,
+                audio_profile,
             )
         except yt_dlp.utils.DownloadError as error:
             _cleanup_new_attempt_files(output_dir, before)
@@ -847,6 +898,7 @@ def download_video(
     platform: Optional[str] = None,
     progress_callback: YtdlpProgressCallback = None,
     media_type: str = VIDEO,
+    audio_format: str = MP3,
     speed_mode: str = STANDARD,
 ) -> Optional[DownloadResult]:
     """自动识别平台并使用 yt-dlp 下载单个视频。"""
@@ -856,6 +908,8 @@ def download_video(
         return None
     if speed_mode not in SPEED_MODES:
         raise ValueError(f"不支持的速度模式: {speed_mode}")
+    if not isinstance(audio_format, str) or audio_format not in AUDIO_FORMATS:
+        raise ValueError(f"不支持的音频格式: {audio_format}")
 
     output_dir = ensure_downloads_dir()
     if platform == BILIBILI:
@@ -868,6 +922,7 @@ def download_video(
                 progress_callback,
                 media_type,
                 speed_mode,
+                audio_format,
             )
         except yt_dlp.utils.DownloadError as error:
             _handle_download_error(str(error), platform, media_type)
@@ -876,21 +931,83 @@ def download_video(
             print(f"\n❌ 发生未知错误: {error}")
             return None
 
-    options = _build_ydl_options(
-        platform,
-        output_dir,
-        index,
-        total,
-        progress_callback=progress_callback,
-        media_type=media_type,
-    )
     platform_name = PLATFORM_NAMES[platform]
     media_name = "音频" if media_type == AUDIO else "视频"
 
     try:
+        print(f"\n{'─' * 56}")
+        print(f"[{index}/{total}] [{platform_name}] 🔍 正在获取{media_name}信息: {url}\n")
+        if media_type == AUDIO:
+            metadata_options = _build_ydl_options(
+                platform,
+                output_dir,
+                index,
+                total,
+                progress_callback=progress_callback,
+                media_type=media_type,
+                audio_format=audio_format,
+            )
+            with yt_dlp.YoutubeDL(metadata_options) as metadata_ydl:
+                info = metadata_ydl.extract_info(url, download=False)
+            if not info:
+                print("\n❌ 下载器未返回视频信息。")
+                return None
+
+            audio_profile = _audio_output_profile(info, audio_format)
+            options = _build_ydl_options(
+                platform,
+                output_dir,
+                index,
+                total,
+                progress_callback=progress_callback,
+                media_type=media_type,
+                audio_format=audio_profile.used,
+            )
+            with yt_dlp.YoutubeDL(options) as ydl:
+                ydl.process_info(info)
+                filepath = _resolve_output_path(
+                    ydl,
+                    info,
+                    output_dir,
+                    media_type=media_type,
+                    audio_format=audio_profile.used,
+                )
+            filepath = _rename_audio_output(filepath, audio_profile)
+            result = {
+                "platform": platform_name,
+                "title": info.get("title", "未知标题"),
+                "filepath": str(filepath),
+                "filesize": _format_filesize(filepath, info),
+                "media_type": media_type,
+                "speed_mode_requested": speed_mode,
+                "speed_mode_used": STANDARD,
+                "turbo_fallback": False,
+                "cdn_host": "未知",
+                "http_chunk_size": 0,
+                "format": (
+                    "FLAC" if audio_profile.used == FLAC else "MP3 V0"
+                ),
+                "acodec": audio_profile.used,
+                "audio_format_requested": audio_profile.requested,
+                "audio_format_used": audio_profile.used,
+                "audio_format_fallback": audio_profile.fallback,
+                "source_acodec": audio_profile.source_acodec or "未知",
+                "source_abr_kbps": (
+                    audio_profile.source_abr_kbps or "未知"
+                ),
+            }
+            return result
+
+        options = _build_ydl_options(
+            platform,
+            output_dir,
+            index,
+            total,
+            progress_callback=progress_callback,
+            media_type=media_type,
+            audio_format=audio_format,
+        )
         with yt_dlp.YoutubeDL(options) as ydl:
-            print(f"\n{'─' * 56}")
-            print(f"[{index}/{total}] [{platform_name}] 🔍 正在获取{media_name}信息: {url}\n")
             info = ydl.extract_info(url, download=True)
             if not info:
                 print("\n❌ 下载器未返回视频信息。")
@@ -920,17 +1037,14 @@ def download_video(
                 "cdn_host": "未知",
                 "http_chunk_size": 0,
             }
-            if media_type == AUDIO:
-                result.update({"format": "MP3", "acodec": "mp3"})
-            else:
-                result.update(
-                    {
-                        "resolution": resolution,
-                        "fps": info.get("fps") or "未知",
-                        "vcodec": info.get("vcodec") or "未知",
-                        "acodec": info.get("acodec") or "未知",
-                    }
-                )
+            result.update(
+                {
+                    "resolution": resolution,
+                    "fps": info.get("fps") or "未知",
+                    "vcodec": info.get("vcodec") or "未知",
+                    "acodec": info.get("acodec") or "未知",
+                }
+            )
             return result
 
     except yt_dlp.utils.DownloadError as error:
@@ -948,6 +1062,7 @@ def download_tasks(
     tasks: list[VideoTask],
     progress_callback: ProgressCallback = None,
     media_type: str = VIDEO,
+    audio_format: str = MP3,
     speed_mode: str = STANDARD,
 ) -> list[tuple[VideoTask, Optional[DownloadResult]]]:
     """最多并行执行三个混合平台下载任务，并保持结果顺序。
@@ -963,12 +1078,17 @@ def download_tasks(
         - event='completed' 时 data 为 DownloadResult。
         - event='failed' 时 data 含 error 字段。
     media_type : str
-        `video` 下载视频，`audio` 下载最高可用音质并转换为 MP3。
+        `video` 下载视频，`audio` 下载最高可用音轨。
+    audio_format : str
+        `mp3` 输出 MP3 V0；`flac` 仅在源音轨为 FLAC 时无损输出，
+        否则自动回退为 MP3 V0。
     speed_mode : str
         `standard` 使用原生下载器，`turbo` 仅对 Bilibili 尝试 aria2c。
     """
     if speed_mode not in SPEED_MODES:
         raise ValueError(f"不支持的速度模式: {speed_mode}")
+    if not isinstance(audio_format, str) or audio_format not in AUDIO_FORMATS:
+        raise ValueError(f"不支持的音频格式: {audio_format}")
 
     total = len(tasks)
     if not tasks:
@@ -1000,6 +1120,7 @@ def download_tasks(
                 platform=platform,
                 progress_callback=_relay_progress if progress_callback else None,
                 media_type=media_type,
+                audio_format=audio_format,
                 speed_mode=speed_mode,
             )
 

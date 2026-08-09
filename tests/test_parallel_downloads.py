@@ -208,18 +208,36 @@ class ParallelDownloadTests(unittest.TestCase):
         ]
 
         def fake_download(url, **kwargs):
-            return {"title": url, "media_type": kwargs["media_type"]}
+            return {
+                "title": url,
+                "media_type": kwargs["media_type"],
+                "audio_format": kwargs["audio_format"],
+            }
 
         with patch("downloader.download_video", side_effect=fake_download) as mocked:
-            results = downloader.download_tasks(tasks, media_type=downloader.AUDIO)
+            results = downloader.download_tasks(
+                tasks,
+                media_type=downloader.AUDIO,
+                audio_format=downloader.FLAC,
+            )
 
         self.assertEqual(mocked.call_count, 2)
         self.assertTrue(
             all(call.kwargs["media_type"] == downloader.AUDIO for call in mocked.call_args_list)
         )
+        self.assertTrue(
+            all(
+                call.kwargs["audio_format"] == downloader.FLAC
+                for call in mocked.call_args_list
+            )
+        )
         self.assertEqual(
             [result["media_type"] for _, result in results],
             [downloader.AUDIO, downloader.AUDIO],
+        )
+        self.assertEqual(
+            [result["audio_format"] for _, result in results],
+            [downloader.FLAC, downloader.FLAC],
         )
 
     def test_speed_mode_is_forwarded_to_every_task(self):

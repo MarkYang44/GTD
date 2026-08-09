@@ -185,13 +185,44 @@ class DownloadAudioOptionsTests(unittest.TestCase):
                     "key": "FFmpegExtractAudio",
                     "preferredcodec": "mp3",
                     "preferredquality": "0",
-                }
+                },
+                {
+                    "key": "FFmpegMetadata",
+                    "add_metadata": True,
+                    "add_chapters": False,
+                    "add_infojson": False,
+                },
+                {
+                    "key": "EmbedThumbnail",
+                    "already_have_thumbnail": False,
+                },
             ],
         )
+        self.assertTrue(options["writethumbnail"])
         self.assertEqual(
             options["outtmpl"],
             str(output_dir / "%(title)s.%(ext)s"),
         )
+
+    def test_flac_options_select_flac_first_and_copy_to_flac(self):
+        options = downloader._build_ydl_options(
+            downloader.BILIBILI,
+            Path("/tmp/downloads"),
+            1,
+            1,
+            media_type=downloader.AUDIO,
+            audio_format=downloader.FLAC,
+        )
+
+        self.assertEqual(
+            options["format"],
+            "bestaudio[acodec^=flac]/bestaudio/best",
+        )
+        self.assertEqual(
+            options["postprocessors"][0],
+            {"key": "FFmpegExtractAudio", "preferredcodec": "flac"},
+        )
+        self.assertTrue(options["writethumbnail"])
 
     def test_instagram_audio_keeps_id_suffix_in_output_template(self):
         output_dir = Path("/tmp/downloads")

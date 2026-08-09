@@ -1,2 +1,3 @@
 yt-dlp[curl-cffi] @ https://github.com/yt-dlp/yt-dlp/archive/master.tar.gz
 flask>=3.0.0
+mutagen>=1.47.0

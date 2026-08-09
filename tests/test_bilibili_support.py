@@ -228,6 +228,106 @@ class BilibiliDownloadOptionsTests(unittest.TestCase):
 
 
 class BilibiliTurboDownloadTests(unittest.TestCase):
+    def test_flac_request_uses_real_flac_source(self):
+        info = {
+            "id": "BV1TEST",
+            "title": "Example",
+            "url": "https://primary.example/audio.m4s",
+            "ext": "m4a",
+            "vcodec": "none",
+            "acodec": "flac",
+            "format_id": "30251",
+            "abr": 1521.267,
+            "filesize": 60 * 1024 * 1024,
+        }
+        seen_options = []
+
+        def fake_attempt(prepared_info, options, output_dir):
+            seen_options.append(options)
+            return prepared_info, output_dir / "Example [BV1TEST].flac"
+
+        with (
+            patch("downloader.aria2c_path", return_value=None),
+            patch("downloader._extract_bilibili_info", return_value=(Mock(), info)),
+            patch(
+                "downloader.build_acceleration_plan",
+                return_value=Mock(
+                    adaptive=False,
+                    cdn_host="primary.example",
+                    http_chunk_size=10 * 1024 * 1024,
+                ),
+            ),
+            patch("downloader._process_bilibili_attempt", side_effect=fake_attempt),
+            patch("downloader._rename_audio_output", side_effect=lambda path, profile: path),
+            patch("downloader._format_filesize", return_value="60.00 MB"),
+        ):
+            result = downloader.download_video(
+                "https://b23.tv/example",
+                platform=downloader.BILIBILI,
+                media_type=downloader.AUDIO,
+                audio_format=downloader.FLAC,
+            )
+
+        self.assertEqual(
+            seen_options[0]["postprocessors"][0]["preferredcodec"],
+            downloader.FLAC,
+        )
+        self.assertEqual(result["audio_format_requested"], downloader.FLAC)
+        self.assertEqual(result["audio_format_used"], downloader.FLAC)
+        self.assertFalse(result["audio_format_fallback"])
+        self.assertEqual(result["source_acodec"], "FLAC")
+        self.assertEqual(result["source_abr_kbps"], 1521)
+
+    def test_flac_request_falls_back_to_mp3_for_aac_source(self):
+        info = {
+            "id": "BV1TEST",
+            "title": "Example",
+            "url": "https://primary.example/audio.m4s",
+            "ext": "m4a",
+            "vcodec": "none",
+            "acodec": "mp4a.40.2",
+            "format_id": "30280",
+            "abr": 245.75,
+            "filesize": 20 * 1024 * 1024,
+        }
+        seen_options = []
+
+        def fake_attempt(prepared_info, options, output_dir):
+            seen_options.append(options)
+            return prepared_info, output_dir / "Example [BV1TEST].mp3"
+
+        with (
+            patch("downloader.aria2c_path", return_value=None),
+            patch("downloader._extract_bilibili_info", return_value=(Mock(), info)),
+            patch(
+                "downloader.build_acceleration_plan",
+                return_value=Mock(
+                    adaptive=False,
+                    cdn_host="primary.example",
+                    http_chunk_size=10 * 1024 * 1024,
+                ),
+            ),
+            patch("downloader._process_bilibili_attempt", side_effect=fake_attempt),
+            patch("downloader._rename_audio_output", side_effect=lambda path, profile: path),
+            patch("downloader._format_filesize", return_value="20.00 MB"),
+        ):
+            result = downloader.download_video(
+                "https://b23.tv/example",
+                platform=downloader.BILIBILI,
+                media_type=downloader.AUDIO,
+                audio_format=downloader.FLAC,
+            )
+
+        self.assertEqual(
+            seen_options[0]["postprocessors"][0]["preferredcodec"],
+            downloader.MP3,
+        )
+        self.assertEqual(result["audio_format_requested"], downloader.FLAC)
+        self.assertEqual(result["audio_format_used"], downloader.MP3)
+        self.assertTrue(result["audio_format_fallback"])
+        self.assertEqual(result["source_acodec"], "AAC")
+        self.assertEqual(result["source_abr_kbps"], 246)
+
     def test_turbo_options_only_apply_to_bilibili(self):
         output_dir = Path("/tmp/downloads")
         bili = downloader._build_ydl_options(
@@ -299,6 +399,10 @@ class BilibiliTurboDownloadTests(unittest.TestCase):
             patch(
                 "downloader._process_bilibili_attempt",
                 side_effect=fake_attempt,
+            ),
+            patch(
+                "downloader._rename_audio_output",
+                side_effect=lambda path, profile: path,
             ),
             patch("downloader._format_filesize", return_value="60.00 MB"),
         ):
@@ -395,6 +499,10 @@ class BilibiliTurboDownloadTests(unittest.TestCase):
             patch(
                 "downloader._process_bilibili_attempt",
                 side_effect=fake_attempt,
+            ),
+            patch(
+                "downloader._rename_audio_output",
+                side_effect=lambda path, profile: path,
             ),
             patch("downloader._format_filesize", return_value="60.00 MB"),
         ):
