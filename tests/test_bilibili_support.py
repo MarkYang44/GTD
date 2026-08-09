@@ -593,6 +593,24 @@ class BilibiliSurfaceIntegrationTests(unittest.TestCase):
 
 
 class BilibiliDocumentationTests(unittest.TestCase):
+    def test_readme_documents_audio_formats_covers_and_fallback(self):
+        readme = Path("README.md").read_text(encoding="utf-8")
+
+        required = [
+            "MP3 V0 / 源 FLAC",
+            "python main.py --audio --flac",
+            "源站未提供 FLAC，已自动回退至 MP3 V0",
+            "[MP3 V0 · 源FLAC 1521kbps].mp3",
+            "[FLAC Lossless · 1521kbps].flac",
+            "自动嵌入视频封面",
+            "没有封面时仍正常输出音频",
+            "mutagen",
+            "MP3 成品仍是有损音频",
+        ]
+        for text in required:
+            with self.subTest(text=text):
+                self.assertIn(text, readme)
+
     def test_readme_documents_bilibili_workflow_and_boundaries(self):
         readme = Path("README.md").read_text(encoding="utf-8")
 
