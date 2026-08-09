@@ -15,6 +15,7 @@ from download_errors import (
 from download_logging import (
     get_download_logger,
     log_download_event,
+    redact_value,
     sanitize_url,
 )
 
@@ -102,6 +103,89 @@ class DownloadLoggingTests(unittest.TestCase):
             self.assertEqual(payload["event"], "failed")
             self.assertEqual(payload["url"], "https://youtu.be/abc")
             self.assertIn("timestamp", payload)
+
+    def test_free_text_redacts_complete_headers_and_proxy_credentials(self):
+        diagnostic = (
+            "Authorization: Bearer top secret token\n"
+            "Authorization=Basic another secret\n"
+            "Cookie: session=abc def; preference=dark\n"
+            "proxy=https://user:proxy-pass@proxy.example:7890/path\n"
+            "token=plain-secret"
+        )
+
+        rendered = str(redact_value(diagnostic))
+
+        for secret in (
+            "top secret token",
+            "another secret",
+            "session=abc def",
+            "proxy-pass",
+            "plain-secret",
+        ):
+            self.assertNotIn(secret, rendered)
+        self.assertIn("Authorization=[redacted]", rendered)
+
+    def test_nested_secret_key_variants_and_spaced_tokens_are_redacted(self):
+        payload = {
+            "Proxy-Authorization": "Basic proxy-secret",
+            "proxy_username": "proxy-user",
+            "access_token": "access-secret",
+            "refresh_token": "refresh-secret",
+            "session_id": "session-secret",
+            "api_key": "api-secret",
+            "API-Key": "header-api-secret",
+            "diagnostic": (
+                "token=top secret value\n"
+                "api_key=raw api secret\n"
+                "proxy_username=raw proxy user\n"
+                "session_id=raw session secret\n"
+                "next=visible"
+            ),
+        }
+
+        rendered = json.dumps(redact_value(payload), ensure_ascii=False)
+
+        for secret in (
+            "proxy-secret",
+            "proxy-user",
+            "access-secret",
+            "refresh-secret",
+            "session-secret",
+            "api-secret",
+            "header-api-secret",
+            "top secret value",
+            "raw api secret",
+            "raw proxy user",
+            "raw session secret",
+        ):
+            self.assertNotIn(secret, rendered)
+        self.assertIn("next=visible", rendered)
+
+    def test_every_log_event_has_normalized_minimum_schema(self):
+        with tempfile.TemporaryDirectory() as directory:
+            logger = get_download_logger(Path(directory))
+            log_download_event(logger, "batch_created", batch_id="batch")
+            for handler in logger.handlers:
+                handler.flush()
+            payload = json.loads(
+                (Path(directory) / "downloader.jsonl").read_text(encoding="utf-8")
+            )
+
+        expected = {
+            "timestamp",
+            "event",
+            "batch_id",
+            "task_id",
+            "attempt_number",
+            "platform",
+            "media_type",
+            "audio_format",
+            "speed_mode",
+            "elapsed_seconds",
+            "status",
+            "error_code",
+        }
+        self.assertTrue(expected.issubset(payload))
 
     def test_logger_uses_ten_mib_and_five_backups(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -137,6 +137,7 @@ def api_download():
         return _invalid_request("请提供 urls，或 preview_id 与所选条目，且不能同时提供")
 
     seeds: list[TaskSeed] = []
+    rejected: list[dict[str, object]] = []
     if has_preview:
         preview_id = body.get("preview_id")
         entry_ids = body.get("selected_entry_ids")
@@ -180,26 +181,46 @@ def api_download():
             return _invalid_request("请至少提供一个视频链接")
         if len(urls) > 100:
             return _invalid_request("一次最多提交 100 个链接")
-        for value in urls:
+        for index, value in enumerate(urls, start=1):
             task = make_task(value)
             if task is None:
                 normalized = normalize_url(value)
                 parsed = urlparse(normalized)
                 if parsed.scheme in {"http", "https"} and parsed.hostname:
-                    return _api_error(
-                        "UNSUPPORTED_PLATFORM",
-                        "该链接不是受支持的 YouTube、Instagram 或 Bilibili 视频页面",
-                        "播放列表、合集与分 P 请先使用预览功能",
-                        400,
+                    rejected.append(
+                        {
+                            "index": index,
+                            "error_code": "UNSUPPORTED_PLATFORM",
+                            "message": "该链接不是受支持的 YouTube、Instagram 或 Bilibili 视频页面",
+                        }
                     )
-                return _api_error(
-                    "INVALID_URL",
-                    "链接格式无效",
-                    "请粘贴完整的 HTTP(S) 视频链接",
-                    400,
-                )
+                else:
+                    rejected.append(
+                        {
+                            "index": index,
+                            "error_code": "INVALID_URL",
+                            "message": "链接格式无效",
+                        }
+                    )
+                continue
             platform, normalized = task
             seeds.append(TaskSeed(platform, normalized))
+
+        if not seeds:
+            first = rejected[0]
+            if first["error_code"] == "UNSUPPORTED_PLATFORM":
+                return _api_error(
+                    "UNSUPPORTED_PLATFORM",
+                    str(first["message"]),
+                    "播放列表、合集与分 P 请先使用预览功能",
+                    400,
+                )
+            return _api_error(
+                "INVALID_URL",
+                str(first["message"]),
+                "请粘贴完整的 HTTP(S) 视频链接",
+                400,
+            )
 
     batch = task_manager.create_batch(
         seeds,
@@ -212,6 +233,8 @@ def api_download():
         {
             "batch_id": batch["id"],
             "task_count": batch["total"],
+            "rejected_count": len(rejected),
+            "rejected": rejected,
         }
     )
 

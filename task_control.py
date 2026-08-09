@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import threading
 import time
 import uuid
@@ -73,7 +74,11 @@ class TaskManager:
             max_workers=max_workers,
             thread_name_prefix="media-download",
         )
-        self._bilibili_slots = threading.BoundedSemaphore(max_bilibili)
+        self._bilibili_executor = ThreadPoolExecutor(
+            max_workers=max_bilibili,
+            thread_name_prefix="bilibili-download",
+        )
+        self._global_slots = threading.BoundedSemaphore(max_workers)
         self._batches: dict[str, dict[str, object]] = {}
         self._tokens: dict[str, CancellationToken] = {}
         self._futures: dict[str, Future] = {}
@@ -95,26 +100,35 @@ class TaskManager:
         if not all(isinstance(entry, TaskSeed) for entry in entries):
             raise ValueError("下载任务格式无效")
 
-        batch_id = uuid.uuid4().hex
-        tasks = [
-            self._new_task(
-                entry,
-                index,
-                media_type,
-                audio_format,
-                speed_mode,
-            )
-            for index, entry in enumerate(entries, start=1)
-        ]
-        batch: dict[str, object] = {
-            "id": batch_id,
-            "created_at": time.time(),
-            "media_type": media_type,
-            "audio_format": audio_format,
-            "speed_mode": speed_mode,
-            "tasks": tasks,
-        }
         with self._lock:
+            batch_id = uuid.uuid4().hex
+            tasks = []
+            for index, entry in enumerate(entries, start=1):
+                version_key = self._seed_version_key(
+                    entry,
+                    media_type,
+                    audio_format,
+                )
+                output_version = self._reserve_version_locked(version_key)
+                tasks.append(
+                    self._new_task(
+                        entry,
+                        index,
+                        media_type,
+                        audio_format,
+                        speed_mode,
+                        output_version=output_version,
+                        version_key=version_key,
+                    )
+                )
+            batch: dict[str, object] = {
+                "id": batch_id,
+                "created_at": time.time(),
+                "media_type": media_type,
+                "audio_format": audio_format,
+                "speed_mode": speed_mode,
+                "tasks": tasks,
+            }
             self._batches[batch_id] = batch
             log_download_event(
                 self._logger,
@@ -231,17 +245,12 @@ class TaskManager:
                 raise ValueError("已完成任务缺少输出文件信息")
 
             reservation_key = str(source.get("version_key") or filepath)
-            reserved = self._version_reservations.setdefault(
+            base_filepath = str(source.get("base_filepath") or filepath)
+            version = self._reserve_version_locked(
                 reservation_key,
-                {1},
+                start=2,
+                base_filepath=base_filepath,
             )
-            version = 2
-            while version in reserved or self._version_path_exists(
-                reservation_key,
-                version,
-            ):
-                version += 1
-            reserved.add(version)
 
             seed = TaskSeed(
                 str(source["platform"]),
@@ -288,6 +297,7 @@ class TaskManager:
 
     def shutdown(self, wait: bool = True) -> None:
         self._executor.shutdown(wait=wait)
+        self._bilibili_executor.shutdown(wait=wait)
 
     def _new_task(
         self,
@@ -313,6 +323,7 @@ class TaskManager:
             "turbo_fallback": False,
             "output_version": output_version,
             "version_key": version_key,
+            "base_filepath": None,
             "status": "queued",
             "attempt_count": 0,
             "attempts": [],
@@ -332,7 +343,12 @@ class TaskManager:
         self._generations[task_id] = generation
         token = CancellationToken()
         self._tokens[task_id] = token
-        self._futures[task_id] = self._executor.submit(
+        executor = (
+            self._bilibili_executor
+            if task["platform"] == "bilibili"
+            else self._executor
+        )
+        self._futures[task_id] = executor.submit(
             self._execute,
             batch_id,
             task_id,
@@ -347,17 +363,7 @@ class TaskManager:
         generation: int,
         token: CancellationToken,
     ) -> None:
-        with self._lock:
-            try:
-                task = self._require_task(batch_id, task_id)
-            except KeyError:
-                return
-            platform = task["platform"]
-
-        if platform == "bilibili":
-            with self._bilibili_slots:
-                self._run_attempt(batch_id, task_id, generation, token)
-        else:
+        with self._global_slots:
             self._run_attempt(batch_id, task_id, generation, token)
 
     def _run_attempt(
@@ -411,6 +417,8 @@ class TaskManager:
                 if current["status"] in self.TERMINAL_STATES:
                     return
                 if event == "mode":
+                    if data.get("speed_mode") == "turbo" and token.cancelled:
+                        raise DownloadCancelled()
                     current["speed_mode_used"] = data.get("speed_mode")
                     current["turbo_fallback"] = bool(
                         data.get("turbo_fallback")
@@ -530,11 +538,39 @@ class TaskManager:
             if status == "completed":
                 task["result"] = deepcopy(result)
                 task["error"] = None
-                if task.get("version_key") is None and isinstance(result, dict):
+                if isinstance(result, dict):
                     filepath = result.get("filepath")
                     if isinstance(filepath, str) and filepath:
-                        task["version_key"] = filepath
-                        self._version_reservations.setdefault(filepath, {1})
+                        output_version = int(task["output_version"])
+                        actual_version = result.get("output_version_actual")
+                        if (
+                            isinstance(actual_version, int)
+                            and not isinstance(actual_version, bool)
+                            and actual_version >= output_version
+                        ):
+                            output_version = actual_version
+                        elif task["media_type"] == "audio":
+                            match = re.search(
+                                r"\[[^\]]+\] \((\d+)\)$",
+                                Path(filepath).stem,
+                            )
+                            if match:
+                                output_version = max(
+                                    output_version,
+                                    int(match.group(1)),
+                                )
+                        task["output_version"] = output_version
+                        attempt["output_version"] = output_version
+                        key = task.get("version_key")
+                        if isinstance(key, str):
+                            self._version_reservations.setdefault(
+                                key,
+                                set(),
+                            ).add(output_version)
+                        task["base_filepath"] = self._base_version_path(
+                            filepath,
+                            output_version,
+                        )
             else:
                 if error is None:
                     raise ValueError("终止失败任务时必须提供错误")
@@ -577,7 +613,7 @@ class TaskManager:
         public = {
             key: deepcopy(value)
             for key, value in task.items()
-            if key not in {"cancel_requested", "version_key"}
+            if key not in {"cancel_requested", "version_key", "base_filepath"}
         }
         public["can_cancel"] = status == "queued" or (
             status == "running" and not task["cancel_requested"]
@@ -629,6 +665,7 @@ class TaskManager:
                 self._tokens.pop(task_id, None)
                 self._futures.pop(task_id, None)
                 self._generations.pop(task_id, None)
+            self._rebuild_version_reservations_locked()
 
     @staticmethod
     def _clear_progress_fields(task: dict[str, object]) -> None:
@@ -640,3 +677,47 @@ class TaskManager:
         path = Path(filepath)
         candidate = path.with_name(f"{path.stem} ({version}){path.suffix}")
         return candidate.exists()
+
+    @staticmethod
+    def _seed_version_key(
+        seed: TaskSeed,
+        media_type: str,
+        audio_format: str,
+    ) -> str:
+        identity = (seed.title or seed.url).strip().casefold()
+        return "\x1f".join((seed.platform, media_type, audio_format, identity))
+
+    def _reserve_version_locked(
+        self,
+        reservation_key: str,
+        start: int = 1,
+        base_filepath: str | None = None,
+    ) -> int:
+        reserved = self._version_reservations.setdefault(reservation_key, set())
+        version = start
+        while version in reserved or (
+            base_filepath is not None
+            and self._version_path_exists(base_filepath, version)
+        ):
+            version += 1
+        reserved.add(version)
+        return version
+
+    @staticmethod
+    def _base_version_path(filepath: str, output_version: int) -> str:
+        path = Path(filepath)
+        suffix = "" if output_version == 1 else f" ({output_version})"
+        stem = path.stem
+        if suffix and stem.endswith(suffix):
+            stem = stem[: -len(suffix)]
+        return str(path.with_name(f"{stem}{path.suffix}"))
+
+    def _rebuild_version_reservations_locked(self) -> None:
+        reservations: dict[str, set[int]] = {}
+        for batch in self._batches.values():
+            for task in batch["tasks"]:
+                key = task.get("version_key")
+                version = task.get("output_version")
+                if isinstance(key, str) and isinstance(version, int):
+                    reservations.setdefault(key, set()).add(version)
+        self._version_reservations = reservations

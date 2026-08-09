@@ -14,17 +14,29 @@ from urllib.parse import urlsplit, urlunsplit
 
 PROJECT_DIR = Path(__file__).resolve().parent
 SENSITIVE_KEYS = {
+    "access_token",
+    "api_key",
     "authorization",
     "cookie",
     "cookies",
     "password",
+    "proxy_authorization",
     "proxy_password",
+    "proxy_username",
+    "refresh_token",
+    "session",
+    "session_id",
     "token",
 }
 URL_RE = re.compile(r"https?://[^\s]+", re.IGNORECASE)
 SECRET_TEXT_RE = re.compile(
-    r"(?i)\b(authorization|cookie|token|password|proxy[_-]?password)"
-    r"\s*[:=]\s*[^\s,;]+"
+    r"(?i)\b(authorization|cookie|(?:access[_-]?|refresh[_-]?)?token|"
+    r"password|api[_-]?key|session(?:[_-]?id)?|"
+    r"proxy[_-]?(?:authorization|username|password))"
+    r"\s*[:=]\s*[^\r\n]*"
+)
+SECRET_HEADER_RE = re.compile(
+    r"(?im)\b(authorization|proxy-authorization|cookie)\s*[:=]\s*[^\r\n]*"
 )
 _warning_lock = threading.Lock()
 _warning_emitted = False
@@ -54,14 +66,31 @@ def sanitize_url(value: object) -> str:
 
 
 def _redact_text(value: str) -> str:
-    redacted = SECRET_TEXT_RE.sub(lambda match: f"{match.group(1)}=[redacted]", value)
+    redacted = SECRET_HEADER_RE.sub(
+        lambda match: f"{match.group(1)}=[redacted]",
+        value,
+    )
+    redacted = SECRET_TEXT_RE.sub(
+        lambda match: f"{match.group(1)}=[redacted]",
+        redacted,
+    )
     return URL_RE.sub(lambda match: sanitize_url(match.group(0)), redacted)
 
 
 def redact_value(value: Any, key: str = "") -> Any:
     """Recursively redact secrets and signed URL parameters."""
     normalized_key = key.lower().replace("-", "_")
-    if normalized_key in SENSITIVE_KEYS:
+    key_parts = set(normalized_key.split("_"))
+    if (
+        normalized_key in SENSITIVE_KEYS
+        or "authorization" in key_parts
+        or "cookie" in key_parts
+        or "password" in key_parts
+        or "secret" in key_parts
+        or "session" in key_parts
+        or "token" in key_parts
+        or normalized_key.endswith("_api_key")
+    ):
         return "[redacted]"
     if isinstance(value, dict):
         return {
@@ -118,6 +147,16 @@ def log_download_event(
     payload = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "event": event,
+        "batch_id": None,
+        "task_id": None,
+        "attempt_number": None,
+        "platform": None,
+        "media_type": None,
+        "audio_format": None,
+        "speed_mode": None,
+        "elapsed_seconds": None,
+        "status": None,
+        "error_code": None,
         **fields,
     }
     try:

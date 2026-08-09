@@ -430,6 +430,50 @@ class BilibiliTurboDownloadTests(unittest.TestCase):
         self.assertEqual(result["source_acodec"], "AAC")
         self.assertEqual(result["source_abr_kbps"], 246)
 
+    def test_source_audio_result_reports_actual_postprocessed_extension(self):
+        info = {
+            "id": "BV1TEST",
+            "title": "Example",
+            "url": "https://primary.example/audio.m4s",
+            "ext": "webm",
+            "vcodec": "none",
+            "acodec": "opus",
+            "format_id": "30280",
+            "abr": 128,
+            "filesize": 20 * 1024 * 1024,
+        }
+
+        with (
+            patch("downloader.aria2c_path", return_value=None),
+            patch("downloader._extract_bilibili_info", return_value=(Mock(), info)),
+            patch(
+                "downloader.build_acceleration_plan",
+                return_value=Mock(
+                    adaptive=False,
+                    cdn_host="primary.example",
+                    http_chunk_size=10 * 1024 * 1024,
+                ),
+            ),
+            patch(
+                "downloader._process_bilibili_attempt",
+                return_value=(info, Path("/tmp/Example.opus")),
+            ),
+            patch(
+                "downloader._rename_audio_output",
+                side_effect=lambda path, profile: path,
+            ),
+            patch("downloader._format_filesize", return_value="20.00 MB"),
+        ):
+            result = downloader.download_video(
+                "https://b23.tv/example",
+                platform=downloader.BILIBILI,
+                media_type=downloader.AUDIO,
+                audio_format=downloader.SOURCE,
+            )
+
+        self.assertEqual(result["output_ext"], "opus")
+        self.assertEqual(result["format"], "SOURCE OPUS")
+
     def test_turbo_options_only_apply_to_bilibili(self):
         output_dir = Path("/tmp/downloads")
         bili = downloader._build_ydl_options(
@@ -620,24 +664,25 @@ class BilibiliTurboDownloadTests(unittest.TestCase):
         ])
         self.assertEqual(result["cdn_host"], "primary.example")
 
-    def test_failed_attempt_cleanup_only_removes_new_temporary_files(self):
+    def test_failed_attempt_cleanup_only_removes_owned_workspace(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             output_dir = Path(temp_dir)
-            existing = output_dir / "existing.part"
-            existing.write_bytes(b"keep")
-            before = downloader._temporary_snapshot(output_dir)
-            new_part = output_dir / "Example.mp4.part"
-            new_format = output_dir / "Example.f137.mp4"
+            first = downloader._new_attempt_workspace(output_dir)
+            second = downloader._new_attempt_workspace(output_dir)
+            new_part = first / "Example.mp4.part"
+            new_format = first / "Example.f137.mp4"
+            other_part = second / "Other.mp4.part"
             final_file = output_dir / "Example.mp4"
             new_part.write_bytes(b"partial")
             new_format.write_bytes(b"partial")
+            other_part.write_bytes(b"keep")
             final_file.write_bytes(b"final")
 
-            downloader._cleanup_new_attempt_files(output_dir, before)
+            downloader._cleanup_attempt_workspace(first)
 
-            self.assertTrue(existing.exists())
             self.assertFalse(new_part.exists())
             self.assertFalse(new_format.exists())
+            self.assertEqual(other_part.read_bytes(), b"keep")
             self.assertTrue(final_file.exists())
 
 

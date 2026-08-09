@@ -1,8 +1,10 @@
 import contextlib
 import io
 import tempfile
+import threading
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import downloader
 import download_errors
@@ -11,6 +13,19 @@ import yt_dlp
 
 
 class DownloadErrorMessageTests(unittest.TestCase):
+    def test_attempt_workspace_is_forwarded_to_ytdlp_temp_paths(self):
+        workspace = Path("/tmp/private-attempt")
+
+        options = downloader._build_ydl_options(
+            downloader.YOUTUBE,
+            Path("/tmp/output"),
+            1,
+            1,
+            attempt_workspace=workspace,
+        )
+
+        self.assertEqual(options["paths"]["temp"], str(workspace))
+
     def test_ydl_options_use_quiet_logger_for_handled_errors(self):
         options = downloader._build_ydl_options(
             downloader.INSTAGRAM,
@@ -65,6 +80,54 @@ class DownloadErrorMessageTests(unittest.TestCase):
 
 
 class DownloadOutputTemplateTests(unittest.TestCase):
+    def test_real_attempt_uses_private_unique_working_filename(self):
+        workspace = Path("/tmp/output/.attempts/0123456789abcdef0123456789abcdef")
+
+        options = downloader._build_ydl_options(
+            downloader.YOUTUBE,
+            Path("/tmp/output"),
+            1,
+            1,
+            attempt_workspace=workspace,
+        )
+
+        self.assertIn(".__mvd_0123456789abcdef0123456789abcdef", options["outtmpl"])
+        self.assertNotEqual(
+            options["outtmpl"],
+            str(Path("/tmp/output") / "%(title)s.%(ext)s"),
+        )
+
+    def test_concurrent_same_title_video_outputs_are_atomically_distinct(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output_dir = Path(directory)
+            first = output_dir / "Same [.__mvd_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa].mp4"
+            second = output_dir / "Same [.__mvd_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb].mp4"
+            first.write_bytes(b"first")
+            second.write_bytes(b"second")
+            barrier = threading.Barrier(2)
+            claimed = []
+
+            def finalize(path):
+                barrier.wait()
+                claimed.append(downloader._finalize_video_output(path, 1))
+
+            threads = [
+                threading.Thread(target=finalize, args=(first,)),
+                threading.Thread(target=finalize, args=(second,)),
+            ]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+
+            self.assertEqual(
+                {path.name for path in claimed},
+                {"Same.mp4", "Same (2).mp4"},
+            )
+            self.assertEqual(
+                {path.read_bytes() for path in claimed},
+                {b"first", b"second"},
+            )
     def test_instagram_same_title_different_ids_prepare_distinct_paths(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             output_dir = Path(temp_dir)
@@ -116,25 +179,120 @@ class DownloadOutputTemplateTests(unittest.TestCase):
 
         self.assertIn(" (2).%(ext)s", options["outtmpl"])
 
-    def test_cancel_cleanup_preserves_preexisting_and_completed_files(self):
+    def test_attempt_workspace_cleanup_is_scoped_to_owned_directory(self):
         with tempfile.TemporaryDirectory() as directory:
             output_dir = Path(directory)
-            existing = output_dir / "existing.mp4"
-            new_part = output_dir / "new.mp4.part"
-            completed = output_dir / "new.mp4"
-            existing.write_bytes(b"original")
-            before = downloader._temporary_snapshot(output_dir)
-            new_part.write_bytes(b"partial")
-            completed.write_bytes(b"complete")
+            first = downloader._new_attempt_workspace(output_dir)
+            second = downloader._new_attempt_workspace(output_dir)
+            (first / "first.mp4.part").write_bytes(b"first")
+            second_part = second / "second.mp4.part"
+            second_part.write_bytes(b"second")
 
-            downloader._cleanup_new_attempt_files(output_dir, before)
+            downloader._cleanup_attempt_workspace(first)
 
-            self.assertEqual(existing.read_bytes(), b"original")
-            self.assertFalse(new_part.exists())
-            self.assertTrue(completed.exists())
+            self.assertFalse(first.exists())
+            self.assertEqual(second_part.read_bytes(), b"second")
 
 
 class DownloadAudioOptionsTests(unittest.TestCase):
+    def test_completed_audio_wins_if_cancel_arrives_after_processing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output_dir = Path(directory)
+            token = task_control.CancellationToken()
+            info = {
+                "title": "Song",
+                "ext": "m4a",
+                "acodec": "aac",
+                "abr": 128,
+            }
+
+            class FakeYdl:
+                def __init__(self, _options):
+                    pass
+
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *_args):
+                    return False
+
+                def extract_info(self, _url, download=False):
+                    self.assert_metadata = not download
+                    return info
+
+                def process_info(self, _info):
+                    (output_dir / "Song.mp3").write_bytes(b"complete")
+                    token.cancel()
+
+                def prepare_filename(self, _info):
+                    return str(output_dir / "Song.m4a")
+
+            with (
+                patch("downloader.ensure_downloads_dir", return_value=output_dir),
+                patch("downloader.yt_dlp.YoutubeDL", FakeYdl),
+            ):
+                result = downloader.download_video(
+                    "https://youtu.be/example",
+                    platform=downloader.YOUTUBE,
+                    media_type=downloader.AUDIO,
+                    cancel_token=token,
+                    raise_errors=True,
+                )
+
+            self.assertIsNotNone(result)
+            self.assertEqual(result["media_type"], downloader.AUDIO)
+            self.assertTrue(Path(result["filepath"]).is_file())
+
+    def test_unknown_source_codec_is_rejected_instead_of_transcoded(self):
+        profile = downloader._audio_output_profile(
+            {"acodec": "mystery-codec", "ext": "webm"},
+            downloader.SOURCE,
+        )
+
+        with self.assertRaises(download_errors.DownloadFailure) as caught:
+            downloader._ensure_source_copy_supported(
+                {"acodec": "mystery-codec", "ext": "webm"},
+                profile,
+            )
+
+        self.assertEqual(caught.exception.info.error_code, "FORMAT_UNAVAILABLE")
+    def test_audio_rename_never_overwrites_existing_quality_target(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "Song.mp3"
+            source.write_bytes(b"new")
+            profile = downloader.AudioOutputProfile(
+                downloader.MP3,
+                downloader.MP3,
+                False,
+                "AAC",
+                128,
+                "mp3",
+                True,
+            )
+            occupied = Path(directory) / "Song [MP3 V0 · 源AAC 128kbps].mp3"
+            occupied.write_bytes(b"original")
+
+            target = downloader._rename_audio_output(source, profile)
+
+            self.assertEqual(occupied.read_bytes(), b"original")
+            self.assertEqual(target.read_bytes(), b"new")
+            self.assertEqual(target.name, "Song [MP3 V0 · 源AAC 128kbps] (2).mp3")
+
+    def test_source_profile_uses_actual_output_extension(self):
+        profile = downloader.AudioOutputProfile(
+            downloader.SOURCE,
+            downloader.SOURCE,
+            False,
+            "Opus",
+            128,
+            "webm",
+            False,
+        )
+
+        actual = downloader._profile_for_output_path(profile, Path("Song.opus"))
+
+        self.assertEqual(actual.output_ext, "opus")
+        self.assertEqual(downloader._audio_format_name(actual), "SOURCE OPUS")
     def test_audio_quality_label_precedes_redownload_suffix(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "Song (2).mp3"
@@ -457,6 +615,16 @@ class DownloadAudioOptionsTests(unittest.TestCase):
 
 
 class DownloadProgressHookTests(unittest.TestCase):
+    def test_finished_postprocessor_hook_preserves_atomic_final_output(self):
+        token = task_control.CancellationToken()
+        hook = downloader._make_cancel_hook(token)
+        token.cancel()
+
+        hook({"status": "finished"})
+
+        with self.assertRaises(download_errors.DownloadCancelled):
+            hook({"status": "started"})
+
     def test_progress_hook_raises_dedicated_cancel_exception(self):
         token = task_control.CancellationToken()
         hook = downloader._make_progress_hook(1, 1, cancel_token=token)

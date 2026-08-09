@@ -71,6 +71,65 @@ class CollectionResolverTests(unittest.TestCase):
         self.assertNotEqual(preview.entries[0].url, preview.entries[1].url)
         self.assertIn("p=2", preview.entries[1].url)
 
+    def test_bilibili_multipart_without_entry_urls_uses_source_p_urls(self):
+        info = {
+            "_type": "multi_video",
+            "id": "BV123",
+            "title": "Parts",
+            "entries": [
+                {"id": "BV123_p1", "title": "P1"},
+                {"id": "BV123_p2", "title": "P2"},
+            ],
+        }
+
+        preview = resolver.resolve_collection(
+            "https://www.bilibili.com/video/BV123",
+            ydl_factory=self._factory(info),
+        )
+
+        self.assertTrue(all(entry.selectable for entry in preview.entries))
+        self.assertEqual(
+            [entry.url for entry in preview.entries],
+            [
+                "https://www.bilibili.com/video/BV123?p=1",
+                "https://www.bilibili.com/video/BV123?p=2",
+            ],
+        )
+
+    def test_bilibili_collection_of_distinct_videos_does_not_add_part_query(self):
+        info = {
+            "_type": "playlist",
+            "id": "collection",
+            "title": "Collection",
+            "entries": [
+                {
+                    "id": "BV111",
+                    "bvid": "BV111",
+                    "title": "One",
+                    "url": "https://www.bilibili.com/video/BV111",
+                },
+                {
+                    "id": "BV222",
+                    "bvid": "BV222",
+                    "title": "Two",
+                    "url": "https://www.bilibili.com/video/BV222",
+                },
+            ],
+        }
+
+        preview = resolver.resolve_collection(
+            "https://space.bilibili.com/123/lists/456",
+            ydl_factory=self._factory(info),
+        )
+
+        self.assertEqual(
+            [entry.url for entry in preview.entries],
+            [
+                "https://www.bilibili.com/video/BV111",
+                "https://www.bilibili.com/video/BV222",
+            ],
+        )
+
     def test_instagram_carousel_entries_remain_separate(self):
         info = {
             "_type": "playlist",
@@ -126,6 +185,30 @@ class CollectionResolverTests(unittest.TestCase):
             )
         with self.assertRaisesRegex(ValueError, "条目不存在"):
             resolver.select_preview_entries(preview, ["missing"])
+
+    def test_lazy_playlist_preview_is_bounded(self):
+        def entries():
+            for index in range(resolver.MAX_PREVIEW_ENTRIES + 2):
+                yield {
+                    "id": str(index),
+                    "title": f"Item {index}",
+                    "url": f"https://youtu.be/{index}",
+                }
+
+        preview = resolver.resolve_collection(
+            "https://www.youtube.com/playlist?list=PL123",
+            ydl_factory=self._factory(
+                {
+                    "_type": "playlist",
+                    "title": "Large",
+                    "entries": entries(),
+                }
+            ),
+        )
+
+        self.assertEqual(len(preview.entries), resolver.MAX_PREVIEW_ENTRIES)
+        self.assertTrue(preview.truncated)
+        self.assertTrue(preview.to_dict()["truncated"])
 
     def test_mixed_inputs_merge_single_and_collection_entries_in_input_order(self):
         single = resolver.CollectionPreview(
@@ -189,6 +272,43 @@ class CollectionResolverTests(unittest.TestCase):
         self.assertEqual(merged.platform, "mixed")
         self.assertFalse(merged.is_single)
         self.assertTrue(merged.requires_selection)
+
+    def test_multi_input_preview_has_one_cumulative_bound(self):
+        def make_preview(label):
+            return resolver.CollectionPreview(
+                label,
+                label,
+                "youtube",
+                tuple(
+                    resolver.CollectionEntry(
+                        f"{label}:{index}",
+                        f"{label} {index}",
+                        "youtube",
+                        f"https://youtu.be/{label}{index}",
+                        index,
+                        None,
+                        True,
+                        None,
+                    )
+                    for index in range(700)
+                ),
+                False,
+            )
+
+        with patch(
+            "collection_resolver.resolve_collection",
+            side_effect=[make_preview("a"), make_preview("b")],
+        ):
+            merged = resolver.resolve_inputs(["first", "second"])
+
+        self.assertEqual(len(merged.entries), resolver.MAX_PREVIEW_ENTRIES)
+        self.assertTrue(merged.truncated)
+
+    def test_preview_rejects_too_many_input_lines(self):
+        with self.assertRaisesRegex(ValueError, "最多解析"):
+            resolver.resolve_inputs(
+                ["https://youtu.be/x"] * (resolver.MAX_PREVIEW_INPUTS + 1)
+            )
 
     def test_collection_detection_is_limited_to_supported_paths(self):
         self.assertEqual(

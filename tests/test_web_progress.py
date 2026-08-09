@@ -65,11 +65,22 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn("renderCollectionPreview", html)
         self.assertIn("selectedEntryIds", html)
         self.assertIn("最多选择 100 项", html)
+        self.assertIn('id="collectionSelectAll"', html)
+        self.assertIn("toggleCollectionSelectAll", html)
+        self.assertIn("atLimit && !input.checked", html)
 
     def test_frontend_has_cancel_retry_redownload_and_retry_failed_actions(self):
         html = Path("templates/index.html").read_text(encoding="utf-8")
 
         self.assertIn("operateTask('cancel'", html)
+
+    def test_collection_preview_uses_incremental_rendering(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8")
+
+        self.assertIn('id="collectionLoadMoreButton"', html)
+        self.assertIn("COLLECTION_PAGE_SIZE", html)
+        self.assertIn("loadMoreCollectionEntries", html)
+        self.assertIn("预览仅展示前 1000 项", html)
         self.assertIn("operateTask('retry'", html)
         self.assertIn("operateTask('redownload'", html)
         self.assertIn("retryFailedTasks", html)
@@ -82,6 +93,8 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn("suggestion", html)
         self.assertIn("attempt_count", html)
         self.assertIn("attempts", html)
+        self.assertIn("formatAttemptTime(attempt.started_at)", html)
+        self.assertIn("formatAttemptTime(attempt.finished_at)", html)
 
     def test_frontend_renders_speed_and_eta_inside_task_card(self):
         html = Path("templates/index.html").read_text(encoding="utf-8")
@@ -457,6 +470,26 @@ class WebDownloadApiTests(unittest.TestCase):
                 self.assertEqual(response.status_code, 400)
                 self.assertIn("链接列表", response.get_json()["error"])
                 create.assert_not_called()
+
+    def test_download_api_keeps_valid_urls_and_reports_rejected_entries(self):
+        with patch.object(web_app.task_manager, "create_batch") as create:
+            create.return_value = {"id": "batch", "total": 1}
+            response = self.client.post(
+                "/api/download",
+                json={
+                    "urls": [
+                        "not-a-url",
+                        "https://youtu.be/example",
+                        "https://example.com/unsupported",
+                    ]
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(create.call_args.args[0]), 1)
+        payload = response.get_json()
+        self.assertEqual(payload["rejected_count"], 2)
+        self.assertEqual(len(payload["rejected"]), 2)
 
 
 class WebTurboApiTests(unittest.TestCase):

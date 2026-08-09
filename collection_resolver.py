@@ -6,6 +6,7 @@ import threading
 import time
 import uuid
 from dataclasses import asdict, dataclass, replace
+from itertools import islice
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import yt_dlp
@@ -21,6 +22,9 @@ from downloader import (
     normalize_url,
     platform_http_headers,
 )
+
+MAX_PREVIEW_ENTRIES = 1000
+MAX_PREVIEW_INPUTS = 20
 
 
 class CollectionResolveError(DownloadFailure):
@@ -47,6 +51,7 @@ class CollectionPreview:
     entries: tuple[CollectionEntry, ...]
     is_single: bool
     requires_selection: bool = False
+    truncated: bool = False
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -55,6 +60,7 @@ class CollectionPreview:
             "platform": self.platform,
             "is_single": self.is_single,
             "requires_selection": self.requires_selection,
+            "truncated": self.truncated,
             "entries": [asdict(entry) for entry in self.entries],
         }
 
@@ -137,11 +143,11 @@ def _entry_url(
     return normalize_url(resolved)
 
 
-def _unavailable_reason(entry: dict) -> str | None:
+def _unavailable_reason(entry: dict, resolved_url: str | None) -> str | None:
     availability = str(entry.get("availability") or "").lower()
     if availability in {"private", "premium_only", "subscriber_only"}:
         return "内容不可访问"
-    if entry.get("url") is None and not entry.get("webpage_url"):
+    if resolved_url is None:
         return "源站未提供可下载链接"
     return None
 
@@ -185,18 +191,22 @@ def resolve_collection(
         raw_entries is not None and info.get("_type") in {"playlist", "multi_video"}
     )
     if is_expanded:
-        entries_data = list(raw_entries or ())
+        entries_data = list(
+            islice(iter(raw_entries or ()), MAX_PREVIEW_ENTRIES + 1)
+        )
+        truncated = len(entries_data) > MAX_PREVIEW_ENTRIES
+        if truncated:
+            entries_data = entries_data[:MAX_PREVIEW_ENTRIES]
     else:
         entries_data = [info]
-    multipart = platform == BILIBILI and (
-        info.get("_type") == "multi_video" or len(entries_data) > 1
-    )
+        truncated = False
+    multipart = platform == BILIBILI and info.get("_type") == "multi_video"
 
     entries: list[CollectionEntry] = []
     for position, raw_entry in enumerate(entries_data, start=1):
         entry = raw_entry if isinstance(raw_entry, dict) else {}
         url = _entry_url(entry, platform, normalized, position, multipart)
-        unavailable_reason = _unavailable_reason(entry)
+        unavailable_reason = _unavailable_reason(entry, url)
         selectable = bool(url) and unavailable_reason is None
         extractor_id = entry.get("id") or entry.get("display_id") or position
         entries.append(
@@ -224,6 +234,7 @@ def resolve_collection(
         entries=tuple(entries),
         is_single=is_single,
         requires_selection=(not is_single or any(not entry.selectable for entry in entries)),
+        truncated=truncated,
     )
 
 
@@ -235,13 +246,23 @@ def resolve_inputs(
         isinstance(value, str) and value.strip() for value in inputs
     ):
         raise ValueError("请输入至少一个有效链接")
+    if len(inputs) > MAX_PREVIEW_INPUTS:
+        raise ValueError(f"一次最多解析 {MAX_PREVIEW_INPUTS} 行输入")
 
     merged_entries: list[CollectionEntry] = []
     previews: list[CollectionPreview] = []
+    truncated = False
     for input_position, text in enumerate(inputs, start=1):
+        if len(merged_entries) >= MAX_PREVIEW_ENTRIES:
+            truncated = True
+            break
         preview = resolve_collection(text, ydl_factory=ydl_factory)
         previews.append(preview)
-        for entry in preview.entries:
+        remaining = MAX_PREVIEW_ENTRIES - len(merged_entries)
+        retained_entries = preview.entries[:remaining]
+        if preview.truncated or len(retained_entries) < len(preview.entries):
+            truncated = True
+        for entry in retained_entries:
             merged_entries.append(
                 replace(
                     entry,
@@ -269,6 +290,7 @@ def resolve_inputs(
         entries=tuple(merged_entries),
         is_single=is_single,
         requires_selection=requires_selection,
+        truncated=truncated,
     )
 
 

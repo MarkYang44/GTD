@@ -1,8 +1,12 @@
 import threading
 import time
+import tempfile
 import unittest
+import uuid
+from pathlib import Path
 from unittest.mock import patch
 
+import downloader
 from download_errors import DownloadErrorInfo, DownloadFailure
 from task_control import TaskManager, TaskSeed
 
@@ -201,6 +205,187 @@ class TaskManagerTests(unittest.TestCase):
             [first["output_version"], second["output_version"]],
             [2, 3],
         )
+
+    def test_redownload_continues_after_atomic_audio_rename_advanced_version(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "Song [MP3 V0] (2).mp3"
+            output.write_bytes(b"audio")
+            versions = []
+
+            def runner(url, output_version=1, **kwargs):
+                versions.append(output_version)
+                return {"title": "Song", "filepath": str(output)}
+
+            manager = TaskManager(runner, max_workers=1)
+            batch = manager.create_batch(
+                [TaskSeed("youtube", "https://youtu.be/x", "Song")],
+                "audio",
+                "mp3",
+                "standard",
+            )
+            self.assertTrue(manager.wait_for_idle())
+            task_id = batch["tasks"][0]["id"]
+            redownload = manager.redownload(batch["id"], task_id)
+            manager.shutdown()
+
+        self.assertEqual(redownload["output_version"], 3)
+        self.assertEqual(versions, [1, 3])
+
+    def test_duplicate_titles_receive_distinct_initial_output_versions(self):
+        release = threading.Event()
+        versions = []
+
+        def runner(url, output_version=1, **kwargs):
+            versions.append(output_version)
+            release.wait(1)
+            return {
+                "title": "Same",
+                "filepath": f"/tmp/Same-{output_version}.mp4",
+            }
+
+        manager = TaskManager(runner, max_workers=2)
+        batch = manager.create_batch(
+            [
+                TaskSeed("youtube", "https://youtu.be/one", "Same", 1),
+                TaskSeed("youtube", "https://youtu.be/two", "Same", 2),
+            ],
+            "video",
+            "mp3",
+            "standard",
+        )
+        release.set()
+        manager.shutdown()
+
+        self.assertEqual(
+            [task["output_version"] for task in batch["tasks"]],
+            [1, 2],
+        )
+        self.assertCountEqual(versions, [1, 2])
+
+    def test_actual_same_title_versions_propagate_and_redownload_continues(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output_dir = Path(directory)
+            initial_ready = threading.Barrier(2)
+            call_lock = threading.Lock()
+            call_count = 0
+
+            def runner(url, output_version=1, **kwargs):
+                nonlocal call_count
+                with call_lock:
+                    call_count += 1
+                    current_call = call_count
+                working = output_dir / (
+                    f"Same [.__mvd_{uuid.uuid4().hex}].mp4"
+                )
+                working.write_bytes(url.encode())
+                if current_call <= 2:
+                    initial_ready.wait(1)
+                filepath, actual_version = (
+                    downloader._finalize_video_output_with_version(
+                        working,
+                        output_version,
+                    )
+                )
+                return {
+                    "title": "Same",
+                    "filepath": str(filepath),
+                    "output_version_actual": actual_version,
+                }
+
+            manager = TaskManager(runner, max_workers=2)
+            batch = manager.create_batch(
+                [
+                    TaskSeed("youtube", "https://youtu.be/one"),
+                    TaskSeed("youtube", "https://youtu.be/two"),
+                ],
+                "video",
+                "mp3",
+                "standard",
+            )
+            self.assertTrue(manager.wait_for_idle())
+            initial = manager.snapshot(batch["id"])
+            self.assertEqual(
+                sorted(task["output_version"] for task in initial["tasks"]),
+                [1, 2],
+            )
+
+            second = next(
+                task for task in initial["tasks"]
+                if task["output_version"] == 2
+            )
+            redownload = manager.redownload(batch["id"], second["id"])
+            self.assertEqual(redownload["output_version"], 3)
+            self.assertTrue(manager.wait_for_idle())
+            completed = manager.snapshot(batch["id"])
+            manager.shutdown()
+
+        updated = next(
+            task for task in completed["tasks"]
+            if task["id"] == redownload["id"]
+        )
+        self.assertEqual(updated["output_version"], 3)
+        self.assertTrue(updated["result"]["filepath"].endswith("Same (3).mp4"))
+
+    def test_cancel_wins_before_turbo_transition_but_not_after(self):
+        ready = threading.Event()
+        proceed = threading.Event()
+        transferred = threading.Event()
+
+        def runner(url, progress_callback=None, **kwargs):
+            ready.set()
+            proceed.wait(1)
+            progress_callback(
+                "mode",
+                {"speed_mode": "turbo", "turbo_fallback": False},
+            )
+            transferred.set()
+            return {"title": "done", "filepath": "/tmp/done.mp4"}
+
+        manager = TaskManager(runner, max_workers=1)
+        batch = manager.create_batch(
+            [TaskSeed("bilibili", "https://b23.tv/x", "X", 1)],
+            "video",
+            "mp3",
+            "turbo",
+        )
+        self.assertTrue(ready.wait(1))
+        task_id = batch["tasks"][0]["id"]
+        manager.cancel(batch["id"], task_id)
+        proceed.set()
+        self.assertTrue(manager.wait_for_idle())
+        snapshot = manager.snapshot(batch["id"])
+        manager.shutdown()
+
+        self.assertFalse(transferred.is_set())
+        self.assertEqual(snapshot["tasks"][0]["status"], "cancelled")
+
+    def test_bilibili_waiter_does_not_starve_later_youtube_task(self):
+        release_bilibili = threading.Event()
+        youtube_started = threading.Event()
+
+        def runner(url, platform=None, **kwargs):
+            if platform == "bilibili":
+                release_bilibili.wait(1)
+            else:
+                youtube_started.set()
+            return {"title": url, "filepath": "/tmp/out.mp4"}
+
+        manager = TaskManager(runner, max_workers=3, max_bilibili=2)
+        manager.create_batch(
+            [
+                TaskSeed("bilibili", "https://b23.tv/1"),
+                TaskSeed("bilibili", "https://b23.tv/2"),
+                TaskSeed("bilibili", "https://b23.tv/3"),
+                TaskSeed("youtube", "https://youtu.be/x"),
+            ],
+            "video",
+            "mp3",
+            "standard",
+        )
+
+        self.assertTrue(youtube_started.wait(0.5))
+        release_bilibili.set()
+        manager.shutdown()
 
     def test_manager_keeps_global_three_and_bilibili_two_limits(self):
         lock = threading.Lock()

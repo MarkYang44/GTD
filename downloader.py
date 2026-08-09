@@ -7,12 +7,14 @@ main.py（命令行）和 app.py（Web 服务）均通过导入本模块复用�
 """
 
 import copy
+import os
 import re
 import shutil
 import threading
 import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Callable, Optional
 from urllib.parse import parse_qs, urlparse
@@ -72,6 +74,7 @@ MAX_PARALLEL_BILIBILI_DOWNLOADS = 2
 ANSI_ESCAPE_RE = re.compile(r"\x1b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 SHARE_URL_RE = re.compile(r"https?://[^\s]+", re.IGNORECASE)
 TRAILING_URL_PUNCTUATION = "】）》」』〕〉)]}>\"',.!?;:，。！？；："
+ATTEMPT_OUTPUT_MARKER_RE = re.compile(r" \[\.__mvd_[A-Za-z0-9_-]+\]$")
 
 # 类型别名
 VideoTask = tuple[str, str]          # (platform, normalized_url)
@@ -399,8 +402,9 @@ def _make_progress_hook(
 
 
 def _make_cancel_hook(cancel_token: CancellationToken):
-    def _cancel_hook(_data: dict) -> None:
-        cancel_token.raise_if_cancelled()
+    def _cancel_hook(data: dict) -> None:
+        if data.get("status") != "finished":
+            cancel_token.raise_if_cancelled()
 
     return _cancel_hook
 
@@ -428,6 +432,23 @@ def _output_template(
     return str(output_dir / name)
 
 
+def _attempt_output_template(
+    platform: str,
+    output_dir: Path,
+    attempt_workspace: Path,
+) -> str:
+    """Use an attempt-unique working name before atomic final claiming."""
+    base = (
+        "%(title)s [%(id)s]"
+        if platform in {INSTAGRAM, BILIBILI}
+        else "%(title)s"
+    )
+    return str(
+        output_dir
+        / f"{base} [.__mvd_{attempt_workspace.name}].%(ext)s"
+    )
+
+
 # ---------------------------------------------------------------------------
 # yt-dlp 选项构建
 # ---------------------------------------------------------------------------
@@ -444,6 +465,7 @@ def _build_ydl_options(
     selected_audio: dict | None = None,
     cancel_token: CancellationToken | None = None,
     output_version: int = 1,
+    attempt_workspace: Path | None = None,
 ) -> dict:
     """生成公共配置，并追加平台专用配置。"""
     if not isinstance(media_type, str) or media_type not in MEDIA_TYPES:
@@ -454,8 +476,13 @@ def _build_ydl_options(
         raise ValueError(f"不支持的速度模式: {speed_mode}")
     _validate_output_version(output_version)
 
+    output_template = (
+        _attempt_output_template(platform, output_dir, attempt_workspace)
+        if attempt_workspace is not None
+        else _output_template(platform, output_dir, output_version)
+    )
     options = {
-        "outtmpl": _output_template(platform, output_dir, output_version),
+        "outtmpl": output_template,
         "progress_hooks": [
             _make_progress_hook(
                 index,
@@ -475,7 +502,10 @@ def _build_ydl_options(
         "fragment_retries": 10,
         "extractor_retries": 5,
         "socket_timeout": 30,
+        "overwrites": False,
     }
+    if attempt_workspace is not None:
+        options["paths"] = {"temp": str(attempt_workspace)}
 
     if platform == YOUTUBE:
         node_path = shutil.which("node")
@@ -705,6 +735,56 @@ def _audio_format_name(profile: AudioOutputProfile) -> str:
     return "MP3 V0"
 
 
+def _profile_for_output_path(
+    profile: AudioOutputProfile,
+    filepath: Path,
+) -> AudioOutputProfile:
+    """Report the container that yt-dlp/FFmpeg actually produced."""
+    if profile.used != SOURCE:
+        return profile
+    actual_ext = filepath.suffix.lstrip(".").lower() or profile.output_ext
+    return replace(
+        profile,
+        output_ext=actual_ext,
+        cover_embedded=actual_ext in {
+            "flac",
+            "m4a",
+            "mp3",
+            "mp4",
+            "ogg",
+            "opus",
+        },
+    )
+
+
+def _ensure_source_copy_supported(
+    info: dict,
+    profile: AudioOutputProfile,
+) -> None:
+    """Reject source outputs that yt-dlp would silently transcode to MP3."""
+    if profile.used != SOURCE:
+        return
+    selected = _selected_audio_info(info)
+    codec = str(selected.get("acodec") or "").lower()
+    supported = (
+        "aac",
+        "alac",
+        "flac",
+        "mp3",
+        "mp4a",
+        "opus",
+        "vorbis",
+    )
+    if not codec.startswith(supported):
+        raise DownloadFailure(
+            classify_download_error(
+                ValueError(
+                    f"requested format cannot be copied without transcoding: {codec or 'unknown'}"
+                )
+            )
+        )
+
+
 def _rename_audio_output(
     filepath: Path,
     profile: AudioOutputProfile,
@@ -712,15 +792,74 @@ def _rename_audio_output(
 ) -> Path:
     _validate_output_version(output_version)
     version_suffix = "" if output_version == 1 else f" ({output_version})"
-    stem = filepath.stem
+    stem = ATTEMPT_OUTPUT_MARKER_RE.sub("", filepath.stem)
     if version_suffix and stem.endswith(version_suffix):
         stem = stem[: -len(version_suffix)]
-    target = filepath.with_name(
-        f"{stem} [{_audio_quality_label(profile)}]"
-        f"{version_suffix}{filepath.suffix}"
+    return _claim_final_output(
+        filepath,
+        f"{stem} [{_audio_quality_label(profile)}]",
+        output_version,
     )
-    filepath.replace(target)
-    return target
+
+
+def _claim_final_output(
+    filepath: Path,
+    final_stem: str,
+    output_version: int,
+) -> Path:
+    return _claim_final_output_with_version(
+        filepath,
+        final_stem,
+        output_version,
+    )[0]
+
+
+def _claim_final_output_with_version(
+    filepath: Path,
+    final_stem: str,
+    output_version: int,
+) -> tuple[Path, int]:
+    """Atomically claim a no-overwrite final path in the same directory."""
+    _validate_output_version(output_version)
+    version = output_version
+    while True:
+        suffix = "" if version == 1 else f" ({version})"
+        target = filepath.with_name(f"{final_stem}{suffix}{filepath.suffix}")
+        try:
+            os.link(filepath, target)
+        except FileExistsError:
+            version += 1
+            continue
+        filepath.unlink()
+        return target, version
+
+
+def _finalize_video_output(
+    filepath: Path,
+    output_version: int = 1,
+) -> Path:
+    return _finalize_video_output_with_version(filepath, output_version)[0]
+
+
+def _finalize_video_output_with_version(
+    filepath: Path,
+    output_version: int = 1,
+) -> tuple[Path, int]:
+    """Remove the private marker and atomically reserve the visible filename."""
+    final_stem = ATTEMPT_OUTPUT_MARKER_RE.sub("", filepath.stem)
+    if final_stem == filepath.stem:
+        return filepath, output_version
+    return _claim_final_output_with_version(
+        filepath,
+        final_stem,
+        output_version,
+    )
+
+
+def _audio_output_version(filepath: Path, requested: int) -> int:
+    """Read the version suffix that this module adds after the quality label."""
+    match = re.search(r"\[[^\]]+\] \((\d+)\)$", filepath.stem)
+    return max(requested, int(match.group(1))) if match else requested
 
 
 def _resolve_output_path(
@@ -854,29 +993,25 @@ def _extract_bilibili_info(url: str, options: dict):
         raise
 
 
-def _temporary_snapshot(output_dir: Path) -> set[Path]:
-    if not output_dir.is_dir():
-        return set()
-    return {path.resolve() for path in output_dir.iterdir()}
+def _new_attempt_workspace(output_dir: Path) -> Path:
+    """Create a private temporary directory owned by one download attempt."""
+    root = output_dir / ".attempts"
+    root.mkdir(parents=True, exist_ok=True)
+    workspace = root / uuid.uuid4().hex
+    workspace.mkdir()
+    return workspace
 
 
-def _cleanup_new_attempt_files(
-    output_dir: Path,
-    before: set[Path],
-) -> None:
-    """只移除当前失败尝试新建的 yt-dlp/aria2 临时文件。"""
-    if not output_dir.is_dir():
-        return
-    for path in output_dir.iterdir():
-        resolved = path.resolve()
-        name = path.name
-        is_attempt_file = (
-            name.endswith((".part", ".aria2", ".ytdl"))
-            or ".part." in name
-            or re.search(r"\.f[^.]+\.[^.]+$", name) is not None
-        )
-        if resolved not in before and path.is_file() and is_attempt_file:
-            path.unlink(missing_ok=True)
+def _cleanup_attempt_workspace(workspace: Path) -> None:
+    """Delete only a workspace created for one attempt."""
+    workspace = Path(workspace)
+    if workspace.parent.name != ".attempts":
+        raise ValueError("拒绝清理非任务临时目录")
+    shutil.rmtree(workspace, ignore_errors=True)
+    try:
+        workspace.parent.rmdir()
+    except OSError:
+        pass
 
 
 def _process_bilibili_attempt(
@@ -920,6 +1055,7 @@ def _build_download_result(
     turbo_fallback: bool,
     plan: AccelerationPlan,
     audio_profile: AudioOutputProfile | None = None,
+    output_version_actual: int = 1,
 ) -> DownloadResult:
     resolution = info.get("resolution") or (
         f"{info.get('width')}x{info.get('height')}"
@@ -937,6 +1073,7 @@ def _build_download_result(
         "turbo_fallback": turbo_fallback,
         "cdn_host": plan.cdn_host or "未知",
         "http_chunk_size": plan.http_chunk_size,
+        "output_version_actual": output_version_actual,
     }
     if media_type == AUDIO:
         if audio_profile is None:
@@ -1022,6 +1159,8 @@ def _download_bilibili(
         if media_type == AUDIO
         else None
     )
+    if audio_profile:
+        _ensure_source_copy_supported(extracted, audio_profile)
 
     original_info = extracted
     original_cdn_host = primary_host(original_info)
@@ -1071,40 +1210,39 @@ def _download_bilibili(
     ) in enumerate(attempts):
         if cancel_token:
             cancel_token.raise_if_cancelled()
-        options = _build_ydl_options(
-            BILIBILI,
-            output_dir,
-            index,
-            total,
-            progress_callback=progress_callback,
-            media_type=media_type,
-            audio_format=(audio_profile.used if audio_profile else MP3),
-            speed_mode=attempt_mode,
-            aria2_executable=executable,
-            selected_audio=(extracted if audio_profile else None),
-            cancel_token=cancel_token,
-            output_version=output_version,
-        )
-        options["http_chunk_size"] = attempt_plan.http_chunk_size
-        if progress_callback:
-            progress_callback(
-                "mode",
-                {
-                    "speed_mode": attempt_mode,
-                    "turbo_fallback": fallback,
-                },
-            )
-
-        before = _temporary_snapshot(output_dir)
+        attempt_workspace = _new_attempt_workspace(output_dir)
         try:
+            options = _build_ydl_options(
+                BILIBILI,
+                output_dir,
+                index,
+                total,
+                progress_callback=progress_callback,
+                media_type=media_type,
+                audio_format=(audio_profile.used if audio_profile else MP3),
+                speed_mode=attempt_mode,
+                aria2_executable=executable,
+                selected_audio=(extracted if audio_profile else None),
+                cancel_token=cancel_token,
+                output_version=output_version,
+                attempt_workspace=attempt_workspace,
+            )
+            options["http_chunk_size"] = attempt_plan.http_chunk_size
+            if progress_callback:
+                progress_callback(
+                    "mode",
+                    {
+                        "speed_mode": attempt_mode,
+                        "turbo_fallback": fallback,
+                    },
+                )
             final_info, filepath = _process_bilibili_attempt(
                 prepared_info,
                 options,
                 output_dir,
             )
-            if cancel_token:
-                cancel_token.raise_if_cancelled()
             if audio_profile:
+                audio_profile = _profile_for_output_path(audio_profile, filepath)
                 if output_version == 1:
                     filepath = _rename_audio_output(filepath, audio_profile)
                 else:
@@ -1113,6 +1251,17 @@ def _download_bilibili(
                         audio_profile,
                         output_version=output_version,
                     )
+                output_version_actual = _audio_output_version(
+                    filepath,
+                    output_version,
+                )
+            else:
+                filepath, output_version_actual = (
+                    _finalize_video_output_with_version(
+                        filepath,
+                        output_version,
+                    )
+                )
             return _build_download_result(
                 final_info,
                 filepath,
@@ -1123,12 +1272,11 @@ def _download_bilibili(
                 fallback,
                 attempt_plan,
                 audio_profile,
+                output_version_actual,
             )
         except DownloadCancelled:
-            _cleanup_new_attempt_files(output_dir, before)
             raise
         except yt_dlp.utils.DownloadError as error:
-            _cleanup_new_attempt_files(output_dir, before)
             last_error = error
             next_is_standard = (
                 attempt_index + 1 < len(attempts)
@@ -1146,6 +1294,8 @@ def _download_bilibili(
             )
             if not can_retry_aria2 and not can_retry_cdn:
                 raise
+        finally:
+            _cleanup_attempt_workspace(attempt_workspace)
 
     raise last_error or yt_dlp.utils.DownloadError("Bilibili 下载失败")
 
@@ -1216,7 +1366,7 @@ def download_video(
     platform_name = PLATFORM_NAMES[platform]
     media_name = "音频" if media_type == AUDIO else "视频"
 
-    before = _temporary_snapshot(output_dir)
+    attempt_workspace = _new_attempt_workspace(output_dir)
     try:
         print(f"\n{'─' * 56}")
         print(f"[{index}/{total}] [{platform_name}] 🔍 正在获取{media_name}信息: {url}\n")
@@ -1231,6 +1381,7 @@ def download_video(
                 audio_format=audio_format,
                 cancel_token=cancel_token,
                 output_version=output_version,
+                attempt_workspace=attempt_workspace,
             )
             if cancel_token:
                 cancel_token.raise_if_cancelled()
@@ -1243,6 +1394,7 @@ def download_video(
                 return None
 
             audio_profile = _audio_output_profile(info, audio_format)
+            _ensure_source_copy_supported(info, audio_profile)
             options = _build_ydl_options(
                 platform,
                 output_dir,
@@ -1254,9 +1406,8 @@ def download_video(
                 selected_audio=info,
                 cancel_token=cancel_token,
                 output_version=output_version,
+                attempt_workspace=attempt_workspace,
             )
-            if cancel_token:
-                cancel_token.raise_if_cancelled()
             with yt_dlp.YoutubeDL(options) as ydl:
                 ydl.process_info(info)
                 filepath = _resolve_output_path(
@@ -1267,8 +1418,7 @@ def download_video(
                     audio_format=audio_profile.used,
                     audio_profile=audio_profile,
                 )
-            if cancel_token:
-                cancel_token.raise_if_cancelled()
+            audio_profile = _profile_for_output_path(audio_profile, filepath)
             if output_version == 1:
                 filepath = _rename_audio_output(filepath, audio_profile)
             else:
@@ -1277,6 +1427,10 @@ def download_video(
                     audio_profile,
                     output_version=output_version,
                 )
+            output_version_actual = _audio_output_version(
+                filepath,
+                output_version,
+            )
             result = {
                 "platform": platform_name,
                 "title": info.get("title", "未知标题"),
@@ -1303,6 +1457,7 @@ def download_video(
                 "source_abr_kbps": (
                     audio_profile.source_abr_kbps or "未知"
                 ),
+                "output_version_actual": output_version_actual,
             }
             return result
 
@@ -1316,6 +1471,7 @@ def download_video(
             audio_format=audio_format,
             cancel_token=cancel_token,
             output_version=output_version,
+            attempt_workspace=attempt_workspace,
         )
         if cancel_token:
             cancel_token.raise_if_cancelled()
@@ -1325,14 +1481,17 @@ def download_video(
                 print("\n❌ 下载器未返回视频信息。")
                 return None
 
-            if cancel_token:
-                cancel_token.raise_if_cancelled()
-
             filepath = _resolve_output_path(
                 ydl,
                 info,
                 output_dir,
                 media_type=media_type,
+            )
+            filepath, output_version_actual = (
+                _finalize_video_output_with_version(
+                    filepath,
+                    output_version,
+                )
             )
             resolution = info.get("resolution") or (
                 f"{info.get('width')}x{info.get('height')}"
@@ -1351,6 +1510,7 @@ def download_video(
                 "turbo_fallback": False,
                 "cdn_host": "未知",
                 "http_chunk_size": 0,
+                "output_version_actual": output_version_actual,
             }
             result.update(
                 {
@@ -1363,7 +1523,6 @@ def download_video(
             return result
 
     except DownloadCancelled as error:
-        _cleanup_new_attempt_files(output_dir, before)
         if raise_errors:
             raise
         print(f"\n{format_cli_error(error)}")
@@ -1379,6 +1538,8 @@ def download_video(
             raise DownloadFailure(info) from error
         print(f"\n{format_cli_error(info)}")
         return None
+    finally:
+        _cleanup_attempt_workspace(attempt_workspace)
 
 
 # ---------------------------------------------------------------------------
