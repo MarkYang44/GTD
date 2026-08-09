@@ -6,13 +6,14 @@ from unittest.mock import patch
 
 import downloader
 import main as cli_main
+from collection_resolver import CollectionEntry, CollectionPreview
 
 
 class CliAudioModeTests(unittest.TestCase):
     def test_parse_command_line_selects_audio_and_removes_flag(self):
         url = "https://youtu.be/example"
 
-        media_type, audio_format, speed_mode, urls = cli_main.parse_command_line(
+        media_type, audio_format, speed_mode, urls, item_selection = cli_main.parse_command_line(
             ["--audio", url]
         )
 
@@ -20,11 +21,12 @@ class CliAudioModeTests(unittest.TestCase):
         self.assertEqual(audio_format, downloader.MP3)
         self.assertEqual(speed_mode, downloader.STANDARD)
         self.assertEqual(urls, [url])
+        self.assertIsNone(item_selection)
 
     def test_parse_command_line_defaults_to_video(self):
         url = "https://youtu.be/example"
 
-        media_type, audio_format, speed_mode, urls = cli_main.parse_command_line(
+        media_type, audio_format, speed_mode, urls, item_selection = cli_main.parse_command_line(
             [url]
         )
 
@@ -32,11 +34,12 @@ class CliAudioModeTests(unittest.TestCase):
         self.assertEqual(audio_format, downloader.MP3)
         self.assertEqual(speed_mode, downloader.STANDARD)
         self.assertEqual(urls, [url])
+        self.assertIsNone(item_selection)
 
     def test_parse_command_line_combines_audio_and_turbo(self):
         url = "https://b23.tv/example"
 
-        media_type, audio_format, speed_mode, urls = cli_main.parse_command_line(
+        media_type, audio_format, speed_mode, urls, item_selection = cli_main.parse_command_line(
             ["--audio", url, "--turbo"]
         )
 
@@ -44,11 +47,12 @@ class CliAudioModeTests(unittest.TestCase):
         self.assertEqual(audio_format, downloader.MP3)
         self.assertEqual(speed_mode, downloader.TURBO)
         self.assertEqual(urls, [url])
+        self.assertIsNone(item_selection)
 
     def test_parse_command_line_selects_source_flac(self):
         url = "https://b23.tv/example"
 
-        media_type, audio_format, speed_mode, urls = cli_main.parse_command_line(
+        media_type, audio_format, speed_mode, urls, item_selection = cli_main.parse_command_line(
             ["--audio", "--flac", url]
         )
 
@@ -56,6 +60,130 @@ class CliAudioModeTests(unittest.TestCase):
         self.assertEqual(audio_format, downloader.FLAC)
         self.assertEqual(speed_mode, downloader.STANDARD)
         self.assertEqual(urls, [url])
+        self.assertIsNone(item_selection)
+
+    def test_parse_command_line_accepts_source_audio_and_wav(self):
+        for value in (downloader.SOURCE, downloader.WAV):
+            with self.subTest(value=value):
+                media, audio_format, speed, urls, item_selection = (
+                    cli_main.parse_command_line(
+                        ["--audio", "--audio-format", value, "https://youtu.be/x"]
+                    )
+                )
+
+                self.assertEqual(media, downloader.AUDIO)
+                self.assertEqual(audio_format, value)
+                self.assertEqual(speed, downloader.STANDARD)
+                self.assertEqual(urls, ["https://youtu.be/x"])
+                self.assertIsNone(item_selection)
+
+    def test_parse_command_line_accepts_item_selection(self):
+        parsed = cli_main.parse_command_line(
+            ["--items", "1,3-5", "https://youtube.com/playlist?list=x"]
+        )
+
+        self.assertEqual(parsed[4], "1,3-5")
+
+    def test_audio_format_requires_audio_and_rejects_conflicts(self):
+        with self.assertRaisesRegex(ValueError, "--audio-format 只能与 --audio"):
+            cli_main.parse_command_line(
+                ["--audio-format", "wav", "https://youtu.be/x"]
+            )
+        with self.assertRaisesRegex(ValueError, "不能同时"):
+            cli_main.parse_command_line(
+                ["--audio", "--flac", "--audio-format", "wav", "https://youtu.be/x"]
+            )
+
+    def test_parser_rejects_missing_values_and_unknown_flags(self):
+        for args in (["--audio", "--audio-format"], ["--items"]):
+            with self.subTest(args=args), self.assertRaisesRegex(ValueError, "需要提供"):
+                cli_main.parse_command_line(args)
+        with self.assertRaisesRegex(ValueError, "未知参数"):
+            cli_main.parse_command_line(["--wat", "https://youtu.be/x"])
+
+    def test_parse_item_selection_supports_all_ranges_and_limit(self):
+        available = [str(index) for index in range(1, 102)]
+
+        self.assertEqual(
+            cli_main.parse_item_selection("1,3-5", available),
+            ["1", "3", "4", "5"],
+        )
+        self.assertEqual(
+            len(cli_main.parse_item_selection("all", available[:100])),
+            100,
+        )
+        with self.assertRaisesRegex(ValueError, "最多选择 100"):
+            cli_main.parse_item_selection("all", available)
+
+    def test_parse_item_selection_rejects_unknown_or_duplicate_items(self):
+        with self.assertRaisesRegex(ValueError, "不存在"):
+            cli_main.parse_item_selection("1,4", ["1", "2", "3"])
+        with self.assertRaisesRegex(ValueError, "重复"):
+            cli_main.parse_item_selection("1,1", ["1", "2"])
+
+    def test_noninteractive_collection_requires_items(self):
+        preview = CollectionPreview(
+            id="preview",
+            title="List",
+            platform=downloader.YOUTUBE,
+            entries=(
+                CollectionEntry(
+                    id="1",
+                    title="A",
+                    platform=downloader.YOUTUBE,
+                    url="https://youtu.be/a",
+                    position=1,
+                    thumbnail=None,
+                    selectable=True,
+                    unavailable_reason=None,
+                ),
+            ),
+            is_single=False,
+            requires_selection=True,
+        )
+        with patch("main.resolve_collection", return_value=preview):
+            with self.assertRaisesRegex(ValueError, "--items"):
+                cli_main.resolve_cli_tasks(
+                    ["https://youtube.com/playlist?list=x"],
+                    item_selection=None,
+                    interactive=False,
+                )
+
+    def test_collection_selection_preserves_requested_order(self):
+        preview = CollectionPreview(
+            id="preview",
+            title="List",
+            platform=downloader.YOUTUBE,
+            entries=tuple(
+                CollectionEntry(
+                    id=str(index),
+                    title=f"Item {index}",
+                    platform=downloader.YOUTUBE,
+                    url=f"https://youtu.be/{index}",
+                    position=index,
+                    thumbnail=None,
+                    selectable=True,
+                    unavailable_reason=None,
+                )
+                for index in range(1, 4)
+            ),
+            is_single=False,
+            requires_selection=True,
+        )
+        with patch("main.resolve_collection", return_value=preview):
+            tasks = cli_main.resolve_cli_tasks(
+                ["https://youtube.com/playlist?list=x"],
+                item_selection="3,1",
+                interactive=False,
+            )
+
+        self.assertEqual(
+            tasks,
+            [
+                (downloader.YOUTUBE, "https://youtu.be/3"),
+                (downloader.YOUTUBE, "https://youtu.be/1"),
+            ],
+        )
 
     def test_flac_flag_requires_audio_mode(self):
         with self.assertRaisesRegex(
@@ -81,6 +209,12 @@ class CliAudioModeTests(unittest.TestCase):
         with patch("builtins.input", return_value="2"):
             self.assertEqual(cli_main.choose_audio_format(), downloader.FLAC)
 
+    def test_interactive_audio_format_accepts_source_and_wav(self):
+        with patch("builtins.input", side_effect=["3", EOFError]):
+            self.assertEqual(cli_main.choose_audio_format(), downloader.SOURCE)
+        with patch("builtins.input", side_effect=["4", EOFError]):
+            self.assertEqual(cli_main.choose_audio_format(), downloader.WAV)
+
     def test_interactive_speed_mode_defaults_to_standard(self):
         with patch("builtins.input", return_value=""):
             self.assertEqual(cli_main.choose_speed_mode(), downloader.STANDARD)
@@ -105,6 +239,10 @@ class CliAudioModeTests(unittest.TestCase):
         with (
             patch.object(sys, "argv", ["main.py", "--audio", url]),
             patch("main.check_ffmpeg", return_value=True),
+            patch(
+                "main.resolve_cli_tasks",
+                return_value=[(downloader.YOUTUBE, url)],
+            ),
             patch(
                 "main.download_tasks",
                 return_value=[((downloader.YOUTUBE, url), result)],
@@ -143,6 +281,10 @@ class CliAudioModeTests(unittest.TestCase):
             patch.object(sys, "argv", ["main.py", "--audio", "--flac", url]),
             patch("main.check_ffmpeg", return_value=True),
             patch(
+                "main.resolve_cli_tasks",
+                return_value=[(downloader.BILIBILI, url)],
+            ),
+            patch(
                 "main.download_tasks",
                 return_value=[((downloader.BILIBILI, url), result)],
             ) as download_tasks,
@@ -180,6 +322,10 @@ class CliAudioModeTests(unittest.TestCase):
             patch.object(sys, "argv", ["main.py", "--turbo", url]),
             patch("main.check_ffmpeg", return_value=True),
             patch("main.aria2c_path", return_value=None),
+            patch(
+                "main.resolve_cli_tasks",
+                return_value=[(downloader.BILIBILI, url)],
+            ),
             patch(
                 "main.download_tasks",
                 return_value=[((downloader.BILIBILI, url), result)],

@@ -12,20 +12,30 @@ import re
 import sys
 from typing import Optional
 
+from collection_resolver import (
+    CollectionEntry,
+    CollectionPreview,
+    resolve_collection,
+)
+from download_errors import DownloadFailure, format_cli_error
 from downloader import (
     AUDIO,
+    AUDIO_FORMATS,
     DOWNLOADS_DIR,
     FLAC,
     MP3,
     PLATFORM_NAMES,
     STANDARD,
+    SOURCE,
     TURBO,
     VIDEO,
+    WAV,
     VideoTask,
     DownloadResult,
     check_ffmpeg,
     download_tasks,
     aria2c_path,
+    detect_collection_platform,
     make_task,
 )
 
@@ -49,10 +59,10 @@ def is_virtualenv_activation_command(value: str) -> bool:
 
 
 def choose_media_type() -> str:
-    """让交互式用户选择视频或 MP3 音频，直接回车默认视频。"""
+    """让交互式用户选择视频或音频，直接回车默认视频。"""
     print("请选择下载类型：")
     print("  1. 视频（默认）")
-    print("  2. MP3 音频（最高可用音质）")
+    print("  2. 音频（最高可用音质，可选择输出格式）")
 
     while True:
         choice = input("选择 1 或 2（直接回车选择视频）: ").strip().lower()
@@ -64,29 +74,186 @@ def choose_media_type() -> str:
 
 
 def choose_audio_format() -> str:
-    """让音频用户选择 MP3 V0 或源 FLAC，直接回车默认 MP3。"""
+    """让音频用户选择四种输出格式，直接回车默认 MP3。"""
     print("请选择音频输出格式：")
     print("  1. MP3 V0（默认，兼容性最佳）")
     print("  2. 源 FLAC（无 FLAC 时自动回退 MP3 V0）")
+    print("  3. 原始音频（保留源音轨编码与扩展名）")
+    print("  4. WAV PCM（文件较大，不会提升源音质）")
     while True:
-        choice = input("选择 1 或 2（直接回车选择 MP3）: ").strip().lower()
+        choice = input("选择 1 至 4（直接回车选择 MP3）: ").strip().lower()
         if choice in {"", "1", "mp3"}:
             return MP3
         if choice in {"2", "flac"}:
             return FLAC
-        print("⚠️  请输入 1 或 2。")
+        if choice in {"3", "source", "original"}:
+            return SOURCE
+        if choice in {"4", "wav"}:
+            return WAV
+        print("⚠️  请输入 1、2、3 或 4。")
 
 
-def parse_command_line(args: list[str]) -> tuple[str, str, str, list[str]]:
-    """解析媒体、音频格式与速度标志，并返回 URL 参数。"""
-    if "--flac" in args and "--audio" not in args:
+def parse_command_line(
+    args: list[str],
+) -> tuple[str, str, str, list[str], str | None]:
+    """确定性解析媒体、格式、速度、URL 与合集条目选择。"""
+    media_type = VIDEO
+    speed_mode = STANDARD
+    flac_alias = False
+    explicit_audio_format: str | None = None
+    item_selection: str | None = None
+    urls: list[str] = []
+
+    index = 0
+    while index < len(args):
+        value = args[index]
+        if value == "--audio":
+            media_type = AUDIO
+        elif value == "--flac":
+            flac_alias = True
+        elif value == "--turbo":
+            speed_mode = TURBO
+        elif value in {"--audio-format", "--items"}:
+            if index + 1 >= len(args) or args[index + 1].startswith("--"):
+                raise ValueError(f"{value} 需要提供一个值")
+            option_value = args[index + 1].strip().lower()
+            if not option_value:
+                raise ValueError(f"{value} 需要提供一个值")
+            if value == "--audio-format":
+                if explicit_audio_format is not None:
+                    raise ValueError("--audio-format 不能重复使用")
+                explicit_audio_format = option_value
+            else:
+                if item_selection is not None:
+                    raise ValueError("--items 不能重复使用")
+                item_selection = option_value
+            index += 1
+        elif value.startswith("-"):
+            raise ValueError(f"未知参数: {value}")
+        else:
+            urls.append(value)
+        index += 1
+
+    if flac_alias and media_type != AUDIO:
         raise ValueError("--flac 只能与 --audio 一起使用")
-    media_type = AUDIO if "--audio" in args else VIDEO
-    audio_format = FLAC if "--flac" in args else MP3
-    speed_mode = TURBO if "--turbo" in args else STANDARD
-    flags = {"--audio", "--flac", "--turbo"}
-    urls = [value for value in args if value not in flags]
-    return media_type, audio_format, speed_mode, urls
+    if explicit_audio_format is not None and media_type != AUDIO:
+        raise ValueError("--audio-format 只能与 --audio 一起使用")
+    if (
+        explicit_audio_format is not None
+        and explicit_audio_format not in AUDIO_FORMATS
+    ):
+        choices = ", ".join(sorted(AUDIO_FORMATS))
+        raise ValueError(f"不支持的音频格式: {explicit_audio_format}；可选 {choices}")
+    if flac_alias and explicit_audio_format not in {None, FLAC}:
+        raise ValueError("--flac 与非 FLAC 的 --audio-format 不能同时使用")
+
+    audio_format = explicit_audio_format or (FLAC if flac_alias else MP3)
+    return media_type, audio_format, speed_mode, urls, item_selection
+
+
+def parse_item_selection(
+    value: str,
+    available_ids: list[str],
+    limit: int = 100,
+) -> list[str]:
+    """解析 ``all``、逗号列表或闭区间，并按用户顺序返回条目 ID。"""
+    normalized = value.strip().lower()
+    if not normalized:
+        raise ValueError("条目选择不能为空")
+
+    if normalized == "all":
+        selected = list(available_ids)
+    else:
+        selected: list[str] = []
+        for token in (part.strip() for part in normalized.split(",")):
+            if not token:
+                raise ValueError("条目选择格式无效")
+            match = re.fullmatch(r"(\d+)-(\d+)", token)
+            if match:
+                start, end = (int(part) for part in match.groups())
+                if start > end:
+                    raise ValueError(f"条目范围无效: {token}")
+                selected.extend(str(index) for index in range(start, end + 1))
+            else:
+                selected.append(token)
+
+    if len(selected) > limit:
+        raise ValueError(f"一次最多选择 {limit} 个条目")
+    if len(set(selected)) != len(selected):
+        raise ValueError("不能重复选择同一条目")
+    unavailable = [entry_id for entry_id in selected if entry_id not in available_ids]
+    if unavailable:
+        raise ValueError(f"所选条目不存在或不可下载: {', '.join(unavailable)}")
+    if not selected:
+        raise ValueError("请至少选择一个条目")
+    return selected
+
+
+def _print_collection_entries(
+    previews: list[CollectionPreview],
+    numbered_entries: list[tuple[str, CollectionEntry]],
+) -> None:
+    print("\n📚 检测到播放列表、合集或分 P：")
+    for preview in previews:
+        if preview.requires_selection:
+            print(f"   {preview.title}")
+    for entry_id, entry in numbered_entries:
+        status = (
+            ""
+            if entry.selectable
+            else f"（不可下载：{entry.unavailable_reason or '未知原因'}）"
+        )
+        print(f"  {entry_id}. {entry.title}{status}")
+
+
+def resolve_cli_tasks(
+    inputs: list[str],
+    item_selection: str | None = None,
+    interactive: bool = False,
+) -> list[VideoTask]:
+    """解析单条或合集输入；合集由 ``--items`` 或交互输入明确选择。"""
+    if not inputs:
+        raise ValueError("至少需要提供一个链接")
+
+    previews = [resolve_collection(value) for value in inputs]
+    numbered_entries: list[tuple[str, CollectionEntry]] = []
+    for preview in previews:
+        for entry in preview.entries:
+            numbered_entries.append((str(len(numbered_entries) + 1), entry))
+
+    requires_selection = any(preview.requires_selection for preview in previews)
+    selectable_ids = [
+        entry_id
+        for entry_id, entry in numbered_entries
+        if entry.selectable and entry.url
+    ]
+    if not selectable_ids:
+        raise ValueError("没有可下载的条目")
+
+    if requires_selection:
+        _print_collection_entries(previews, numbered_entries)
+        selection = item_selection
+        if selection is None:
+            if not interactive:
+                raise ValueError(
+                    "检测到播放列表、合集或分 P；请使用 --items all 或 --items 1,3-5 选择条目"
+                )
+            selection = input("选择条目（all 或 1,3-5，最多 100 项）: ")
+        selected_ids = parse_item_selection(selection, selectable_ids)
+    else:
+        if item_selection is not None:
+            raise ValueError("--items 仅用于播放列表、合集或分 P")
+        if len(selectable_ids) > 100:
+            raise ValueError("一次最多选择 100 个条目")
+        selected_ids = selectable_ids
+
+    by_id = {entry_id: entry for entry_id, entry in numbered_entries}
+    tasks: list[VideoTask] = []
+    for entry_id in selected_ids:
+        entry = by_id[entry_id]
+        if entry.url:
+            tasks.append((entry.platform, entry.url))
+    return tasks
 
 
 def choose_speed_mode() -> str:
@@ -102,6 +269,31 @@ def choose_speed_mode() -> str:
         if choice in {"y", "yes"}:
             return TURBO
         print("⚠️  请输入 y 或 n。")
+
+
+def get_inputs_from_user(media_type: str = VIDEO) -> list[str]:
+    """交互式收集单条、播放列表、合集或分 P 链接。"""
+    media_name = MEDIA_TYPE_NAMES[media_type]
+    print(f"🎬 YouTube + Instagram + Bilibili {media_name}批量下载工具")
+    print("=" * 56)
+    print("请逐行粘贴单条视频、播放列表、合集或分 P 链接，每行一个。")
+    print("三个平台的链接可以任意混合，输入空行后开始解析。")
+    print("⚠️  Instagram 与 Bilibili 的部分内容需要配置登录 Cookie。\n")
+
+    inputs: list[str] = []
+    while True:
+        value = input(f"链接 {len(inputs) + 1}（空行结束）: ").strip()
+        if is_virtualenv_activation_command(value):
+            continue
+        if not value:
+            if not inputs:
+                print("❌ 至少需要输入一个链接。\n")
+                continue
+            return inputs
+        if make_task(value) or detect_collection_platform(value):
+            inputs.append(value)
+        else:
+            print("⚠️  无法识别该输入，请粘贴受支持平台的链接或分享文案。\n")
 
 
 def get_tasks_from_user(media_type: str = VIDEO) -> list[VideoTask]:
@@ -273,22 +465,26 @@ def main() -> int:
     command_line_mode = len(sys.argv) > 1
     if command_line_mode:
         try:
-            media_type, audio_format, speed_mode, url_args = parse_command_line(
-                sys.argv[1:]
+            (
+                media_type,
+                audio_format,
+                speed_mode,
+                url_args,
+                item_selection,
+            ) = parse_command_line(sys.argv[1:])
+            tasks = resolve_cli_tasks(
+                url_args,
+                item_selection=item_selection,
+                interactive=False,
             )
+        except DownloadFailure as error:
+            print(f"❌ {format_cli_error(error)}")
+            return 1
         except ValueError as error:
             print(f"❌ 错误：{error}")
             print(
-                "   用法: python main.py [--audio [--flac]] "
-                "[--turbo] <URL1> [URL2] [URL3] ..."
-            )
-            return 1
-        tasks = get_tasks_from_args(url_args)
-        if not tasks:
-            print("❌ 错误：未提供合法的 YouTube、Instagram 或 Bilibili 视频链接。")
-            print(
-                "   用法: python main.py [--audio [--flac]] "
-                "[--turbo] <URL1> [URL2] [URL3] ..."
+                "   用法: python main.py [--audio [--flac | --audio-format FORMAT]] "
+                "[--turbo] [--items all|1,3-5] <URL1> [URL2] ..."
             )
             return 1
     else:
@@ -298,7 +494,14 @@ def main() -> int:
                 choose_audio_format() if media_type == AUDIO else MP3
             )
             speed_mode = choose_speed_mode()
-            tasks = get_tasks_from_user(media_type=media_type)
+            inputs = get_inputs_from_user(media_type=media_type)
+            tasks = resolve_cli_tasks(inputs, interactive=True)
+        except DownloadFailure as error:
+            print(f"\n❌ {format_cli_error(error)}")
+            return 1
+        except ValueError as error:
+            print(f"\n❌ 错误：{error}")
+            return 1
         except (EOFError, KeyboardInterrupt):
             print("\n已取消。")
             return 130
