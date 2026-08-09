@@ -862,6 +862,7 @@ def download_tasks(
     tasks: list[VideoTask],
     progress_callback: ProgressCallback = None,
     media_type: str = VIDEO,
+    speed_mode: str = STANDARD,
 ) -> list[tuple[VideoTask, Optional[DownloadResult]]]:
     """最多并行执行三个混合平台下载任务，并保持结果顺序。
 
@@ -877,7 +878,12 @@ def download_tasks(
         - event='failed' 时 data 含 error 字段。
     media_type : str
         `video` 下载视频，`audio` 下载最高可用音质并转换为 MP3。
+    speed_mode : str
+        `standard` 使用原生下载器，`turbo` 仅对 Bilibili 尝试 aria2c。
     """
+    if speed_mode not in SPEED_MODES:
+        raise ValueError(f"不支持的速度模式: {speed_mode}")
+
     total = len(tasks)
     if not tasks:
         return []
@@ -908,6 +914,7 @@ def download_tasks(
                 platform=platform,
                 progress_callback=_relay_progress if progress_callback else None,
                 media_type=media_type,
+                speed_mode=speed_mode,
             )
 
         try:

@@ -222,6 +222,44 @@ class ParallelDownloadTests(unittest.TestCase):
             [downloader.AUDIO, downloader.AUDIO],
         )
 
+    def test_speed_mode_is_forwarded_to_every_task(self):
+        tasks = [
+            (downloader.BILIBILI, "https://b23.tv/first"),
+            (downloader.YOUTUBE, "https://youtu.be/second"),
+        ]
+
+        with patch(
+            "downloader.download_video",
+            side_effect=lambda url, **kwargs: {
+                "title": url,
+                "speed_mode_requested": kwargs["speed_mode"],
+            },
+        ) as mocked:
+            results = downloader.download_tasks(
+                tasks,
+                speed_mode=downloader.TURBO,
+            )
+
+        self.assertEqual(mocked.call_count, 2)
+        self.assertTrue(all(
+            call.kwargs["speed_mode"] == downloader.TURBO
+            for call in mocked.call_args_list
+        ))
+        self.assertTrue(all(
+            result["speed_mode_requested"] == downloader.TURBO
+            for _, result in results
+        ))
+
+    def test_unknown_batch_speed_mode_fails_before_workers_start(self):
+        with patch("downloader.ThreadPoolExecutor") as executor:
+            with self.assertRaisesRegex(ValueError, "速度模式"):
+                downloader.download_tasks(
+                    [(downloader.BILIBILI, "https://b23.tv/example")],
+                    speed_mode="warp",
+                )
+
+        executor.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
