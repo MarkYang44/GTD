@@ -300,5 +300,64 @@ class AdaptivePolicyTests(unittest.TestCase):
         )
 
 
+class Aria2ModeTests(unittest.TestCase):
+    def test_detects_aria2c_path(self):
+        with patch(
+            "bilibili_acceleration.shutil.which",
+            return_value="/opt/homebrew/bin/aria2c",
+        ):
+            self.assertEqual(
+                acceleration.aria2c_path(),
+                "/opt/homebrew/bin/aria2c",
+            )
+
+    def test_turbo_only_becomes_effective_for_bilibili_with_aria2(self):
+        self.assertEqual(
+            acceleration.effective_speed_mode(
+                "bilibili",
+                "turbo",
+                "/bin/aria2c",
+            ),
+            acceleration.TURBO,
+        )
+        self.assertEqual(
+            acceleration.effective_speed_mode(
+                "youtube",
+                "turbo",
+                "/bin/aria2c",
+            ),
+            acceleration.STANDARD,
+        )
+        self.assertEqual(
+            acceleration.effective_speed_mode(
+                "bilibili",
+                "turbo",
+                None,
+            ),
+            acceleration.STANDARD,
+        )
+
+    def test_configure_aria2_uses_four_connections(self):
+        options = {}
+
+        acceleration.configure_aria2(
+            options,
+            "/opt/homebrew/bin/aria2c",
+        )
+
+        self.assertEqual(options["external_downloader"], {
+            "http": "/opt/homebrew/bin/aria2c",
+        })
+        self.assertEqual(
+            options["external_downloader_args"]["aria2c"],
+            [
+                "--max-connection-per-server=4",
+                "--split=4",
+                "--max-concurrent-downloads=4",
+                "--min-split-size=1M",
+            ],
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

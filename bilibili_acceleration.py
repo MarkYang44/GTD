@@ -1,5 +1,6 @@
 """Bilibili 专用 CDN 候选提取与下载加速策略。"""
 
+import shutil
 import threading
 import time
 from dataclasses import dataclass
@@ -18,6 +19,9 @@ BILIBILI_LARGE_FILE_THRESHOLD = 50 * 1024 * 1024
 CDN_PROBE_BYTES = 512 * 1024
 CDN_CACHE_TTL_SECONDS = 30 * 60
 CDN_PROBE_TIMEOUT_SECONDS = 3
+STANDARD = "standard"
+TURBO = "turbo"
+SPEED_MODES = {STANDARD, TURBO}
 
 
 @dataclass(frozen=True)
@@ -83,6 +87,34 @@ class CdnProbeCache:
 
 
 CDN_PROBE_CACHE = CdnProbeCache(CDN_CACHE_TTL_SECONDS)
+
+
+def aria2c_path() -> str | None:
+    return shutil.which("aria2c")
+
+
+def effective_speed_mode(
+    platform: str,
+    requested: str,
+    executable: str | None,
+) -> str:
+    if requested not in SPEED_MODES:
+        raise ValueError(f"不支持的速度模式: {requested}")
+    if platform == "bilibili" and requested == TURBO and executable:
+        return TURBO
+    return STANDARD
+
+
+def configure_aria2(options: dict, executable: str) -> None:
+    options["external_downloader"] = {"http": executable}
+    options["external_downloader_args"] = {
+        "aria2c": [
+            "--max-connection-per-server=4",
+            "--split=4",
+            "--max-concurrent-downloads=4",
+            "--min-split-size=1M",
+        ],
+    }
 
 
 def _https_candidates(stream: dict) -> tuple[str, ...]:
