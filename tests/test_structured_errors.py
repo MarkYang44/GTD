@@ -103,6 +103,8 @@ class DownloadLoggingTests(unittest.TestCase):
             self.assertEqual(payload["event"], "failed")
             self.assertEqual(payload["url"], "https://youtu.be/abc")
             self.assertIn("timestamp", payload)
+            for handler in logger.handlers:
+                handler.close()
 
     def test_free_text_redacts_complete_headers_and_proxy_credentials(self):
         diagnostic = (
@@ -170,6 +172,8 @@ class DownloadLoggingTests(unittest.TestCase):
             payload = json.loads(
                 (Path(directory) / "downloader.jsonl").read_text(encoding="utf-8")
             )
+            for handler in logger.handlers:
+                handler.close()
 
         expected = {
             "timestamp",
@@ -194,6 +198,7 @@ class DownloadLoggingTests(unittest.TestCase):
 
             self.assertEqual(handler.maxBytes, 10 * 1024 * 1024)
             self.assertEqual(handler.backupCount, 5)
+            handler.close()
 
     def test_unwritable_log_directory_does_not_break_download_flow(self):
         buffer = io.StringIO()
