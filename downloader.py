@@ -40,6 +40,7 @@ from bilibili_acceleration import (
     apply_cdn_host,
     aria2c_path,
     build_acceleration_plan,
+    candidate_hosts,
     configure_aria2,
     effective_speed_mode,
     needs_cdn_host_switch,
@@ -73,7 +74,7 @@ MAX_PARALLEL_DOWNLOADS = 3
 MAX_PARALLEL_BILIBILI_DOWNLOADS = 2
 ANSI_ESCAPE_RE = re.compile(r"\x1b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 SHARE_URL_RE = re.compile(r"https?://[^\s]+", re.IGNORECASE)
-TRAILING_URL_PUNCTUATION = "】）》」』〕〉)]}>\"',.!?;:，。！？；："
+TRAILING_URL_PUNCTUATION = "】）》」』〕〉)]}>\"'“”‘’,.!?;:，。！？；："
 ATTEMPT_OUTPUT_MARKER_RE = re.compile(r" \[\.__mvd_[A-Za-z0-9_-]+\]$")
 
 # 类型别名
@@ -1045,6 +1046,25 @@ def _is_cdn_access_failure(error: Exception) -> bool:
     return "http error 403" in message or "http error 412" in message
 
 
+def _is_cdn_transport_failure(error: Exception) -> bool:
+    """Return whether another Bilibili CDN may recover a broken transfer."""
+    message = str(error).lower()
+    return any(
+        marker in message
+        for marker in (
+            "winerror 10053",
+            "winerror 10054",
+            "connection reset",
+            "connection aborted",
+            "connection broken",
+            "forcibly closed",
+            "remote host closed",
+            "incomplete read",
+            "远程主机强迫关闭",
+        )
+    )
+
+
 def _build_download_result(
     info: dict,
     filepath: Path,
@@ -1201,6 +1221,19 @@ def _download_bilibili(
             )
         )
 
+    # A successful short range probe does not guarantee that a CDN will keep a
+    # long transfer alive. Keep the remaining hosts available for lazy failover.
+    represented_hosts = {
+        attempt_plan.cdn_host
+        for _, _, attempt_plan, _ in attempts
+        if attempt_plan.cdn_host
+    }
+    backup_hosts = [
+        host
+        for host in candidate_hosts(original_info)
+        if host not in represented_hosts
+    ]
+
     last_error = None
     for attempt_index, (
         attempt_mode,
@@ -1278,6 +1311,33 @@ def _download_bilibili(
             raise
         except yt_dlp.utils.DownloadError as error:
             last_error = error
+            if (
+                _is_cdn_access_failure(error)
+                or _is_cdn_transport_failure(error)
+            ):
+                while backup_hosts:
+                    backup_host = backup_hosts.pop(0)
+                    backup_info = copy.deepcopy(original_info)
+                    if not apply_cdn_host(backup_info, backup_host):
+                        continue
+                    backup_info["_media_type"] = media_type
+                    if audio_profile:
+                        backup_info["_audio_format_used"] = audio_profile.used
+                        backup_info["_audio_output_ext"] = audio_profile.output_ext
+                    attempts.append(
+                        (
+                            STANDARD,
+                            backup_info,
+                            AccelerationPlan(
+                                True,
+                                backup_host,
+                                BILIBILI_HTTP_CHUNK_SIZE,
+                            ),
+                            used_mode == TURBO,
+                        )
+                    )
+                    represented_hosts.add(backup_host)
+                    break
             next_is_standard = (
                 attempt_index + 1 < len(attempts)
                 and attempts[attempt_index + 1][0] == STANDARD
@@ -1289,10 +1349,19 @@ def _download_bilibili(
             )
             can_retry_cdn = (
                 _is_cdn_access_failure(error)
-                and cdn_switched
-                and prepared_info is not original_info
+                and any(
+                    future_plan.cdn_host != attempt_plan.cdn_host
+                    for _, _, future_plan, _ in attempts[attempt_index + 1 :]
+                )
             )
-            if not can_retry_aria2 and not can_retry_cdn:
+            can_retry_transport = (
+                _is_cdn_transport_failure(error)
+                and any(
+                    future_plan.cdn_host != attempt_plan.cdn_host
+                    for _, _, future_plan, _ in attempts[attempt_index + 1 :]
+                )
+            )
+            if not can_retry_aria2 and not can_retry_cdn and not can_retry_transport:
                 raise
         finally:
             _cleanup_attempt_workspace(attempt_workspace)

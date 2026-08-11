@@ -31,6 +31,18 @@ class StructuredErrorTests(unittest.TestCase):
         self.assertTrue(info.retryable)
         self.assertIn("网络", info.message)
 
+    def test_windows_connection_reset_has_dedicated_retryable_error(self):
+        info = classify_download_error(
+            RuntimeError(
+                "[WinError 10054] 远程主机强迫关闭了一个现有的连接"
+            ),
+            platform="bilibili",
+        )
+
+        self.assertEqual(info.error_code, "NETWORK_CONNECTION_RESET")
+        self.assertTrue(info.retryable)
+        self.assertIn("备用线路", info.suggestion)
+
     def test_membership_failure_is_not_retryable(self):
         info = classify_download_error(
             RuntimeError("members only premium content"),

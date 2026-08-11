@@ -70,6 +70,27 @@ def classify_download_error(
         )
     if any(
         marker in message
+        for marker in (
+            "winerror 10053",
+            "winerror 10054",
+            "connection reset",
+            "connection aborted",
+            "connection broken",
+            "forcibly closed",
+            "remote host closed",
+            "incomplete read",
+            "远程主机强迫关闭",
+        )
+    ):
+        return _info(
+            "NETWORK_CONNECTION_RESET",
+            "媒体传输连接被远端中断",
+            "程序会尝试备用线路；如仍失败，请检查网络或代理后重试",
+            True,
+            detail,
+        )
+    if any(
+        marker in message
         for marker in ("http error 429", "rate limit", "too many request")
     ):
         return _info(
