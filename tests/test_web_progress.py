@@ -254,6 +254,25 @@ class WebProgressStateTests(unittest.TestCase):
         )
         self.assertIn("body: JSON.stringify(payload)", html)
 
+    def test_download_location_history_keeps_three_recent_browser_local_paths(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8")
+
+        for media_type in ("video", "audio"):
+            prefix = f'{media_type}DownloadDirHistory'
+            self.assertIn(f'id="{prefix}Button"', html)
+            self.assertIn(f'id="{prefix}" role="listbox"', html)
+            self.assertIn(
+                f"toggleDownloadDirectoryHistory('{media_type}', event)",
+                html,
+            )
+        self.assertIn("const DOWNLOAD_DIRECTORY_HISTORY_LIMIT = 3;", html)
+        self.assertIn("localStorage.getItem(DOWNLOAD_DIRECTORY_HISTORY_KEY)", html)
+        self.assertIn("localStorage.setItem(", html)
+        self.assertIn("sanitizeDownloadDirectoryHistory", html)
+        self.assertIn("rememberDownloadDirectory(data.download_dir);", html)
+        self.assertIn("暂无最近使用的位置", html)
+        self.assertIn(".download-location-field { width: 100%; }", html)
+
     def test_frontend_renders_turbo_and_fallback_states(self):
         html = Path("templates/index.html").read_text(encoding="utf-8")
 

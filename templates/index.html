@@ -446,11 +446,16 @@
     gap: 8px;
     min-width: 0;
   }
+  .download-location-field {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
   .download-location-input {
     min-width: 0;
     width: 100%;
     height: 42px;
-    padding: 9px 11px;
+    padding: 9px 46px 9px 11px;
     border: 1px solid var(--border);
     border-radius: 0;
     color: var(--foreground);
@@ -464,6 +469,75 @@
     outline-offset: 1px;
   }
   .download-location-input:disabled { opacity: .48; cursor: wait; }
+  .download-location-history-toggle {
+    position: absolute;
+    inset: 1px 1px auto auto;
+    z-index: 2;
+    display: grid;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    place-items: center;
+    border: 0;
+    border-left: 1px solid var(--border);
+    color: var(--muted-strong);
+    background: rgba(11, 18, 34, .28);
+    cursor: pointer;
+    transition: color .18s ease, background-color .18s ease;
+  }
+  .download-location-history-toggle:hover,
+  .download-location-history-toggle[aria-expanded="true"] {
+    color: var(--accent);
+    background: rgba(0, 155, 149, .09);
+  }
+  .download-location-history-toggle:disabled { opacity: .38; cursor: wait; }
+  .download-location-history-toggle svg {
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    transition: transform .18s ease;
+  }
+  .download-location-history-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+  .download-location-history-menu {
+    position: absolute;
+    inset: calc(100% + 5px) 0 auto 0;
+    z-index: 30;
+    padding: 5px;
+    border: 1px solid var(--border-strong);
+    background: rgba(11, 18, 34, .98);
+    box-shadow: 0 16px 32px rgba(2, 6, 23, .42);
+  }
+  .download-location-history-menu[hidden] { display: none; }
+  .download-location-history-option {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    padding: 9px 10px;
+    overflow: hidden;
+    border: 0;
+    color: var(--muted-strong);
+    background: transparent;
+    font: inherit;
+    font-size: 11px;
+    line-height: 1.35;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .download-location-history-option:hover,
+  .download-location-history-option:focus-visible {
+    color: var(--foreground);
+    background: rgba(0, 155, 149, .12);
+  }
+  .download-location-history-empty {
+    padding: 10px;
+    color: var(--muted);
+    font-size: 10px;
+    text-align: center;
+  }
   .download-location-browse {
     flex: 0 0 auto;
     min-height: 42px;
@@ -792,6 +866,7 @@
     .collection-thumb { display: none; }
     .card, .task-panel { padding: 21px; }
     .download-location-row { flex-direction: column; }
+    .download-location-field { width: 100%; }
     .btn-row { flex-direction: column; }
     .btn { width: 100%; }
     .task-header { align-items: flex-start; flex-direction: column; gap: 7px; }
@@ -880,7 +955,13 @@
         <div class="download-location-control">
           <label class="download-location-label" for="videoDownloadDir">下载位置</label>
           <div class="download-location-row">
-            <input class="download-location-input" id="videoDownloadDir" type="text" autocomplete="off" placeholder="留空使用默认 downloads 文件夹">
+            <div class="download-location-field" id="videoDownloadDirField">
+              <input class="download-location-input" id="videoDownloadDir" type="text" autocomplete="off" placeholder="留空使用默认 downloads 文件夹" aria-haspopup="listbox" aria-controls="videoDownloadDirHistory" aria-expanded="false">
+              <button class="download-location-history-toggle" id="videoDownloadDirHistoryButton" type="button" aria-label="显示最近使用的视频下载位置" aria-controls="videoDownloadDirHistory" aria-expanded="false" onclick="toggleDownloadDirectoryHistory('video', event)">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              <div class="download-location-history-menu" id="videoDownloadDirHistory" role="listbox" aria-label="最近使用的视频下载位置" hidden></div>
+            </div>
             <button class="btn btn-secondary download-location-browse" id="videoBrowseButton" type="button" onclick="chooseDownloadDirectory('video')">选择文件夹</button>
           </div>
           <span class="download-location-hint" id="videoDownloadDirHint">留空时保持使用项目的 downloads 文件夹</span>
@@ -932,7 +1013,13 @@
         <div class="download-location-control">
           <label class="download-location-label" for="audioDownloadDir">下载位置</label>
           <div class="download-location-row">
-            <input class="download-location-input" id="audioDownloadDir" type="text" autocomplete="off" placeholder="留空使用默认 downloads 文件夹">
+            <div class="download-location-field" id="audioDownloadDirField">
+              <input class="download-location-input" id="audioDownloadDir" type="text" autocomplete="off" placeholder="留空使用默认 downloads 文件夹" aria-haspopup="listbox" aria-controls="audioDownloadDirHistory" aria-expanded="false">
+              <button class="download-location-history-toggle" id="audioDownloadDirHistoryButton" type="button" aria-label="显示最近使用的音频下载位置" aria-controls="audioDownloadDirHistory" aria-expanded="false" onclick="toggleDownloadDirectoryHistory('audio', event)">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              <div class="download-location-history-menu" id="audioDownloadDirHistory" role="listbox" aria-label="最近使用的音频下载位置" hidden></div>
+            </div>
             <button class="btn btn-secondary download-location-browse" id="audioBrowseButton" type="button" onclick="chooseDownloadDirectory('audio')">选择文件夹</button>
           </div>
           <span class="download-location-hint" id="audioDownloadDirHint">留空时保持使用项目的 downloads 文件夹</span>
@@ -1017,6 +1104,9 @@
       turboToggle: document.getElementById("videoTurboToggle"),
       turboHint: document.getElementById("videoTurboHint"),
       downloadDirInput: document.getElementById("videoDownloadDir"),
+      downloadDirField: document.getElementById("videoDownloadDirField"),
+      historyButton: document.getElementById("videoDownloadDirHistoryButton"),
+      historyMenu: document.getElementById("videoDownloadDirHistory"),
       browseButton: document.getElementById("videoBrowseButton"),
       downloadDirHint: document.getElementById("videoDownloadDirHint"),
       formatInputs: [],
@@ -1029,6 +1119,9 @@
       turboToggle: document.getElementById("audioTurboToggle"),
       turboHint: document.getElementById("audioTurboHint"),
       downloadDirInput: document.getElementById("audioDownloadDir"),
+      downloadDirField: document.getElementById("audioDownloadDirField"),
+      historyButton: document.getElementById("audioDownloadDirHistoryButton"),
+      historyMenu: document.getElementById("audioDownloadDirHistory"),
       browseButton: document.getElementById("audioBrowseButton"),
       downloadDirHint: document.getElementById("audioDownloadDirHint"),
       formatInputs: Array.from(document.querySelectorAll('input[name="audioFormat"]')),
@@ -1050,6 +1143,8 @@
   const collectionLoadMoreButton = document.getElementById("collectionLoadMoreButton");
   const retryFailedButton = document.getElementById("retryFailedButton");
   const COLLECTION_PAGE_SIZE = 50;
+  const DOWNLOAD_DIRECTORY_HISTORY_KEY = "multiple-video-downloader.download-directory-history.v1";
+  const DOWNLOAD_DIRECTORY_HISTORY_LIMIT = 3;
 
   let pollingTimer = null;
   let currentBatchId = null;
@@ -1061,6 +1156,140 @@
   let collectionSelectedIds = new Set();
   let folderPickerAvailable = false;
   let defaultDownloadDir = "downloads";
+  let downloadDirectoryHistoryCache = [];
+  let downloadDirectoryHistoryLoaded = false;
+
+  function downloadDirectoryHistoryKey(path) {
+    let comparable = path.trim().replace(/[\\/]+$/, "");
+    if (/^[A-Za-z]:$/.test(comparable)) comparable += "\\";
+    return /^(?:[A-Za-z]:[\\/]|\\\\)/.test(comparable)
+      ? comparable.toLocaleLowerCase()
+      : comparable;
+  }
+
+  function sanitizeDownloadDirectoryHistory(values) {
+    const sanitized = [];
+    const seen = new Set();
+    for (const value of Array.isArray(values) ? values : []) {
+      if (typeof value !== "string" || !value.trim()) continue;
+      const path = value.trim();
+      const key = downloadDirectoryHistoryKey(path);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      sanitized.push(path);
+      if (sanitized.length === DOWNLOAD_DIRECTORY_HISTORY_LIMIT) break;
+    }
+    return sanitized;
+  }
+
+  function readDownloadDirectoryHistory() {
+    if (!downloadDirectoryHistoryLoaded) {
+      downloadDirectoryHistoryLoaded = true;
+      try {
+        const stored = JSON.parse(localStorage.getItem(DOWNLOAD_DIRECTORY_HISTORY_KEY) || "[]");
+        downloadDirectoryHistoryCache = sanitizeDownloadDirectoryHistory(stored);
+      } catch (_) {
+        downloadDirectoryHistoryCache = [];
+      }
+    }
+    return [...downloadDirectoryHistoryCache];
+  }
+
+  function writeDownloadDirectoryHistory(paths) {
+    downloadDirectoryHistoryCache = sanitizeDownloadDirectoryHistory(paths);
+    try {
+      localStorage.setItem(
+        DOWNLOAD_DIRECTORY_HISTORY_KEY,
+        JSON.stringify(downloadDirectoryHistoryCache),
+      );
+    } catch (_) {
+      // Browsers with blocked local storage still keep history for this page session.
+    }
+  }
+
+  function setDownloadDirectoryHistoryExpanded(control, expanded) {
+    control.historyMenu.hidden = !expanded;
+    control.historyButton.setAttribute("aria-expanded", String(expanded));
+    control.downloadDirInput.setAttribute("aria-expanded", String(expanded));
+  }
+
+  function closeDownloadDirectoryHistories(exceptMediaType = null) {
+    Object.entries(downloadControls).forEach(([mediaType, control]) => {
+      if (mediaType !== exceptMediaType) setDownloadDirectoryHistoryExpanded(control, false);
+    });
+  }
+
+  function selectDownloadDirectoryHistory(mediaType, path) {
+    const control = downloadControls[mediaType];
+    if (!control || isDownloading) return;
+    control.downloadDirInput.value = path;
+    control.downloadDirHint.textContent = `将保存到：${path}`;
+    setDownloadDirectoryHistoryExpanded(control, false);
+    control.downloadDirInput.focus();
+  }
+
+  function renderDownloadDirectoryHistories() {
+    const paths = readDownloadDirectoryHistory();
+    Object.entries(downloadControls).forEach(([mediaType, control]) => {
+      control.historyMenu.replaceChildren();
+      if (paths.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "download-location-history-empty";
+        empty.textContent = "暂无最近使用的位置";
+        control.historyMenu.appendChild(empty);
+        return;
+      }
+      paths.forEach(path => {
+        const option = document.createElement("button");
+        option.type = "button";
+        option.className = "download-location-history-option";
+        option.setAttribute("role", "option");
+        option.title = path;
+        option.textContent = path;
+        option.addEventListener("click", () => selectDownloadDirectoryHistory(mediaType, path));
+        control.historyMenu.appendChild(option);
+      });
+    });
+  }
+
+  function toggleDownloadDirectoryHistory(mediaType, event = null) {
+    if (event) event.stopPropagation();
+    const control = downloadControls[mediaType];
+    if (!control || isDownloading) return;
+    const shouldOpen = control.historyMenu.hidden;
+    closeDownloadDirectoryHistories(mediaType);
+    renderDownloadDirectoryHistories();
+    setDownloadDirectoryHistoryExpanded(control, shouldOpen);
+  }
+
+  function rememberDownloadDirectory(path) {
+    if (typeof path !== "string" || !path.trim()) return;
+    writeDownloadDirectoryHistory([path.trim(), ...readDownloadDirectoryHistory()]);
+    renderDownloadDirectoryHistories();
+  }
+
+  function initializeDownloadDirectoryHistory() {
+    renderDownloadDirectoryHistories();
+    Object.entries(downloadControls).forEach(([mediaType, control]) => {
+      control.historyButton.addEventListener("keydown", event => {
+        if (event.key !== "ArrowDown") return;
+        event.preventDefault();
+        if (control.historyMenu.hidden) toggleDownloadDirectoryHistory(mediaType, event);
+        const firstOption = control.historyMenu.querySelector(".download-location-history-option");
+        if (firstOption) firstOption.focus();
+      });
+    });
+    document.addEventListener("click", event => {
+      Object.values(downloadControls).forEach(control => {
+        if (!control.downloadDirField.contains(event.target)) {
+          setDownloadDirectoryHistoryExpanded(control, false);
+        }
+      });
+    });
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") closeDownloadDirectoryHistories();
+    });
+  }
 
   function clearInput(mediaType) {
     if (isDownloading) return;
@@ -1075,6 +1304,8 @@
       control.downloadButton.disabled = disabled;
       control.clearButton.disabled = disabled;
       control.downloadDirInput.disabled = disabled;
+      control.historyButton.disabled = disabled;
+      if (disabled) setDownloadDirectoryHistoryExpanded(control, false);
       control.browseButton.disabled = disabled || !folderPickerAvailable;
       control.turboToggle.disabled = disabled || !aria2Available;
       control.formatInputs.forEach(formatInput => {
@@ -1129,6 +1360,7 @@
       if (!data.cancelled && data.download_dir) {
         control.downloadDirInput.value = data.download_dir;
         control.downloadDirHint.textContent = `将保存到：${data.download_dir}`;
+        setDownloadDirectoryHistoryExpanded(control, false);
       }
     } catch (error) {
       alert("❌ 无法选择文件夹：" + error.message);
@@ -1384,6 +1616,7 @@
         collectionSubmitButton.disabled = false;
         return;
       }
+      rememberDownloadDirectory(data.download_dir);
       currentBatchId = data.batch_id;
       pendingPreview = null;
       pendingDownloadSettings = null;
@@ -1684,6 +1917,7 @@
     document.documentElement.classList.remove("motion-ready", "has-fine-pointer");
     document.querySelectorAll("[data-reveal]").forEach(element => element.classList.add("is-visible"));
   }
+  initializeDownloadDirectoryHistory();
   loadCapabilities();
 </script>
 </body>
