@@ -362,16 +362,76 @@ def _format_eta(eta: object) -> str:
     return f"{minutes:02d}:{seconds:02d}"
 
 
+def _format_size_bytes(value: object) -> str:
+    try:
+        size = float(value)
+    except (TypeError, ValueError):
+        return ""
+    if size <= 0:
+        return ""
+    units = ("B", "KiB", "MiB", "GiB", "TiB")
+    unit_index = 0
+    while size >= 1024 and unit_index < len(units) - 1:
+        size /= 1024
+        unit_index += 1
+    precision = 0 if unit_index == 0 else 2
+    return f"{size:.{precision}f} {units[unit_index]}"
+
+
+def _progress_total_size(data: dict) -> tuple[int | None, bool]:
+    """Return selected transfer size and whether it is only an estimate."""
+    info = data.get("info_dict")
+    if isinstance(info, dict):
+        requested = info.get("requested_formats")
+        if isinstance(requested, list) and requested:
+            total = 0
+            estimated = False
+            for fmt in requested:
+                if not isinstance(fmt, dict):
+                    total = 0
+                    break
+                size = fmt.get("filesize")
+                if not isinstance(size, (int, float)) or size <= 0:
+                    size = fmt.get("filesize_approx")
+                    estimated = True
+                if not isinstance(size, (int, float)) or size <= 0:
+                    total = 0
+                    break
+                total += int(size)
+            if total > 0:
+                return total, estimated
+
+    exact = data.get("total_bytes")
+    if isinstance(exact, (int, float)) and exact > 0:
+        return int(exact), False
+    estimate = data.get("total_bytes_estimate")
+    if isinstance(estimate, (int, float)) and estimate > 0:
+        return int(estimate), True
+
+    if isinstance(info, dict):
+        exact = info.get("filesize")
+        if isinstance(exact, (int, float)) and exact > 0:
+            return int(exact), False
+        estimate = info.get("filesize_approx")
+        if isinstance(estimate, (int, float)) and estimate > 0:
+            return int(estimate), True
+    return None, False
+
+
 def _extract_progress_snapshot(data: dict) -> dict[str, object]:
     """提取前端任务卡需要展示的下载进度字段。"""
     speed_mbps, speed_text = _format_download_speed(data.get("speed"))
     percent_text = _strip_ansi(data.get("_percent_str")) or "计算中"
+    total_size_bytes, total_size_is_estimate = _progress_total_size(data)
 
     return {
         "percent_text": percent_text,
         "speed_mbps": speed_mbps,
         "speed_text": speed_text,
         "eta_text": _format_eta(data.get("eta")),
+        "total_size_bytes": total_size_bytes,
+        "total_size_text": _format_size_bytes(total_size_bytes),
+        "total_size_is_estimate": total_size_is_estimate,
     }
 
 
@@ -380,6 +440,8 @@ def _make_progress_hook(
     total: int,
     progress_callback: YtdlpProgressCallback = None,
     cancel_token: CancellationToken | None = None,
+    media_type: str = VIDEO,
+    audio_format: str = MP3,
 ):
     """创建带任务序号的 yt-dlp 进度回调（命令行模式）。"""
 
@@ -395,9 +457,22 @@ def _make_progress_hook(
             print(
                 f"  [{index}/{total}] ⏳ 下载中... {snapshot['percent_text']}  "
                 f"速度: {snapshot['speed_text']}  剩余时间: {snapshot['eta_text']}"
+                + (
+                    f"  {'预计总大小' if snapshot['total_size_is_estimate'] else '总大小'}: "
+                    f"{snapshot['total_size_text']}"
+                    if snapshot["total_size_text"]
+                    else "  总大小: 计算中"
+                )
             )
         elif status == "finished":
-            print(f"\n  [{index}/{total}] ✅ 数据下载完成，正在处理文件...")
+            payload = _postprocessing_preparation(media_type, audio_format)
+            if progress_callback:
+                progress_callback("postprocessing", payload)
+            print(
+                f"\n  [{index}/{total}] ✅ 数据下载完成。"
+                f"{payload['stage_text']}"
+            )
+            print(f"  [{index}/{total}] ℹ️  {payload['detail_text']}")
 
     return _progress_hook
 
@@ -408,6 +483,125 @@ def _make_cancel_hook(cancel_token: CancellationToken):
             cancel_token.raise_if_cancelled()
 
     return _cancel_hook
+
+
+def _postprocessing_preparation(
+    media_type: str,
+    audio_format: str,
+) -> dict[str, object]:
+    if media_type != AUDIO:
+        return {
+            "stage": "preparing",
+            "stage_text": "正在准备合并音视频并整理最终文件。",
+            "detail_text": "高分辨率或长视频可能需要一些时间，界面保持此状态属正常现象。",
+        }
+    if audio_format == MP3:
+        return {
+            "stage": "preparing",
+            "stage_text": "正在准备将完整音轨转码为 MP3 V0。",
+            "detail_text": "随后还会写入元数据与封面；长音频可能需要数十秒至数分钟。",
+        }
+    if audio_format == WAV:
+        stage_text = "正在准备将完整音轨解码为 WAV。"
+    elif audio_format == FLAC:
+        stage_text = "正在准备提取 FLAC 音轨。"
+    else:
+        stage_text = "正在准备整理原始音轨。"
+    return {
+        "stage": "preparing",
+        "stage_text": stage_text,
+        "detail_text": "随后还会写入元数据与封面；长音频或大文件可能需要一些时间。",
+    }
+
+
+def _postprocessor_stage(
+    postprocessor: object,
+    media_type: str,
+    audio_format: str,
+) -> tuple[str, str, str]:
+    name = str(postprocessor or "")
+    normalized = name.casefold()
+    if "extractaudio" in normalized:
+        if audio_format == MP3:
+            return (
+                "transcoding_audio",
+                "正在将完整音轨转码为 MP3 V0…",
+                "长音频需要完整解码并重新编码，可能持续数十秒至数分钟。",
+            )
+        if audio_format == WAV:
+            return (
+                "decoding_audio",
+                "正在将完整音轨解码为 WAV…",
+                "长音频需要完整解码，期间没有下载进度属于正常现象。",
+            )
+        return (
+            "extracting_audio",
+            "正在提取并整理音轨…",
+            "大文件需要读取并写入完整音轨，请耐心等待。",
+        )
+    if "embedthumbnail" in normalized:
+        return (
+            "embedding_thumbnail",
+            "正在嵌入封面…",
+            "程序正在把封面写入最终媒体文件。",
+        )
+    if "metadata" in normalized:
+        return (
+            "writing_metadata",
+            "正在写入媒体信息…",
+            "程序正在保存标题、作者和其他媒体标签。",
+        )
+    if "merger" in normalized:
+        return (
+            "merging_streams",
+            "正在合并视频与音频…",
+            "高分辨率或长视频需要读取并写入完整媒体流。",
+        )
+    if "remux" in normalized:
+        return (
+            "remuxing_video",
+            "正在整理视频封装…",
+            "程序正在生成兼容性更好的最终视频文件。",
+        )
+    if "movefiles" in normalized:
+        return (
+            "finalizing",
+            "正在整理最终文件…",
+            "处理即将完成，程序正在确认文件名与保存位置。",
+        )
+    return (
+        "postprocessing",
+        "正在处理媒体文件…",
+        "程序仍在正常工作，请保持窗口打开。",
+    )
+
+
+def _make_postprocessor_status_hook(
+    index: int,
+    total: int,
+    progress_callback: YtdlpProgressCallback = None,
+    media_type: str = VIDEO,
+    audio_format: str = MP3,
+):
+    def _status_hook(data: dict) -> None:
+        if data.get("status") != "started":
+            return
+        stage, stage_text, detail_text = _postprocessor_stage(
+            data.get("postprocessor"),
+            media_type,
+            audio_format,
+        )
+        payload = {
+            "stage": stage,
+            "stage_text": stage_text,
+            "detail_text": detail_text,
+        }
+        if progress_callback:
+            progress_callback("postprocessing", payload)
+        print(f"  [{index}/{total}] ⚙️  {stage_text}")
+        print(f"  [{index}/{total}] ℹ️  {detail_text}")
+
+    return _status_hook
 
 
 def _validate_output_version(output_version: int) -> None:
@@ -490,6 +684,8 @@ def _build_ydl_options(
                 total,
                 progress_callback,
                 cancel_token,
+                media_type,
+                audio_format,
             )
         ],
         "writesubtitles": False,
@@ -590,8 +786,19 @@ def _build_ydl_options(
     if platform == BILIBILI and speed_mode == TURBO and aria2_executable:
         configure_aria2(options, aria2_executable)
 
+    postprocessor_hooks = []
     if cancel_token:
-        options["postprocessor_hooks"] = [_make_cancel_hook(cancel_token)]
+        postprocessor_hooks.append(_make_cancel_hook(cancel_token))
+    postprocessor_hooks.append(
+        _make_postprocessor_status_hook(
+            index,
+            total,
+            progress_callback,
+            media_type,
+            audio_format,
+        )
+    )
+    options["postprocessor_hooks"] = postprocessor_hooks
 
     return options
 

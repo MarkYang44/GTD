@@ -435,15 +435,23 @@ class TaskManager:
                         turbo_fallback=bool(data.get("turbo_fallback")),
                     )
                 elif event == "progress":
+                    current.pop("postprocessing", None)
                     current["progress"] = deepcopy(data)
                     for key in (
                         "percent_text",
                         "speed_mbps",
                         "speed_text",
                         "eta_text",
+                        "total_size_bytes",
+                        "total_size_text",
+                        "total_size_is_estimate",
                     ):
                         if key in data:
                             current[key] = data[key]
+                elif event == "postprocessing":
+                    current["progress"] = None
+                    self._clear_progress_fields(current)
+                    current["postprocessing"] = deepcopy(data)
 
         try:
             result = self._runner(
@@ -669,7 +677,16 @@ class TaskManager:
 
     @staticmethod
     def _clear_progress_fields(task: dict[str, object]) -> None:
-        for key in ("percent_text", "speed_mbps", "speed_text", "eta_text"):
+        for key in (
+            "percent_text",
+            "speed_mbps",
+            "speed_text",
+            "eta_text",
+            "total_size_bytes",
+            "total_size_text",
+            "total_size_is_estimate",
+            "postprocessing",
+        ):
             task.pop(key, None)
 
     @staticmethod

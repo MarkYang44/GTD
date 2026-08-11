@@ -102,6 +102,8 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn("renderDownloadProgress", html)
         self.assertIn("下载速度", html)
         self.assertIn("预计剩余", html)
+        self.assertIn("progress.total_size_text", html)
+        self.assertIn("预计总大小", html)
 
     def test_frontend_has_separate_video_and_audio_download_inputs(self):
         html = Path("templates/index.html").read_text(encoding="utf-8")
@@ -192,6 +194,13 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn("极速模式不可用，已切换标准模式", html)
         self.assertIn('t.speed_mode_used === "turbo"', html)
         self.assertIn("!t.turbo_fallback", html)
+
+    def test_frontend_renders_postprocessing_stage_and_explanation(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8")
+
+        self.assertIn("t.postprocessing.stage_text", html)
+        self.assertIn("t.postprocessing.detail_text", html)
+        self.assertIn("正在处理媒体文件", html)
 
     def test_frontend_renders_audio_results_without_video_resolution(self):
         html = Path("templates/index.html").read_text(encoding="utf-8")

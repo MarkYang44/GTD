@@ -1327,7 +1327,12 @@
         if (r.filepath) html += `<br>保存路径: ${escHtml(r.filepath)}`;
         html += `</div>`;
       } else if (["running", "running_uninterruptible"].includes(t.status)) {
-        if (t.speed_mode_used === "turbo" && !t.turbo_fallback) {
+        if (t.postprocessing) {
+          html += `<div class="task-meta"><span class="spinner"></span> ${escHtml(t.postprocessing.stage_text || "正在处理媒体文件…")}</div>`;
+          if (t.postprocessing.detail_text) {
+            html += `<div class="task-meta">${escHtml(t.postprocessing.detail_text)}</div>`;
+          }
+        } else if (t.speed_mode_used === "turbo" && !t.turbo_fallback) {
           html += `<div class="task-meta"><span class="spinner"></span> 高速下载中</div>`;
         } else {
           if (t.turbo_fallback) {
@@ -1417,10 +1422,13 @@
     const speed = progress && progress.speed_text ? progress.speed_text : "计算中";
     const eta = progress && progress.eta_text ? progress.eta_text : "计算中";
     const percent = progress && progress.percent_text ? progress.percent_text : "";
+    const totalSize = progress && progress.total_size_text ? progress.total_size_text : "计算中";
+    const totalSizeLabel = progress && progress.total_size_is_estimate ? "预计总大小" : "总大小";
 
     let html = `<div class="task-progress">`;
     html += `<span class="task-progress-item"><span class="task-progress-label">下载速度</span><span class="task-progress-value">${escHtml(speed)}</span></span>`;
     html += `<span class="task-progress-item"><span class="task-progress-label">预计剩余</span><span class="task-progress-value">${escHtml(eta)}</span></span>`;
+    html += `<span class="task-progress-item"><span class="task-progress-label">${escHtml(totalSizeLabel)}</span><span class="task-progress-value">${escHtml(totalSize)}</span></span>`;
     if (percent && percent !== "计算中") {
       html += `<span class="task-progress-item"><span class="task-progress-label">进度</span><span class="task-progress-value">${escHtml(percent)}</span></span>`;
     }

@@ -615,6 +615,46 @@ class DownloadAudioOptionsTests(unittest.TestCase):
 
 
 class DownloadProgressHookTests(unittest.TestCase):
+    def test_audio_download_completion_explains_long_mp3_postprocessing(self):
+        events = []
+        hook = downloader._make_progress_hook(
+            1,
+            1,
+            progress_callback=lambda event, data: events.append((event, data)),
+            media_type=downloader.AUDIO,
+            audio_format=downloader.MP3,
+        )
+        buffer = io.StringIO()
+
+        with contextlib.redirect_stdout(buffer):
+            hook({"status": "finished"})
+
+        self.assertEqual(events[0][0], "postprocessing")
+        self.assertIn("MP3 V0", events[0][1]["stage_text"])
+        self.assertIn("数十秒至数分钟", events[0][1]["detail_text"])
+        self.assertIn("长音频", buffer.getvalue())
+
+    def test_postprocessor_hook_reports_real_processing_stages(self):
+        events = []
+        hook = downloader._make_postprocessor_status_hook(
+            1,
+            1,
+            progress_callback=lambda event, data: events.append((event, data)),
+            media_type=downloader.AUDIO,
+            audio_format=downloader.MP3,
+        )
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            hook({"status": "started", "postprocessor": "ExtractAudio"})
+            hook({"status": "started", "postprocessor": "Metadata"})
+            hook({"status": "started", "postprocessor": "EmbedThumbnail"})
+
+        self.assertEqual(
+            [data["stage"] for _, data in events],
+            ["transcoding_audio", "writing_metadata", "embedding_thumbnail"],
+        )
+        self.assertTrue(all(event == "postprocessing" for event, _ in events))
+
     def test_finished_postprocessor_hook_preserves_atomic_final_output(self):
         token = task_control.CancellationToken()
         hook = downloader._make_cancel_hook(token)
@@ -664,6 +704,46 @@ class DownloadProgressHookTests(unittest.TestCase):
 
         self.assertEqual(snapshot["percent_text"], "100.0%")
         self.assertNotIn("\x1b", snapshot["percent_text"])
+
+    def test_progress_snapshot_reports_exact_or_estimated_total_size(self):
+        exact = downloader._extract_progress_snapshot({
+            "total_bytes": 1536 * 1024 * 1024,
+        })
+        estimated = downloader._extract_progress_snapshot({
+            "total_bytes_estimate": 750 * 1024 * 1024,
+        })
+
+        self.assertEqual(exact["total_size_text"], "1.50 GiB")
+        self.assertFalse(exact["total_size_is_estimate"])
+        self.assertEqual(estimated["total_size_text"], "750.00 MiB")
+        self.assertTrue(estimated["total_size_is_estimate"])
+
+    def test_progress_snapshot_sums_selected_video_and_audio_streams(self):
+        snapshot = downloader._extract_progress_snapshot({
+            "total_bytes": 100,
+            "info_dict": {
+                "requested_formats": [
+                    {"filesize": 800 * 1024 * 1024},
+                    {"filesize_approx": 200 * 1024 * 1024},
+                ],
+            },
+        })
+
+        self.assertEqual(snapshot["total_size_text"], "1000.00 MiB")
+        self.assertTrue(snapshot["total_size_is_estimate"])
+
+    def test_cli_progress_distinguishes_estimated_total_size(self):
+        hook = downloader._make_progress_hook(1, 1)
+        buffer = io.StringIO()
+
+        with contextlib.redirect_stdout(buffer):
+            hook({
+                "status": "downloading",
+                "_percent_str": "50.0%",
+                "total_bytes_estimate": 512 * 1024 * 1024,
+            })
+
+        self.assertIn("预计总大小: 512.00 MiB", buffer.getvalue())
 
     def test_ydl_options_emit_speed_and_eta_progress_for_web_callback(self):
         events = []

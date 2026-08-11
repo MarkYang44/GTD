@@ -176,6 +176,38 @@ class TaskManagerTests(unittest.TestCase):
         release.set()
         manager.shutdown()
 
+    def test_postprocessing_event_is_visible_in_running_snapshot(self):
+        entered = threading.Event()
+        release = threading.Event()
+
+        def runner(url, progress_callback=None, **kwargs):
+            progress_callback(
+                "postprocessing",
+                {
+                    "stage": "transcoding_audio",
+                    "stage_text": "正在将完整音轨转码为 MP3 V0…",
+                    "detail_text": "长音频可能需要数十秒至数分钟。",
+                },
+            )
+            entered.set()
+            release.wait(1)
+            return {"title": "done", "filepath": "/tmp/done.mp3"}
+
+        manager = TaskManager(runner, max_workers=1)
+        batch = manager.create_batch(
+            [TaskSeed("bilibili", "https://b23.tv/x", "X", 1)],
+            "audio",
+            "mp3",
+            "standard",
+        )
+        self.assertTrue(entered.wait(1))
+        snapshot = manager.snapshot(batch["id"])
+        stage = snapshot["tasks"][0]["postprocessing"]
+        self.assertEqual(stage["stage"], "transcoding_audio")
+        self.assertIn("数十秒至数分钟", stage["detail_text"])
+        release.set()
+        manager.shutdown()
+
     def test_redownload_reserves_sequential_versions(self):
         release = threading.Event()
 
