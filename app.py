@@ -62,6 +62,12 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/favicon.ico")
+def favicon():
+    """Serve the multi-resolution icon at the legacy browser location."""
+    return app.send_static_file("icons/favicon.ico")
+
+
 @app.route("/api/capabilities")
 def api_capabilities():
     """返回当前服务可用的可选下载能力。"""

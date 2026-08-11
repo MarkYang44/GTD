@@ -1,3 +1,4 @@
+import json
 import re
 import unittest
 from pathlib import Path
@@ -9,6 +10,72 @@ from collection_resolver import CollectionEntry, CollectionPreview
 
 
 class WebConfigurationTests(unittest.TestCase):
+    def test_web_exposes_multi_resolution_character_favicons(self):
+        html = web_app.app.test_client().get("/").get_data(as_text=True)
+        expected_pngs = {
+            "favicon-16x16.png": (16, 16),
+            "favicon-32x32.png": (32, 32),
+            "favicon-48x48.png": (48, 48),
+            "favicon-64x64.png": (64, 64),
+            "character-icon-128x128.png": (128, 128),
+            "character-icon-192x192.png": (192, 192),
+            "apple-touch-icon.png": (180, 180),
+            "android-chrome-192x192.png": (192, 192),
+            "android-chrome-512x512.png": (512, 512),
+        }
+
+        for filename, expected_size in expected_pngs.items():
+            path = Path("static/icons") / filename
+            header = path.read_bytes()[:24]
+            self.assertEqual(header[:8], b"\x89PNG\r\n\x1a\n")
+            size = (
+                int.from_bytes(header[16:20], "big"),
+                int.from_bytes(header[20:24], "big"),
+            )
+            self.assertEqual(size, expected_size)
+
+        ico_header = Path("static/icons/favicon.ico").read_bytes()[:6]
+        self.assertEqual(ico_header, b"\x00\x00\x01\x00\x06\x00")
+        manifest = json.loads(Path("static/site.webmanifest").read_text("utf-8"))
+        self.assertEqual([icon["sizes"] for icon in manifest["icons"]], ["192x192", "512x512"])
+        legacy_icon = web_app.app.test_client().get("/favicon.ico")
+        self.assertEqual(legacy_icon.status_code, 200)
+        self.assertIn(
+            legacy_icon.mimetype,
+            {"image/x-icon", "image/vnd.microsoft.icon"},
+        )
+        legacy_icon.close()
+        self.assertIn('/static/icons/favicon.ico', html)
+        self.assertIn('/static/icons/apple-touch-icon.png', html)
+        self.assertIn('/static/site.webmanifest', html)
+
+    def test_character_icon_replaces_ready_and_empty_state_arrow_responsively(self):
+        html = web_app.app.test_client().get("/").get_data(as_text=True)
+
+        self.assertIn('class="service-status" role="status" aria-label="服务已就绪"', html)
+        self.assertIn('class="service-avatar"', html)
+        self.assertIn('character-icon-128x128.png?v=20260811', html)
+        self.assertIn('character-icon-192x192.png?v=20260811', html)
+        self.assertIn(' 1x, ', html)
+        self.assertIn(' 2x, ', html)
+        self.assertIn(' 3x"', html)
+        self.assertIn('.service-avatar {', html)
+        self.assertIn('.empty-state .icon img {', html)
+        self.assertIn('.empty-state .icon { width: 60px;', html)
+        self.assertNotIn('class="service-dot"', html)
+        self.assertNotIn('<span>READY</span>', html)
+        self.assertNotIn('<div class="icon">↘</div>', html)
+        service_status_css = html.split('.service-status {', 1)[1].split('}', 1)[0]
+        empty_icon_css = html.split('.empty-state .icon {', 1)[1].split('}', 1)[0]
+        for css in (service_status_css, empty_icon_css):
+            self.assertNotIn('border:', css)
+            self.assertNotIn('background:', css)
+            self.assertNotIn('box-shadow:', css)
+        self.assertIn('@media (hover: hover) and (pointer: fine)', html)
+        self.assertIn('.service-status:hover,', html)
+        self.assertIn('.empty-state .icon:hover {', html)
+        self.assertIn('inset 0 0 0 1px var(--border-strong)', html)
+
     def test_readme_uses_current_project_directory_name(self):
         readme = Path("README.md").read_text(encoding="utf-8")
 
