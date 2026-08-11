@@ -10,6 +10,7 @@ YouTube、Instagram 与 Bilibili 视频批量下载工具 — 命令行入口。
 
 import re
 import sys
+from pathlib import Path
 from typing import Optional
 
 from collection_resolver import (
@@ -34,10 +35,12 @@ from downloader import (
     DownloadResult,
     check_ffmpeg,
     download_tasks,
+    ensure_downloads_dir,
     aria2c_path,
     detect_collection_platform,
     make_task,
 )
+from folder_picker import FolderPickerUnavailable, choose_folder
 
 MEDIA_TYPE_NAMES = {
     VIDEO: "视频",
@@ -95,13 +98,14 @@ def choose_audio_format() -> str:
 
 def parse_command_line(
     args: list[str],
-) -> tuple[str, str, str, list[str], str | None]:
+) -> tuple[str, str, str, list[str], str | None, str | None]:
     """确定性解析媒体、格式、速度、URL 与合集条目选择。"""
     media_type = VIDEO
     speed_mode = STANDARD
     flac_alias = False
     explicit_audio_format: str | None = None
     item_selection: str | None = None
+    output_dir: str | None = None
     urls: list[str] = []
 
     index = 0
@@ -113,20 +117,34 @@ def parse_command_line(
             flac_alias = True
         elif value == "--turbo":
             speed_mode = TURBO
-        elif value in {"--audio-format", "--items"}:
+        elif value in {
+            "--audio-format",
+            "--items",
+            "--output-dir",
+            "--download-dir",
+        }:
             if index + 1 >= len(args) or args[index + 1].startswith("--"):
                 raise ValueError(f"{value} 需要提供一个值")
-            option_value = args[index + 1].strip().lower()
+            raw_option_value = args[index + 1].strip()
+            option_value = (
+                raw_option_value
+                if value in {"--output-dir", "--download-dir"}
+                else raw_option_value.lower()
+            )
             if not option_value:
                 raise ValueError(f"{value} 需要提供一个值")
             if value == "--audio-format":
                 if explicit_audio_format is not None:
                     raise ValueError("--audio-format 不能重复使用")
                 explicit_audio_format = option_value
-            else:
+            elif value == "--items":
                 if item_selection is not None:
                     raise ValueError("--items 不能重复使用")
                 item_selection = option_value
+            else:
+                if output_dir is not None:
+                    raise ValueError("下载目录参数不能重复使用")
+                output_dir = option_value
             index += 1
         elif value.startswith("-"):
             raise ValueError(f"未知参数: {value}")
@@ -148,7 +166,45 @@ def parse_command_line(
         raise ValueError("--flac 与非 FLAC 的 --audio-format 不能同时使用")
 
     audio_format = explicit_audio_format or (FLAC if flac_alias else MP3)
-    return media_type, audio_format, speed_mode, urls, item_selection
+    return media_type, audio_format, speed_mode, urls, item_selection, output_dir
+
+
+def choose_download_location() -> Path:
+    """Let an interactive user keep downloads, type a path, or pick a folder."""
+    default_dir = DOWNLOADS_DIR.resolve()
+    print("请选择下载位置：")
+    print(f"  1. 默认位置（{default_dir}）")
+    print("  2. 手动输入文件夹路径")
+    print("  3. 打开系统文件夹选择器")
+    while True:
+        choice = input("选择 1 至 3（直接回车使用默认位置）: ").strip().lower()
+        if choice in {"", "1", "default"}:
+            return ensure_downloads_dir()
+        if choice in {"2", "manual"}:
+            value = input("下载文件夹路径: ").strip()
+            if not value:
+                print("⚠️  路径不能为空；若要使用默认位置请选择 1。")
+                continue
+            try:
+                return ensure_downloads_dir(value)
+            except ValueError as error:
+                print(f"⚠️  {error}")
+                continue
+        if choice in {"3", "browse", "picker"}:
+            try:
+                selected = choose_folder(default_dir)
+            except FolderPickerUnavailable as error:
+                print(f"⚠️  {error}")
+                continue
+            if selected is None:
+                print("已取消文件夹选择，请重新选择下载位置。")
+                continue
+            try:
+                return ensure_downloads_dir(selected)
+            except ValueError as error:
+                print(f"⚠️  {error}")
+                continue
+        print("⚠️  请输入 1、2 或 3。")
 
 
 def parse_item_selection(
@@ -395,6 +451,7 @@ def print_single_result(result: DownloadResult) -> None:
 def print_summary(
     results: list[tuple[VideoTask, Optional[DownloadResult]]],
     media_type: str = VIDEO,
+    output_dir: str | Path | None = None,
 ) -> None:
     """打印包含平台信息的批量下载汇总。"""
     total = len(results)
@@ -446,7 +503,7 @@ def print_summary(
         print(f"😞 全部 {total} 个{media_name}下载失败，请检查链接、Cookie 和网络后重试。")
     else:
         print(f"📦 {success} 个成功，{failed} 个失败。")
-    print(f"📁 文件保存在: {DOWNLOADS_DIR.resolve()}")
+    print(f"📁 文件保存在: {ensure_downloads_dir(output_dir)}")
     print("=" * 60)
 
 
@@ -471,7 +528,9 @@ def main() -> int:
                 speed_mode,
                 url_args,
                 item_selection,
+                output_dir_value,
             ) = parse_command_line(sys.argv[1:])
+            output_dir = ensure_downloads_dir(output_dir_value)
             tasks = resolve_cli_tasks(
                 url_args,
                 item_selection=item_selection,
@@ -484,7 +543,7 @@ def main() -> int:
             print(f"❌ 错误：{error}")
             print(
                 "   用法: python main.py [--audio [--flac | --audio-format FORMAT]] "
-                "[--turbo] [--items all|1,3-5] <URL1> [URL2] ..."
+                "[--turbo] [--output-dir PATH] [--items all|1,3-5] <URL1> [URL2] ..."
             )
             return 1
     else:
@@ -494,6 +553,7 @@ def main() -> int:
                 choose_audio_format() if media_type == AUDIO else MP3
             )
             speed_mode = choose_speed_mode()
+            output_dir = choose_download_location()
             inputs = get_inputs_from_user(media_type=media_type)
             tasks = resolve_cli_tasks(inputs, interactive=True)
         except DownloadFailure as error:
@@ -511,6 +571,7 @@ def main() -> int:
 
     media_name = MEDIA_TYPE_NAMES[media_type]
     print(f"\n📋 共 {len(tasks)} 个{media_name}待下载：")
+    print(f"📁 下载位置: {output_dir}")
     for index, (platform, url) in enumerate(tasks, start=1):
         print(f"  {index}. [{PLATFORM_NAMES[platform]}] {url}")
 
@@ -529,8 +590,9 @@ def main() -> int:
         media_type=media_type,
         audio_format=audio_format,
         speed_mode=speed_mode,
+        output_dir=output_dir,
     )
-    print_summary(results, media_type=media_type)
+    print_summary(results, media_type=media_type, output_dir=output_dir)
     return 1 if any(result is None for _, result in results) else 0
 
 

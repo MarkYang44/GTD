@@ -11,3 +11,5 @@ bilibili_cookies.txt
 .superpowers/
 .worktrees/
 logs/
+/tools/aria2/
+/tools/folder-picker-runtime/

@@ -114,10 +114,43 @@ class _QuietYtdlpLogger:
 # ---------------------------------------------------------------------------
 # 目录工具
 # ---------------------------------------------------------------------------
-def ensure_downloads_dir() -> Path:
-    """确保 downloads 文件夹存在，返回其路径。"""
-    DOWNLOADS_DIR.mkdir(parents=True, exist_ok=True)
-    return DOWNLOADS_DIR
+def ensure_downloads_dir(download_dir: str | Path | None = None) -> Path:
+    """Resolve, create, and verify a user-selected download directory."""
+    if download_dir is None or (
+        isinstance(download_dir, str) and not download_dir.strip()
+    ):
+        target = DOWNLOADS_DIR
+    elif not isinstance(download_dir, (str, os.PathLike)):
+        raise ValueError("下载目录必须是路径字符串")
+    else:
+        raw = os.path.expandvars(str(download_dir).strip())
+        if "\x00" in raw:
+            raise ValueError("下载目录包含无效字符")
+        if os.name != "nt" and re.match(r"^[A-Za-z]:[\\/]", raw):
+            raise ValueError("当前系统不能使用 Windows 盘符路径")
+        path = Path(raw).expanduser()
+        target = path if path.is_absolute() else PROJECT_DIR / path
+
+    try:
+        target = target.resolve(strict=False)
+        target.mkdir(parents=True, exist_ok=True)
+    except OSError as error:
+        raise ValueError(f"无法创建下载目录: {target}") from error
+    if not target.is_dir():
+        raise ValueError(f"下载位置不是文件夹: {target}")
+
+    probe = target / f".__mvd_write_test_{uuid.uuid4().hex}.tmp"
+    try:
+        with probe.open("x", encoding="utf-8") as handle:
+            handle.write("ok")
+        probe.unlink()
+    except OSError as error:
+        try:
+            probe.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise ValueError(f"下载目录不可写: {target}") from error
+    return target
 
 
 # ---------------------------------------------------------------------------
@@ -1591,6 +1624,7 @@ def download_video(
     cancel_token: CancellationToken | None = None,
     output_version: int = 1,
     raise_errors: bool = False,
+    output_dir: str | Path | None = None,
 ) -> Optional[DownloadResult]:
     """自动识别平台并使用 yt-dlp 下载单个视频。"""
     platform = platform or detect_platform(url)
@@ -1607,7 +1641,7 @@ def download_video(
     if cancel_token:
         cancel_token.raise_if_cancelled()
 
-    output_dir = ensure_downloads_dir()
+    output_dir = ensure_downloads_dir(output_dir)
     if platform == BILIBILI:
         try:
             return _download_bilibili(
@@ -1827,6 +1861,7 @@ def download_tasks(
     media_type: str = VIDEO,
     audio_format: str = MP3,
     speed_mode: str = STANDARD,
+    output_dir: str | Path | None = None,
 ) -> list[tuple[VideoTask, Optional[DownloadResult]]]:
     """最多并行执行三个混合平台下载任务，并保持结果顺序。
 
@@ -1847,6 +1882,8 @@ def download_tasks(
         否则自动回退为 MP3 V0。
     speed_mode : str
         `standard` 使用原生下载器，`turbo` 仅对 Bilibili 尝试 aria2c。
+    output_dir : str, Path or None
+        自定义下载目录；留空时继续使用项目内的 `downloads`。
     """
     if not isinstance(media_type, str) or media_type not in MEDIA_TYPES:
         raise ValueError(f"不支持的下载类型: {media_type}")
@@ -1854,6 +1891,7 @@ def download_tasks(
         raise ValueError(f"不支持的速度模式: {speed_mode}")
     if not isinstance(audio_format, str) or audio_format not in AUDIO_FORMATS:
         raise ValueError(f"不支持的音频格式: {audio_format}")
+    output_dir = ensure_downloads_dir(output_dir)
 
     total = len(tasks)
     if not tasks:
@@ -1902,6 +1940,7 @@ def download_tasks(
                     media_type=media_type,
                     audio_format=audio_format,
                     speed_mode=speed_mode,
+                    output_dir=output_dir,
                     raise_errors=True,
                 )
                 if result is None:

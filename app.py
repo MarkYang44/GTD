@@ -19,6 +19,7 @@ from download_errors import public_error
 
 from downloader import (
     AUDIO_FORMATS,
+    DOWNLOADS_DIR,
     MEDIA_TYPES,
     MP3,
     SPEED_MODES,
@@ -27,8 +28,15 @@ from downloader import (
     aria2c_path,
     check_ffmpeg,
     download_video,
+    ensure_downloads_dir,
     make_task,
     normalize_url,
+)
+from folder_picker import (
+    FolderPickerUnavailable,
+    choose_folder,
+    folder_picker_available,
+    prepare_folder_picker,
 )
 from task_control import TaskManager, TaskSeed
 
@@ -57,7 +65,46 @@ def index():
 @app.route("/api/capabilities")
 def api_capabilities():
     """返回当前服务可用的可选下载能力。"""
-    return jsonify({"aria2c_available": aria2c_path() is not None})
+    return jsonify(
+        {
+            "aria2c_available": aria2c_path() is not None,
+            "default_download_dir": str(DOWNLOADS_DIR.resolve()),
+            "folder_picker_available": folder_picker_available(),
+        }
+    )
+
+
+@app.post("/api/select-directory")
+def api_select_directory():
+    """Open the host OS folder picker for this local-only Web service."""
+    body = request.get_json(silent=True)
+    if body is None:
+        body = {}
+    if not isinstance(body, dict):
+        return _invalid_request("请求正文必须是 JSON 对象")
+    initial_dir = body.get("initial_dir")
+    if initial_dir is not None and not isinstance(initial_dir, str):
+        return _invalid_request("initial_dir 必须是路径字符串")
+    try:
+        selected = choose_folder(initial_dir or DOWNLOADS_DIR)
+        if selected is None:
+            return jsonify({"cancelled": True})
+        resolved = ensure_downloads_dir(selected)
+    except FolderPickerUnavailable as error:
+        return _api_error(
+            "FOLDER_PICKER_UNAVAILABLE",
+            str(error),
+            "请在下载位置输入框中手动输入文件夹路径",
+            503,
+        )
+    except ValueError as error:
+        return _api_error(
+            "INVALID_DOWNLOAD_DIR",
+            str(error),
+            "请选择或输入一个可创建且可写的文件夹",
+            400,
+        )
+    return jsonify({"cancelled": False, "download_dir": str(resolved)})
 
 
 def _api_error(
@@ -123,6 +170,7 @@ def api_download():
     media_type = body.get("media_type", VIDEO)
     speed_mode = body.get("speed_mode", STANDARD)
     audio_format = body.get("audio_format", MP3)
+    download_dir = body.get("download_dir")
 
     if not isinstance(media_type, str) or media_type not in MEDIA_TYPES:
         return _invalid_request("不支持的下载类型")
@@ -130,6 +178,17 @@ def api_download():
         return _invalid_request("不支持的速度模式")
     if not isinstance(audio_format, str) or audio_format not in AUDIO_FORMATS:
         return _invalid_request("不支持的音频格式")
+    if download_dir is not None and not isinstance(download_dir, str):
+        return _invalid_request("download_dir 必须是路径字符串")
+    try:
+        resolved_download_dir = ensure_downloads_dir(download_dir)
+    except ValueError as error:
+        return _api_error(
+            "INVALID_DOWNLOAD_DIR",
+            str(error),
+            "请输入一个可创建且可写的文件夹，留空则使用默认 downloads",
+            400,
+        )
 
     has_urls = "urls" in body
     has_preview = "preview_id" in body or "selected_entry_ids" in body
@@ -227,6 +286,7 @@ def api_download():
         media_type,
         audio_format,
         speed_mode,
+        str(resolved_download_dir),
     )
 
     return jsonify(
@@ -235,6 +295,7 @@ def api_download():
             "task_count": batch["total"],
             "rejected_count": len(rejected),
             "rejected": rejected,
+            "download_dir": str(resolved_download_dir),
         }
     )
 
@@ -306,12 +367,16 @@ def api_retry_failed(batch_id: str):
 if __name__ == "__main__":
     if not check_ffmpeg():
         print("⚠️  警告：未检测到 FFmpeg，最高质量下载需要 FFmpeg。")
+    try:
+        prepare_folder_picker()
+    except FolderPickerUnavailable as error:
+        print(f"⚠️  文件夹选择器准备失败：{error}；仍可手动输入下载路径。")
 
     print("=" * 56)
     print("  🎬 Multiple_Video_Downloader — Web 模式")
     print("=" * 56)
     print(f"  浏览器访问:  http://{WEB_HOST}:{WEB_PORT}")
-    print(f"  下载目录:    downloader.py 同级的 downloads/")
+    print(f"  默认下载目录: {DOWNLOADS_DIR.resolve()}")
     print("  按 Ctrl+C 停止服务")
     print("=" * 56)
 

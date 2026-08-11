@@ -418,6 +418,50 @@
   }
   .format-option input:disabled + span { opacity: .42; cursor: wait; }
 
+  .download-location-control {
+    display: grid;
+    gap: 7px;
+    margin-top: 14px;
+  }
+  .download-location-label {
+    color: var(--foreground);
+    font-size: 12px;
+  }
+  .download-location-row {
+    display: flex;
+    gap: 8px;
+    min-width: 0;
+  }
+  .download-location-input {
+    min-width: 0;
+    width: 100%;
+    height: 42px;
+    padding: 9px 11px;
+    border: 1px solid var(--border);
+    border-radius: 0;
+    color: var(--foreground);
+    background: rgba(0, 155, 149, .045);
+    font: inherit;
+    font-size: 12px;
+  }
+  .download-location-input:focus {
+    border-color: var(--accent);
+    outline: 2px solid rgba(0, 161, 155, .18);
+    outline-offset: 1px;
+  }
+  .download-location-input:disabled { opacity: .48; cursor: wait; }
+  .download-location-browse {
+    flex: 0 0 auto;
+    min-height: 42px;
+    padding: 8px 13px;
+  }
+  .download-location-hint {
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+
   .turbo-control {
     display: flex;
     align-items: center;
@@ -718,6 +762,7 @@
     .collection-entry { grid-template-columns: auto minmax(0, 1fr); }
     .collection-thumb { display: none; }
     .card, .task-panel { padding: 21px; }
+    .download-location-row { flex-direction: column; }
     .btn-row { flex-direction: column; }
     .btn { width: 100%; }
     .task-header { align-items: flex-start; flex-direction: column; gap: 7px; }
@@ -789,6 +834,14 @@
         </div>
         <textarea class="url-input" id="videoUrls" aria-label="视频链接" placeholder="粘贴 YouTube / Instagram / Bilibili 链接或平台分享文案，一行一个"></textarea>
         <div class="format-control-spacer" aria-hidden="true"></div>
+        <div class="download-location-control">
+          <label class="download-location-label" for="videoDownloadDir">下载位置</label>
+          <div class="download-location-row">
+            <input class="download-location-input" id="videoDownloadDir" type="text" autocomplete="off" placeholder="留空使用默认 downloads 文件夹">
+            <button class="btn btn-secondary download-location-browse" id="videoBrowseButton" type="button" onclick="chooseDownloadDirectory('video')">选择文件夹</button>
+          </div>
+          <span class="download-location-hint" id="videoDownloadDirHint">留空时保持使用项目的 downloads 文件夹</span>
+        </div>
         <div class="turbo-control">
           <span class="turbo-copy"><span class="turbo-title">极速模式</span><span class="turbo-hint" id="videoTurboHint">正在检测 aria2c…</span></span>
           <label class="turbo-switch" aria-label="视频极速模式">
@@ -833,6 +886,14 @@
             <span>WAV PCM</span>
           </label>
         </fieldset>
+        <div class="download-location-control">
+          <label class="download-location-label" for="audioDownloadDir">下载位置</label>
+          <div class="download-location-row">
+            <input class="download-location-input" id="audioDownloadDir" type="text" autocomplete="off" placeholder="留空使用默认 downloads 文件夹">
+            <button class="btn btn-secondary download-location-browse" id="audioBrowseButton" type="button" onclick="chooseDownloadDirectory('audio')">选择文件夹</button>
+          </div>
+          <span class="download-location-hint" id="audioDownloadDirHint">留空时保持使用项目的 downloads 文件夹</span>
+        </div>
         <div class="turbo-control">
           <span class="turbo-copy"><span class="turbo-title">极速模式</span><span class="turbo-hint" id="audioTurboHint">正在检测 aria2c…</span></span>
           <label class="turbo-switch" aria-label="音频极速模式">
@@ -899,6 +960,9 @@
       clearButton: document.getElementById("videoClearButton"),
       turboToggle: document.getElementById("videoTurboToggle"),
       turboHint: document.getElementById("videoTurboHint"),
+      downloadDirInput: document.getElementById("videoDownloadDir"),
+      browseButton: document.getElementById("videoBrowseButton"),
+      downloadDirHint: document.getElementById("videoDownloadDirHint"),
       formatInputs: [],
       name: "视频",
     },
@@ -908,6 +972,9 @@
       clearButton: document.getElementById("audioClearButton"),
       turboToggle: document.getElementById("audioTurboToggle"),
       turboHint: document.getElementById("audioTurboHint"),
+      downloadDirInput: document.getElementById("audioDownloadDir"),
+      browseButton: document.getElementById("audioBrowseButton"),
+      downloadDirHint: document.getElementById("audioDownloadDirHint"),
       formatInputs: Array.from(document.querySelectorAll('input[name="audioFormat"]')),
       name: "音频",
     },
@@ -936,6 +1003,8 @@
   let pendingDownloadSettings = null;
   let collectionRenderLimit = COLLECTION_PAGE_SIZE;
   let collectionSelectedIds = new Set();
+  let folderPickerAvailable = false;
+  let defaultDownloadDir = "downloads";
 
   function clearInput(mediaType) {
     if (isDownloading) return;
@@ -949,6 +1018,8 @@
       control.textarea.disabled = disabled;
       control.downloadButton.disabled = disabled;
       control.clearButton.disabled = disabled;
+      control.downloadDirInput.disabled = disabled;
+      control.browseButton.disabled = disabled || !folderPickerAvailable;
       control.turboToggle.disabled = disabled || !aria2Available;
       control.formatInputs.forEach(formatInput => {
         formatInput.disabled = disabled;
@@ -962,17 +1033,53 @@
       if (!response.ok) throw new Error("capability request failed");
       const capabilities = await response.json();
       aria2Available = capabilities.aria2c_available === true;
+      folderPickerAvailable = capabilities.folder_picker_available === true;
+      defaultDownloadDir = capabilities.default_download_dir || "downloads";
     } catch (_) {
       aria2Available = false;
+      folderPickerAvailable = false;
     }
 
     Object.values(downloadControls).forEach(control => {
       control.turboToggle.disabled = !aria2Available || isDownloading;
       control.turboHint.textContent = aria2Available
-        ? "Bilibili 大文件可使用 aria2c 多连接下载"
+        ? "已检测到 aria2c，可为 Bilibili 大文件启用多连接下载"
         : "未安装 aria2c，当前使用标准模式";
       if (!aria2Available) control.turboToggle.checked = false;
+      control.browseButton.disabled = !folderPickerAvailable || isDownloading;
+      control.downloadDirHint.textContent = folderPickerAvailable
+        ? `留空使用默认位置：${defaultDownloadDir}`
+        : `留空使用默认位置：${defaultDownloadDir}；当前环境请手动输入路径`;
     });
+  }
+
+  async function chooseDownloadDirectory(mediaType) {
+    if (isDownloading) return;
+    const control = downloadControls[mediaType];
+    if (!control || !folderPickerAvailable) return;
+    control.browseButton.disabled = true;
+    control.browseButton.textContent = "等待选择…";
+    try {
+      const response = await fetch("/api/select-directory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ initial_dir: control.downloadDirInput.value.trim() || null }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        alert("❌ " + formatApiError(data, "无法打开文件夹选择器"));
+        return;
+      }
+      if (!data.cancelled && data.download_dir) {
+        control.downloadDirInput.value = data.download_dir;
+        control.downloadDirHint.textContent = `将保存到：${data.download_dir}`;
+      }
+    } catch (error) {
+      alert("❌ 无法选择文件夹：" + error.message);
+    } finally {
+      control.browseButton.textContent = "选择文件夹";
+      control.browseButton.disabled = isDownloading || !folderPickerAvailable;
+    }
   }
 
   function setOperationalMetrics(active, queue) {
@@ -1037,7 +1144,12 @@
       ? document.querySelector('input[name="audioFormat"]:checked').value
       : "mp3";
 
-    pendingDownloadSettings = { mediaType, speedMode, audioFormat };
+    pendingDownloadSettings = {
+      mediaType,
+      speedMode,
+      audioFormat,
+      downloadDir: control.downloadDirInput.value.trim(),
+    };
     isDownloading = true;
     setControlsDisabled(true);
     taskTitle.textContent = "正在解析输入";
@@ -1201,6 +1313,7 @@
       media_type: mediaType,
       speed_mode: pendingDownloadSettings.speedMode,
       audio_format: pendingDownloadSettings.audioFormat,
+      download_dir: pendingDownloadSettings.downloadDir || null,
     };
     try {
       const response = await fetch("/api/download", {
@@ -1218,7 +1331,7 @@
       currentBatchId = data.batch_id;
       pendingPreview = null;
       pendingDownloadSettings = null;
-      taskSummary.textContent = `共 ${data.task_count} 个任务 · 批次 ${currentBatchId}`;
+      taskSummary.textContent = `共 ${data.task_count} 个任务 · 保存到 ${data.download_dir || defaultDownloadDir}`;
       startPolling();
     } catch (error) {
       alert("❌ 网络错误：" + error.message);

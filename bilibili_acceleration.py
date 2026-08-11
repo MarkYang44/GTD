@@ -1,9 +1,12 @@
 """Bilibili 专用 CDN 候选提取与下载加速策略。"""
 
+import os
 import shutil
+import sys
 import threading
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable
 from urllib.parse import urlparse
 
@@ -22,6 +25,8 @@ CDN_PROBE_TIMEOUT_SECONDS = 3
 STANDARD = "standard"
 TURBO = "turbo"
 SPEED_MODES = {STANDARD, TURBO}
+PROJECT_DIR = Path(__file__).resolve().parent
+PROJECT_ARIA2_DIR = PROJECT_DIR / "tools" / "aria2"
 
 
 @dataclass(frozen=True)
@@ -99,7 +104,48 @@ CDN_PROBE_CACHE = CdnProbeCache(CDN_CACHE_TTL_SECONDS)
 
 
 def aria2c_path() -> str | None:
-    return shutil.which("aria2c")
+    """Locate an explicit, project-local, PATH, or common package install."""
+    executable_name = "aria2c.exe" if os.name == "nt" else "aria2c"
+    candidates: list[str | Path | None] = [
+        os.environ.get("MVD_ARIA2C_PATH"),
+        os.environ.get("ARIA2C_PATH"),
+        PROJECT_ARIA2_DIR / executable_name,
+        shutil.which("aria2c"),
+    ]
+    if os.name == "nt":
+        local_app_data = os.environ.get("LOCALAPPDATA")
+        user_profile = os.environ.get("USERPROFILE")
+        if local_app_data:
+            winget_root = Path(local_app_data) / "Microsoft" / "WinGet"
+            candidates.append(winget_root / "Links" / executable_name)
+            packages_root = winget_root / "Packages"
+            try:
+                candidates.extend(
+                    sorted(
+                        packages_root.glob(
+                            "aria2.aria2_*/aria2-*-win-*bit-*/aria2c.exe"
+                        ),
+                        reverse=True,
+                    )
+                )
+            except OSError:
+                pass
+        if user_profile:
+            candidates.append(
+                Path(user_profile) / "scoop" / "shims" / executable_name
+            )
+    elif sys.platform == "darwin":
+        candidates.extend(
+            ("/opt/homebrew/bin/aria2c", "/usr/local/bin/aria2c")
+        )
+
+    for candidate in candidates:
+        if not candidate:
+            continue
+        path = Path(candidate).expanduser()
+        if path.is_file():
+            return str(path.resolve())
+    return None
 
 
 def effective_speed_mode(

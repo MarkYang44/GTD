@@ -2,7 +2,7 @@
 
 YouTube + Instagram + Bilibili 视频与多格式音频批量下载工具。
 
-这是一个基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 的程序，支持**命令行**和**网页**两种使用方式。它可以在同一批任务中自动识别 YouTube、Instagram 和 Bilibili 链接，预览播放列表、合集与分 P，既能下载视频，也能按用户选择输出 **MP3 V0 / 源 FLAC / 原始音频 / WAV PCM**。最终文件统一保存到项目内的 `downloads/` 文件夹。
+这是一个基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 的程序，支持**命令行**和**网页**两种使用方式。它可以在同一批任务中自动识别 YouTube、Instagram 和 Bilibili 链接，预览播放列表、合集与分 P，既能下载视频，也能按用户选择输出 **MP3 V0 / 源 FLAC / 原始音频 / WAV PCM**。下载位置可手动输入或通过系统界面选择；不配置时仍保存到项目内的 `downloads/` 文件夹。
 
 ## 功能
 
@@ -19,6 +19,7 @@ YouTube + Instagram + Bilibili 视频与多格式音频批量下载工具。
 - 使用 FFmpeg 合并音视频并输出 MP4，或处理 MP3 / FLAC / WAV 音频
 - **命令行模式**：交互式输入和命令行参数两种运行方式
 - **网页模式**：视频与音频使用两个独立输入区，支持合集选择、取消、重试与重新下载，并实时显示任务状态、下载速度和预计剩余时间
+- **自定义下载位置**：CLI 与 Web 均可输入路径；Windows 使用预编译并缓存的 DPI-aware 现代资源管理器式文件夹窗口，macOS 使用系统文件夹选择器，留空保持使用 `downloads/`
 - 单个链接下载失败时继续处理后续任务
 - 错误使用稳定错误码和可执行建议；脱敏 JSONL 日志自动轮转
 - 支持通用或平台专用 Cookie 文件
@@ -36,6 +37,7 @@ Multiple_Video_Downloader/
 ├── task_control.py              # Web 队列、取消、重试与重新下载
 ├── download_errors.py           # 结构化错误码与用户建议
 ├── download_logging.py          # 脱敏 JSONL 轮转日志
+├── folder_picker.py             # Windows / macOS 原生文件夹选择器
 ├── templates/
 │   └── index.html               # Web 前端页面
 ├── requirements.txt             # Python 依赖
@@ -166,6 +168,16 @@ brew install aria2
 aria2c --version
 ```
 
+Windows PowerShell 可将官方 Windows 版本安装到项目本地目录，无需修改系统 `PATH`：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install_aria2_windows.ps1
+```
+
+项目会依次检测 `MVD_ARIA2C_PATH`、`ARIA2C_PATH`、项目本地
+`tools\aria2\aria2c.exe`、系统 `PATH`、WinGet Links、WinGet 实际包目录和
+Scoop shims。Web 服务安装后需要重启，页面才会重新读取能力状态。
+
 未安装或 aria2c 运行失败时，程序会自动切换回标准模式；YouTube 和 Instagram 不使用该加速器。
 
 ---
@@ -180,7 +192,7 @@ aria2c --version
 python main.py
 ```
 
-程序会先要求选择下载类型：直接回车或输入 `1` 下载视频，输入 `2` 下载音频。选择音频后，可继续选择 MP3 V0、源 FLAC、原始音频或 WAV PCM；随后逐行请求链接，YouTube、Instagram 与 Bilibili 链接可以交替输入。
+程序会先要求选择下载类型：直接回车或输入 `1` 下载视频，输入 `2` 下载音频。选择音频后，可继续选择 MP3 V0、源 FLAC、原始音频或 WAV PCM；随后可保留默认 `downloads/`、手动输入路径，或在 Windows/macOS 上打开系统文件夹选择器。最后逐行请求链接，YouTube、Instagram 与 Bilibili 链接可以交替输入。
 
 可以直接粘贴平台生成的分享文案，每行仍表示一个任务。程序会自动忽略标题并提取其中的第一个 HTTP(S) 链接，例如：
 
@@ -258,6 +270,22 @@ python main.py --audio --audio-format wav "https://youtu.be/xxxx"
 
 `source` 保留 yt-dlp 选中源音轨的实际编码与扩展名；`wav` 解码为未压缩 PCM，文件通常明显更大，但不会让有损源恢复为无损音质。旧命令 `--audio --flac` 仍然兼容，等价于 `--audio --audio-format flac`。
 
+通过参数指定下载位置（路径不存在时会自动创建）：
+
+macOS：
+
+```bash
+python main.py --output-dir "$HOME/Movies/MVD" "https://youtu.be/xxxx"
+```
+
+Windows PowerShell：
+
+```powershell
+python main.py --output-dir "D:\Media\MVD" "https://youtu.be/xxxx"
+```
+
+`--download-dir` 是 `--output-dir` 的等价别名。相对路径以项目根目录为基准；路径必须可创建且可写。省略参数或传入空值时，默认位置保持为项目内的 `downloads/`。
+
 下载播放列表、合集或 Bilibili 分 P 时，命令行参数模式必须明确指定条目：
 
 ```bash
@@ -281,11 +309,11 @@ python main.py --turbo "https://www.bilibili.com/video/BV1xRuu6fEeA"
 python main.py --audio --turbo "https://www.bilibili.com/video/BV1xRuu6fEeA"
 ```
 
-命令行参数模式不再二次确认，会立即开始下载。合集未带 `--items` 时会停止并给出中文提示，避免意外下载整个列表。`--flac` 与 `--audio-format` 只能和 `--audio` 一起使用；`--audio`、`--audio-format`、`--items` 与 `--turbo` 建议放在 URL 前面。未带 `--turbo` 时始终使用标准模式。始终用引号包住链接，避免链接中的 `&` 等字符被终端解释。macOS 终端使用反斜杠 `\` 续行，Windows PowerShell 使用反引号 `` ` `` 续行；也可以将整条命令写在同一行。
+命令行参数模式不再二次确认，会立即开始下载。合集未带 `--items` 时会停止并给出中文提示，避免意外下载整个列表。`--flac` 与 `--audio-format` 只能和 `--audio` 一起使用；`--audio`、`--audio-format`、`--output-dir`、`--items` 与 `--turbo` 建议放在 URL 前面。未带 `--turbo` 时始终使用标准模式。始终用引号包住链接和包含空格的目录，避免特殊字符被终端解释。macOS 终端使用反斜杠 `\` 续行，Windows PowerShell 使用反引号 `` ` `` 续行；也可以将整条命令写在同一行。
 
 ### 查看下载结果
 
-任务结束后，视频汇总会显示平台、标题、分辨率、文件大小和保存路径；音频汇总会显示实际输出格式、源编码/码率、是否发生 FLAC 回退、文件大小和保存路径。所有文件都保存在项目根目录下的 `downloads/` 目录：
+任务结束后，视频汇总会显示平台、标题、分辨率、文件大小和保存路径；音频汇总会显示实际输出格式、源编码/码率、是否发生 FLAC 回退、文件大小和保存路径。未自定义位置时，文件保存在项目根目录下的 `downloads/`：
 
 ```text
 Multiple_Video_Downloader/
@@ -315,7 +343,7 @@ python app.py
   🎬 Multiple_Video_Downloader — Web 模式
 ========================================================
   浏览器访问:  http://127.0.0.1:8233
-  下载目录:    downloader.py 同级的 downloads/
+  默认下载目录: /项目实际路径/Multiple_Video_Downloader/downloads
   按 Ctrl+C 停止服务
 ========================================================
 ```
@@ -328,13 +356,16 @@ python app.py
 
 1. 下载视频时，在 **“最高画质视频”** 区块粘贴链接或分享文案；只需要音频时，在独立的 **“最高音质音频”** 区块操作。
 2. 音频可选 **MP3 V0**、**源 FLAC**、**原始音频**或 **WAV PCM**。原始音频的扩展名取决于源流；WAV 文件较大且不会提升源音质；源站没有 FLAC 时会自动回退 MP3 V0。
-3. 点击下载后，系统先读取输入。单条内容保持一键提交；播放列表、合集与分 P 会显示共享预览面板，可勾选条目、全选并查看计数，一次最多提交 100 项。
-4. 视频卡片与音频卡片各有独立的 **“极速模式”** 开关。检测不到 aria2c 时，开关会禁用；该开关只用于 Bilibili。
-5. 后端所有批次共用最多 3 个工作槽，其中 Bilibili 最多同时运行 2 项。超过上限的任务保持“等待中”，有空位后自动开始。
-6. 下方任务列表会显示等待、下载、不可中断的极速下载、完成、失败和已取消状态，并显示下载速度、预计剩余时间、进度、输出规格及保存路径。
-7. 失败任务显示稳定的 `error_code`、中文说明和建议；每次尝试可展开查看状态和时间。
-8. 可取消等待中或标准下载任务；失败/取消后可重试，批次中可一次重试所有可重试失败项；完成后可重新下载并保留旧文件。
-9. 每个输入区都有独立的 **“清空输入”**。下载文件保存在 `downloads/` 目录中。
+3. 在对应区块的 **“下载位置”** 中手动输入 Windows 或 macOS 文件夹路径，也可点击 **“选择文件夹”** 打开运行 Web 服务的这台电脑上的系统选择器；留空则继续使用页面提示的默认 `downloads/`。
+4. 点击下载后，系统先读取输入。单条内容保持一键提交；播放列表、合集与分 P 会显示共享预览面板，可勾选条目、全选并查看计数，一次最多提交 100 项。
+5. 视频卡片与音频卡片各有独立的 **“极速模式”** 开关。检测不到 aria2c 时，开关会禁用；该开关只用于 Bilibili。
+6. 后端所有批次共用最多 3 个工作槽，其中 Bilibili 最多同时运行 2 项。超过上限的任务保持“等待中”，有空位后自动开始。
+7. 下方任务列表会显示等待、下载、不可中断的极速下载、完成、失败和已取消状态，并显示下载速度、预计剩余时间、进度、输出规格及保存路径。
+8. 失败任务显示稳定的 `error_code`、中文说明和建议；每次尝试可展开查看状态和时间。
+9. 可取消等待中或标准下载任务；失败/取消后可重试，批次中可一次重试所有可重试失败项；完成后可重新下载并保留旧文件。
+10. 每个输入区都有独立的 **“清空输入”**。任务会保持本批次选择的下载位置，重试和重新下载不会退回默认目录。
+
+> Web 文件夹选择器由本机 Flask 服务调用，只适用于 `127.0.0.1` 上的本地桌面会话。若系统选择器不可用，仍可手动输入路径；浏览器本身不会读取或上传任意本机目录内容。
 
 ### 取消、重试与重新下载
 

@@ -513,7 +513,10 @@ class WebTurboApiTests(unittest.TestCase):
             response = self.client.get("/api/capabilities")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.get_json(), {"aria2c_available": True})
+        payload = response.get_json()
+        self.assertEqual(payload["aria2c_available"], True)
+        self.assertIn("default_download_dir", payload)
+        self.assertIsInstance(payload["folder_picker_available"], bool)
 
     def test_download_defaults_to_standard_speed_mode(self):
         with patch.object(web_app.task_manager, "create_batch") as create:

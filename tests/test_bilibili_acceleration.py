@@ -1,6 +1,8 @@
 import threading
 import time
+import tempfile
 import unittest
+from pathlib import Path
 from urllib.parse import urlparse
 from unittest.mock import Mock, patch
 
@@ -322,14 +324,45 @@ class AdaptivePolicyTests(unittest.TestCase):
 
 class Aria2ModeTests(unittest.TestCase):
     def test_detects_aria2c_path(self):
-        with patch(
-            "bilibili_acceleration.shutil.which",
-            return_value="/opt/homebrew/bin/aria2c",
-        ):
-            self.assertEqual(
-                acceleration.aria2c_path(),
-                "/opt/homebrew/bin/aria2c",
+        with tempfile.TemporaryDirectory() as temporary:
+            executable = Path(temporary) / "aria2c"
+            executable.write_bytes(b"test")
+            with (
+                patch.dict("bilibili_acceleration.os.environ", {}, clear=True),
+                patch.object(
+                    acceleration,
+                    "PROJECT_ARIA2_DIR",
+                    Path(temporary) / "missing",
+                ),
+                patch(
+                    "bilibili_acceleration.shutil.which",
+                    return_value=str(executable),
+                ),
+            ):
+                self.assertEqual(
+                    acceleration.aria2c_path(),
+                    str(executable.resolve()),
+                )
+
+    def test_project_local_aria2_precedes_path_candidate(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project_dir = Path(temporary)
+            executable_name = (
+                "aria2c.exe" if acceleration.os.name == "nt" else "aria2c"
             )
+            executable = project_dir / executable_name
+            executable.write_bytes(b"test")
+            with (
+                patch.dict("bilibili_acceleration.os.environ", {}, clear=True),
+                patch.object(acceleration, "PROJECT_ARIA2_DIR", project_dir),
+                patch(
+                    "bilibili_acceleration.shutil.which",
+                    return_value=str(project_dir / "path-copy"),
+                ),
+            ):
+                detected = acceleration.aria2c_path()
+
+        self.assertEqual(detected, str(executable.resolve()))
 
     def test_turbo_only_becomes_effective_for_bilibili_with_aria2(self):
         self.assertEqual(

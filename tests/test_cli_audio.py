@@ -13,7 +13,7 @@ class CliAudioModeTests(unittest.TestCase):
     def test_parse_command_line_selects_audio_and_removes_flag(self):
         url = "https://youtu.be/example"
 
-        media_type, audio_format, speed_mode, urls, item_selection = cli_main.parse_command_line(
+        media_type, audio_format, speed_mode, urls, item_selection, output_dir = cli_main.parse_command_line(
             ["--audio", url]
         )
 
@@ -22,11 +22,12 @@ class CliAudioModeTests(unittest.TestCase):
         self.assertEqual(speed_mode, downloader.STANDARD)
         self.assertEqual(urls, [url])
         self.assertIsNone(item_selection)
+        self.assertIsNone(output_dir)
 
     def test_parse_command_line_defaults_to_video(self):
         url = "https://youtu.be/example"
 
-        media_type, audio_format, speed_mode, urls, item_selection = cli_main.parse_command_line(
+        media_type, audio_format, speed_mode, urls, item_selection, output_dir = cli_main.parse_command_line(
             [url]
         )
 
@@ -35,11 +36,12 @@ class CliAudioModeTests(unittest.TestCase):
         self.assertEqual(speed_mode, downloader.STANDARD)
         self.assertEqual(urls, [url])
         self.assertIsNone(item_selection)
+        self.assertIsNone(output_dir)
 
     def test_parse_command_line_combines_audio_and_turbo(self):
         url = "https://b23.tv/example"
 
-        media_type, audio_format, speed_mode, urls, item_selection = cli_main.parse_command_line(
+        media_type, audio_format, speed_mode, urls, item_selection, output_dir = cli_main.parse_command_line(
             ["--audio", url, "--turbo"]
         )
 
@@ -48,11 +50,12 @@ class CliAudioModeTests(unittest.TestCase):
         self.assertEqual(speed_mode, downloader.TURBO)
         self.assertEqual(urls, [url])
         self.assertIsNone(item_selection)
+        self.assertIsNone(output_dir)
 
     def test_parse_command_line_selects_source_flac(self):
         url = "https://b23.tv/example"
 
-        media_type, audio_format, speed_mode, urls, item_selection = cli_main.parse_command_line(
+        media_type, audio_format, speed_mode, urls, item_selection, output_dir = cli_main.parse_command_line(
             ["--audio", "--flac", url]
         )
 
@@ -61,11 +64,12 @@ class CliAudioModeTests(unittest.TestCase):
         self.assertEqual(speed_mode, downloader.STANDARD)
         self.assertEqual(urls, [url])
         self.assertIsNone(item_selection)
+        self.assertIsNone(output_dir)
 
     def test_parse_command_line_accepts_source_audio_and_wav(self):
         for value in (downloader.SOURCE, downloader.WAV):
             with self.subTest(value=value):
-                media, audio_format, speed, urls, item_selection = (
+                media, audio_format, speed, urls, item_selection, output_dir = (
                     cli_main.parse_command_line(
                         ["--audio", "--audio-format", value, "https://youtu.be/x"]
                     )
@@ -76,6 +80,14 @@ class CliAudioModeTests(unittest.TestCase):
                 self.assertEqual(speed, downloader.STANDARD)
                 self.assertEqual(urls, ["https://youtu.be/x"])
                 self.assertIsNone(item_selection)
+                self.assertIsNone(output_dir)
+
+    def test_parse_command_line_accepts_output_directory_without_lowercasing(self):
+        parsed = cli_main.parse_command_line(
+            ["--output-dir", r"D:\\Media\\My Videos", "https://youtu.be/x"]
+        )
+
+        self.assertEqual(parsed[5], r"D:\\Media\\My Videos")
 
     def test_parse_command_line_accepts_item_selection(self):
         parsed = cli_main.parse_command_line(

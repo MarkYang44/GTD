@@ -92,6 +92,7 @@ class TaskManager:
         media_type: str,
         audio_format: str,
         speed_mode: str,
+        download_dir: str | None = None,
     ) -> dict[str, object]:
         if not isinstance(entries, list) or not entries:
             raise ValueError("下载批次不能为空")
@@ -108,6 +109,7 @@ class TaskManager:
                     entry,
                     media_type,
                     audio_format,
+                    download_dir,
                 )
                 output_version = self._reserve_version_locked(version_key)
                 tasks.append(
@@ -117,6 +119,7 @@ class TaskManager:
                         media_type,
                         audio_format,
                         speed_mode,
+                        download_dir=download_dir,
                         output_version=output_version,
                         version_key=version_key,
                     )
@@ -127,6 +130,7 @@ class TaskManager:
                 "media_type": media_type,
                 "audio_format": audio_format,
                 "speed_mode": speed_mode,
+                "download_dir": download_dir,
                 "tasks": tasks,
             }
             self._batches[batch_id] = batch
@@ -264,6 +268,7 @@ class TaskManager:
                 str(source["media_type"]),
                 str(source["audio_format"]),
                 str(source["speed_mode"]),
+                download_dir=source.get("download_dir"),
                 output_version=version,
                 version_key=reservation_key,
             )
@@ -306,6 +311,7 @@ class TaskManager:
         media_type: str,
         audio_format: str,
         speed_mode: str,
+        download_dir: str | None = None,
         output_version: int = 1,
         version_key: str | None = None,
     ) -> dict[str, object]:
@@ -319,6 +325,7 @@ class TaskManager:
             "media_type": media_type,
             "audio_format": audio_format,
             "speed_mode": speed_mode,
+            "download_dir": download_dir,
             "speed_mode_used": None,
             "turbo_fallback": False,
             "output_version": output_version,
@@ -463,6 +470,7 @@ class TaskManager:
                 speed_mode=runner_fields["speed_mode"],
                 cancel_token=token,
                 output_version=runner_fields["output_version"],
+                output_dir=task.get("download_dir"),
                 raise_errors=True,
             )
             if result is None:
@@ -609,6 +617,7 @@ class TaskManager:
             "media_type": batch["media_type"],
             "audio_format": batch["audio_format"],
             "speed_mode": batch["speed_mode"],
+            "download_dir": batch.get("download_dir"),
             "total": len(tasks),
             **counts,
             "all_done": bool(tasks)
@@ -700,9 +709,13 @@ class TaskManager:
         seed: TaskSeed,
         media_type: str,
         audio_format: str,
+        download_dir: str | None = None,
     ) -> str:
         identity = (seed.title or seed.url).strip().casefold()
-        return "\x1f".join((seed.platform, media_type, audio_format, identity))
+        location = str(download_dir or "").strip().casefold()
+        return "\x1f".join(
+            (seed.platform, media_type, audio_format, location, identity)
+        )
 
     def _reserve_version_locked(
         self,
