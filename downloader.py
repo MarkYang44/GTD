@@ -34,7 +34,6 @@ from download_progress import (
     format_download_speed as _format_download_speed,
     format_eta as _format_eta,
     format_size_bytes as _format_size_bytes,
-    make_cancel_hook as _make_cancel_hook,
     postprocessing_preparation as _postprocessing_preparation,
     postprocessor_stage as _postprocessor_stage,
     progress_total_size as _progress_total_size,
@@ -231,8 +230,10 @@ def _make_progress_hook(
         cancel_token,
         media_type,
         audio_format,
-        extract_progress_snapshot_fn=_extract_progress_snapshot,
-        postprocessing_preparation_fn=_postprocessing_preparation,
+        extract_progress_snapshot_fn=lambda data: _extract_progress_snapshot(data),
+        postprocessing_preparation_fn=lambda current_media_type, current_audio_format: (
+            _postprocessing_preparation(current_media_type, current_audio_format)
+        ),
     )
 
 
@@ -250,8 +251,19 @@ def _make_postprocessor_status_hook(
         progress_callback,
         media_type,
         audio_format,
-        postprocessor_stage_fn=_postprocessor_stage,
+        postprocessor_stage_fn=lambda postprocessor, current_media_type, current_audio_format: (
+            _postprocessor_stage(
+                postprocessor,
+                current_media_type,
+                current_audio_format,
+            )
+        ),
     )
+
+
+def _make_cancel_hook(cancel_token: CancellationToken):
+    """Compatibility wrapper retaining downloader-level hook metadata."""
+    return download_progress.make_cancel_hook(cancel_token)
 
 
 def _audio_output_profile(info: dict, requested: str) -> AudioOutputProfile:

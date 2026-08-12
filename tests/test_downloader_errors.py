@@ -1,4 +1,5 @@
 import contextlib
+import inspect
 import io
 import tempfile
 import threading
@@ -250,6 +251,31 @@ class DownloadErrorMessageTests(unittest.TestCase):
         prepare.assert_called_once_with(downloader.VIDEO, downloader.MP3)
         self.assertEqual(events, [("progress", snapshot), ("postprocessing", preparation)])
 
+    def test_downloader_progress_hook_resolves_patched_helpers_after_creation(self):
+        events = []
+        hook = downloader._make_progress_hook(
+            1, 1, progress_callback=lambda event, data: events.append((event, data))
+        )
+        snapshot = {
+            "percent_text": "late percent", "speed_mbps": 3.0,
+            "speed_text": "late speed", "eta_text": "late eta",
+            "total_size_bytes": None, "total_size_text": "",
+            "total_size_is_estimate": False,
+        }
+        preparation = {"stage": "late", "stage_text": "late stage", "detail_text": "late detail"}
+
+        with (
+            patch.object(downloader, "_extract_progress_snapshot", return_value=snapshot) as extract,
+            patch.object(downloader, "_postprocessing_preparation", return_value=preparation) as prepare,
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            hook({"status": "downloading"})
+            hook({"status": "finished"})
+
+        extract.assert_called_once()
+        prepare.assert_called_once_with(downloader.VIDEO, downloader.MP3)
+        self.assertEqual(events, [("progress", snapshot), ("postprocessing", preparation)])
+
     def test_downloader_postprocessor_hook_preserves_stage_patch_seam(self):
         stage = ("patched", "patched stage", "patched detail")
         events = []
@@ -266,6 +292,33 @@ class DownloadErrorMessageTests(unittest.TestCase):
         self.assertEqual(events, [("postprocessing", {
             "stage": "patched", "stage_text": "patched stage", "detail_text": "patched detail"
         })])
+
+    def test_downloader_postprocessor_hook_resolves_patched_stage_after_creation(self):
+        events = []
+        hook = downloader._make_postprocessor_status_hook(
+            1, 1, progress_callback=lambda event, data: events.append((event, data))
+        )
+        stage = ("late", "late stage", "late detail")
+
+        with (
+            patch.object(downloader, "_postprocessor_stage", return_value=stage) as stage_helper,
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            hook({"status": "started", "postprocessor": "anything"})
+
+        stage_helper.assert_called_once_with("anything", downloader.VIDEO, downloader.MP3)
+        self.assertEqual(events, [("postprocessing", {
+            "stage": "late", "stage_text": "late stage", "detail_text": "late detail"
+        })])
+
+    def test_downloader_cancel_hook_retains_compatibility_metadata(self):
+        hook_factory = downloader._make_cancel_hook
+        parameter = inspect.signature(hook_factory).parameters["cancel_token"]
+
+        self.assertEqual(tuple(inspect.signature(hook_factory).parameters), ("cancel_token",))
+        self.assertIs(parameter.annotation, task_control.CancellationToken)
+        self.assertEqual(hook_factory.__name__, "_make_cancel_hook")
+        self.assertEqual(hook_factory.__module__, "downloader")
 
     def test_downloader_audio_profile_and_source_validation_preserve_patch_seams(self):
         selected = {"acodec": "ignored", "ext": "m4a", "abr": 123}
