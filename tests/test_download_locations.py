@@ -293,7 +293,13 @@ class DownloadLocationSurfaceTests(unittest.TestCase):
             self.assertTrue(target.is_dir())
 
     def test_web_page_exposes_manual_and_native_folder_controls(self):
-        html = self.client.get("/").get_data(as_text=True)
+        html = "\n".join(
+            (
+                self.client.get("/").get_data(as_text=True),
+                Path("static/css/index.css").read_text(encoding="utf-8"),
+                Path("static/js/index.js").read_text(encoding="utf-8"),
+            )
+        )
 
         self.assertIn('id="videoDownloadDir"', html)
         self.assertIn('id="audioDownloadDir"', html)

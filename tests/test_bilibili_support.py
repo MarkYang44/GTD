@@ -12,6 +12,10 @@ import downloader
 import main as cli_main
 
 
+def frontend_template_source():
+    return Path("templates/index.html").read_text(encoding="utf-8")
+
+
 class BilibiliUrlDetectionTests(unittest.TestCase):
     def test_accepts_single_video_and_short_link_urls(self):
         accepted = [
@@ -790,7 +794,7 @@ class BilibiliSurfaceIntegrationTests(unittest.TestCase):
         self.assertEqual(create.call_args.args[1], downloader.AUDIO)
 
     def test_page_names_bilibili_without_adding_new_input(self):
-        html = Path("templates/index.html").read_text(encoding="utf-8")
+        html = frontend_template_source()
 
         self.assertIn("YOUTUBE + INSTAGRAM + BILIBILI", html)
         self.assertNotIn("/ ONLINE", html)
@@ -915,7 +919,7 @@ class ShareTextSurfaceTests(unittest.TestCase):
         self.assertEqual(create.call_args.args[0][0].url, expected)
 
     def test_page_and_readme_explain_share_text_input(self):
-        html = Path("templates/index.html").read_text(encoding="utf-8")
+        html = frontend_template_source()
         readme = Path("README.md").read_text(encoding="utf-8")
 
         self.assertGreaterEqual(html.count("链接或平台分享文案"), 2)

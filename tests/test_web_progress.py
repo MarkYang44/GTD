@@ -8,9 +8,29 @@ import app as web_app
 import downloader
 from collection_resolver import CollectionEntry, CollectionPreview
 
+TEMPLATE_PATH = Path("templates/index.html")
+
+
+def frontend_template_source():
+    return TEMPLATE_PATH.read_text(encoding="utf-8")
+
 
 def frontend_script_source():
-    return Path("templates/index.html").read_text(encoding="utf-8")
+    return Path("static/js/index.js").read_text(encoding="utf-8")
+
+
+def frontend_style_source():
+    return Path("static/css/index.css").read_text(encoding="utf-8")
+
+
+def frontend_surface_source():
+    return "\n".join(
+        (
+            frontend_template_source(),
+            frontend_style_source(),
+            frontend_script_source(),
+        )
+    )
 
 
 def task_render_signature_source():
@@ -21,6 +41,34 @@ def task_render_signature_source():
 
 
 class WebConfigurationTests(unittest.TestCase):
+    def test_frontend_uses_external_assets_and_exports_inline_handlers(self):
+        template = frontend_template_source()
+        stylesheet = Path("static/css/index.css")
+        script = Path("static/js/index.js")
+
+        self.assertTrue(stylesheet.is_file())
+        self.assertTrue(script.is_file())
+        self.assertIn(
+            "{{ url_for('static', filename='css/index.css') }}",
+            template,
+        )
+        self.assertRegex(
+            template,
+            r'<script defer src="\{\{ url_for\(\'static\', filename=\'js/index\.js\'\) \}\}"></script>',
+        )
+        self.assertNotIn("<style", template)
+        self.assertNotIn("<script>", template)
+
+        window_exports = script.read_text(encoding="utf-8").split(
+            "Object.assign(window, {", 1
+        )[1].split("});", 1)[0]
+        inline_handlers = re.findall(
+            r'on(?:click|change|input)="([A-Za-z_$][A-Za-z0-9_$]*)\(', template
+        )
+        for handler in inline_handlers:
+            with self.subTest(handler=handler):
+                self.assertRegex(window_exports, rf"\b{handler}\b")
+
     def test_web_exposes_multi_resolution_character_favicons(self):
         html = web_app.app.test_client().get("/").get_data(as_text=True)
         expected_pngs = {
@@ -62,7 +110,7 @@ class WebConfigurationTests(unittest.TestCase):
 
     def test_character_icon_replaces_ready_and_empty_state_arrow_responsively(self):
         html = web_app.app.test_client().get("/").get_data(as_text=True)
-
+        html += frontend_style_source()
         self.assertIn('class="service-status" role="status" aria-label="服务已就绪"', html)
         self.assertIn('class="service-avatar"', html)
         self.assertIn('character-icon-128x128.png?v=20260811', html)
@@ -164,7 +212,7 @@ class WebProgressStateTests(unittest.TestCase):
             self.assertIn(field, signature)
 
     def test_frontend_has_four_audio_formats_and_collection_preview(self):
-        html = Path("templates/index.html").read_text(encoding="utf-8")
+        html = frontend_surface_source()
 
         for value in ("mp3", "flac", "source", "wav"):
             self.assertIn(f'value="{value}"', html)
@@ -177,12 +225,12 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn("atLimit && !input.checked", html)
 
     def test_frontend_has_cancel_retry_redownload_and_retry_failed_actions(self):
-        html = Path("templates/index.html").read_text(encoding="utf-8")
+        html = frontend_surface_source()
 
         self.assertIn("operateTask('cancel'", html)
 
     def test_collection_preview_uses_incremental_rendering(self):
-        html = Path("templates/index.html").read_text(encoding="utf-8")
+        html = frontend_surface_source()
 
         self.assertIn('id="collectionLoadMoreButton"', html)
         self.assertIn("COLLECTION_PAGE_SIZE", html)
@@ -194,7 +242,7 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn("极速任务不可取消", html)
 
     def test_frontend_renders_structured_error_and_attempt_history(self):
-        html = Path("templates/index.html").read_text(encoding="utf-8")
+        html = frontend_surface_source()
 
         self.assertIn("error_code", html)
         self.assertIn("suggestion", html)
@@ -204,7 +252,7 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn("formatAttemptTime(attempt.finished_at)", html)
 
     def test_frontend_renders_speed_and_eta_inside_task_card(self):
-        html = Path("templates/index.html").read_text(encoding="utf-8")
+        html = frontend_surface_source()
 
         self.assertIn("renderDownloadProgress", html)
         self.assertIn("下载速度", html)
@@ -213,7 +261,7 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn("预计总大小", html)
 
     def test_frontend_has_separate_video_and_audio_download_inputs(self):
-        html = Path("templates/index.html").read_text(encoding="utf-8")
+        html = frontend_surface_source()
 
         self.assertIn('id="videoUrls"', html)
         self.assertIn('id="audioUrls"', html)
@@ -223,7 +271,7 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn("startDownload('audio')", html)
 
     def test_frontend_has_mp3_and_source_flac_selector(self):
-        html = Path("templates/index.html").read_text(encoding="utf-8")
+        html = frontend_surface_source()
 
         self.assertIn('id="audioFormatMp3"', html)
         self.assertIn('id="audioFormatFlac"', html)
@@ -236,7 +284,7 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn("formatInput.disabled = disabled", html)
 
     def test_desktop_cards_reserve_matching_format_row_height(self):
-        html = Path("templates/index.html").read_text(encoding="utf-8")
+        html = frontend_surface_source()
 
         self.assertIn(
             '<div class="format-control-spacer" aria-hidden="true"></div>',
@@ -250,7 +298,7 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn(".format-control-spacer { display: none; }", html)
 
     def test_frontend_submits_and_renders_audio_format_details(self):
-        html = Path("templates/index.html").read_text(encoding="utf-8")
+        html = frontend_surface_source()
 
         self.assertIn(
             "audio_format: pendingDownloadSettings.audioFormat",
@@ -262,7 +310,7 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn("source_abr_kbps", html)
 
     def test_frontend_sends_media_type_and_disables_both_sections(self):
-        html = Path("templates/index.html").read_text(encoding="utf-8")
+        html = frontend_surface_source()
 
         self.assertIn("media_type: mediaType", html)
         self.assertIn("setControlsDisabled(true)", html)
@@ -270,7 +318,7 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn("audioDownloadButton", html)
 
     def test_frontend_has_independent_video_and_audio_turbo_switches(self):
-        html = Path("templates/index.html").read_text(encoding="utf-8")
+        html = frontend_surface_source()
 
         self.assertIn('id="videoTurboToggle"', html)
         self.assertIn('id="audioTurboToggle"', html)
@@ -282,7 +330,7 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn("aria2c_available", html)
 
     def test_frontend_submits_section_speed_mode(self):
-        html = Path("templates/index.html").read_text(encoding="utf-8")
+        html = frontend_surface_source()
 
         self.assertIn(
             'const speedMode = control.turboToggle.checked ? "turbo" : "standard";',
@@ -295,7 +343,7 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn("body: JSON.stringify(payload)", html)
 
     def test_download_location_history_keeps_three_recent_browser_local_paths(self):
-        html = Path("templates/index.html").read_text(encoding="utf-8")
+        html = frontend_surface_source()
 
         for media_type in ("video", "audio"):
             prefix = f'{media_type}DownloadDirHistory'
@@ -314,7 +362,7 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn(".download-location-field { width: 100%; }", html)
 
     def test_frontend_renders_turbo_and_fallback_states(self):
-        html = Path("templates/index.html").read_text(encoding="utf-8")
+        html = frontend_surface_source()
 
         self.assertIn("高速下载中", html)
         self.assertIn("极速模式不可用，已切换标准模式", html)
@@ -322,21 +370,21 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn("!t.turbo_fallback", html)
 
     def test_frontend_renders_postprocessing_stage_and_explanation(self):
-        html = Path("templates/index.html").read_text(encoding="utf-8")
+        html = frontend_surface_source()
 
         self.assertIn("t.postprocessing.stage_text", html)
         self.assertIn("t.postprocessing.detail_text", html)
         self.assertIn("正在处理媒体文件", html)
 
     def test_frontend_renders_audio_results_without_video_resolution(self):
-        html = Path("templates/index.html").read_text(encoding="utf-8")
+        html = frontend_surface_source()
 
         self.assertIn('batch.media_type === "audio"', html)
         self.assertIn("格式:", html)
         self.assertIn("音频编码:", html)
 
     def test_task_metadata_wraps_long_output_paths_on_mobile(self):
-        html = Path("templates/index.html").read_text(encoding="utf-8")
+        html = frontend_surface_source()
 
         self.assertRegex(
             html,
@@ -344,7 +392,7 @@ class WebProgressStateTests(unittest.TestCase):
         )
 
     def test_mobile_hero_clips_decorative_orbit_overflow(self):
-        html = Path("templates/index.html").read_text(encoding="utf-8")
+        html = frontend_surface_source()
 
         self.assertRegex(
             html,
@@ -352,7 +400,7 @@ class WebProgressStateTests(unittest.TestCase):
         )
 
     def test_frontend_uses_dark_petronas_theme_tokens(self):
-        html = Path("templates/index.html").read_text(encoding="utf-8").lower()
+        html = frontend_surface_source().lower()
 
         self.assertIn("--background: #0f172a", html)
         self.assertIn("--surface: #111827", html)
@@ -360,7 +408,7 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn("--accent: #00a19b", html)
 
     def test_frontend_has_operational_metrics_with_expected_defaults(self):
-        html = Path("templates/index.html").read_text(encoding="utf-8")
+        html = frontend_surface_source()
 
         self.assertRegex(html, r'id="metric-active"[^>]*>00<')
         self.assertRegex(html, r'id="metric-queue"[^>]*>00<')
@@ -373,7 +421,7 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn("font-variant-numeric: tabular-nums", metric_value_rule)
 
     def test_frontend_computes_active_and_queued_task_counts(self):
-        html = Path("templates/index.html").read_text(encoding="utf-8")
+        html = frontend_surface_source()
 
         self.assertIn("function updateOperationalMetrics(batch)", html)
         self.assertIn("Number.isInteger(batch.active)", html)
@@ -382,7 +430,7 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn('padStart(2, "0")', html)
 
     def test_frontend_has_progressive_motion_and_reduced_motion_fallback(self):
-        html = Path("templates/index.html").read_text(encoding="utf-8")
+        html = frontend_surface_source()
 
         self.assertIn('id="scroll-progress"', html)
         self.assertIn('id="pointer-light"', html)
@@ -392,7 +440,7 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn("prefers-reduced-motion: reduce", html)
 
     def test_frontend_has_approved_page_structure_without_service_label(self):
-        html = Path("templates/index.html").read_text(encoding="utf-8")
+        html = frontend_surface_source()
 
         self.assertIn('class="topbar"', html)
         self.assertIn('class="hero', html)
@@ -402,7 +450,7 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertNotIn("LOCAL SERVICE · 8233", html)
 
     def test_frontend_uses_mark_yang_brand_copy(self):
-        html = Path("templates/index.html").read_text(encoding="utf-8")
+        html = frontend_surface_source()
 
         self.assertIn(
             "<title>Multiple_Video_Downloader - Designed by Mark Yang</title>",
@@ -434,7 +482,7 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertNotIn('<span class="brand-mark">MARK YANG</span>', html)
 
     def test_frontend_loads_only_cormorant_google_font(self):
-        html = Path("templates/index.html").read_text(encoding="utf-8")
+        html = frontend_surface_source()
 
         self.assertIn("fonts.googleapis.com/css2?", html)
         self.assertIn("family=Cormorant+Garamond:ital,wght@1,400", html)
@@ -443,7 +491,7 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertNotIn("family=Manrope", html)
 
     def test_frontend_applies_cormorant_and_palatino_typography(self):
-        html = Path("templates/index.html").read_text(encoding="utf-8")
+        html = frontend_surface_source()
         body_match = re.search(r"\n  body\s*\{([^}]*)\}", html)
         brand_match = re.search(r"\.brand\s*\{([^}]*)\}", html)
         hero_title_match = re.search(r"\.hero h1\s*\{([^}]*)\}", html)

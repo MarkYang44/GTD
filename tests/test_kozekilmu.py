@@ -20,7 +20,12 @@ class KozekiLmuEasterEggTests(unittest.TestCase):
 
     def test_task_mascot_links_to_hidden_route_accessibly(self):
         response = self.client.get("/")
-        html = response.get_data(as_text=True)
+        html = "\n".join(
+            (
+                response.get_data(as_text=True),
+                Path("static/css/index.css").read_text(encoding="utf-8"),
+            )
+        )
 
         self.assertEqual(response.status_code, 200)
         self.assertIn('class="icon" href="/kozekilmu"', html)
