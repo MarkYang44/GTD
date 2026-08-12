@@ -81,6 +81,70 @@ class DownloadErrorMessageTests(unittest.TestCase):
 
 
 class DownloadOutputTemplateTests(unittest.TestCase):
+    def test_downloader_claim_helper_keeps_patchable_version_claim_seam(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "private.mp4"
+            expected = Path(directory) / "final.mp4"
+            source.write_bytes(b"media")
+            with patch.object(
+                downloader,
+                "_claim_final_output_with_version",
+                return_value=(expected, 2),
+            ) as claim:
+                self.assertEqual(
+                    downloader._claim_final_output(source, "final", 2),
+                    expected,
+                )
+
+            claim.assert_called_once_with(source, "final", 2)
+
+    def test_downloader_version_claim_keeps_patchable_validator_seam(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "Clip [.__mvd_token].mp4"
+            source.write_bytes(b"media")
+            with patch.object(downloader, "_validate_output_version") as validate:
+                target, version = downloader._claim_final_output_with_version(
+                    source,
+                    "Clip",
+                    1,
+                )
+
+        validate.assert_called_once_with(1)
+        self.assertEqual(target.name, "Clip.mp4")
+        self.assertEqual(version, 1)
+
+    def test_output_files_cleans_private_source_when_link_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "Clip [.__mvd_token].mp4"
+            target = Path(directory) / "Clip.mp4"
+            source.write_bytes(b"media")
+
+            with patch.object(output_files.os, "link", side_effect=OSError("link failed")):
+                with self.assertRaisesRegex(OSError, "link failed"):
+                    output_files.claim_final_output_with_version(source, "Clip", 1)
+
+            self.assertFalse(source.exists())
+            self.assertFalse(target.exists())
+
+    def test_output_files_rolls_back_new_link_when_private_source_unlink_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "Clip [.__mvd_token].mp4"
+            target = Path(directory) / "Clip.mp4"
+            source.write_bytes(b"media")
+            original_unlink = Path.unlink
+
+            def fail_source_unlink(path, *args, **kwargs):
+                if path == source:
+                    raise OSError("source unlink failed")
+                return original_unlink(path, *args, **kwargs)
+
+            with patch.object(Path, "unlink", new=fail_source_unlink):
+                with self.assertRaisesRegex(OSError, "source unlink failed"):
+                    output_files.claim_final_output_with_version(source, "Clip", 1)
+
+            self.assertTrue(source.exists())
+            self.assertFalse(target.exists())
+
     def test_output_files_templates_match_downloader_exports(self):
         output_dir = Path("/tmp/output")
         workspace = output_dir / ".attempts" / "0123456789abcdef"
@@ -97,6 +161,29 @@ class DownloadOutputTemplateTests(unittest.TestCase):
                 downloader.YOUTUBE, output_dir, workspace
             ),
         )
+
+    def test_output_files_direct_workspace_resolution_version_and_filesize_contract(self):
+        class FakeYdl:
+            def prepare_filename(self, _info):
+                return str(output_dir / "Clip.webm")
+
+        with tempfile.TemporaryDirectory() as directory:
+            output_dir = Path(directory)
+            workspace = output_files.new_attempt_workspace(output_dir)
+            expected = output_dir / "Clip.mp3"
+            expected.write_bytes(b"media")
+            resolved = output_files.resolve_output_path(
+                FakeYdl(),
+                {"title": "Clip", "ext": "webm"},
+                output_dir,
+                media_type=downloader.AUDIO,
+            )
+            formatted = output_files.format_filesize(expected, {})
+            output_files.cleanup_attempt_workspace(workspace)
+
+        self.assertEqual(resolved, expected)
+        self.assertEqual(output_files.audio_output_version(Path("Clip [MP3] (3).mp3"), 1), 3)
+        self.assertEqual(formatted, "0.00 MB")
 
     def test_real_attempt_uses_private_unique_working_filename(self):
         workspace = Path("/tmp/output/.attempts/0123456789abcdef0123456789abcdef")

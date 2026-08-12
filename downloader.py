@@ -149,7 +149,11 @@ def _detect_normalized_platform(normalized: str) -> Optional[str]:
 
 
 def detect_platform(url: str) -> Optional[str]:
-    return media_sources.detect_platform(url, normalizer=normalize_url)
+    return media_sources.detect_platform(
+        url,
+        normalizer=normalize_url,
+        detector=_detect_normalized_platform,
+    )
 
 
 def detect_collection_platform(url: str) -> Optional[str]:
@@ -169,7 +173,11 @@ def is_valid_bilibili_url(url: str) -> bool:
 
 
 def make_task(url: str) -> Optional[VideoTask]:
-    return media_sources.make_task(url, normalizer=normalize_url)
+    return media_sources.make_task(
+        url,
+        normalizer=normalize_url,
+        detector=_detect_normalized_platform,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -864,6 +872,7 @@ def _claim_final_output(
         final_stem,
         output_version,
         os_module=os,
+        claim_output=_claim_final_output_with_version,
     )
 
 
@@ -877,6 +886,7 @@ def _claim_final_output_with_version(
         final_stem,
         output_version,
         os_module=os,
+        validate_version=_validate_output_version,
     )
 
 

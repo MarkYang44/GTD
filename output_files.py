@@ -7,7 +7,7 @@ import re
 import shutil
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 
 PROJECT_DIR = Path(__file__).resolve().parent
@@ -148,15 +148,26 @@ def cleanup_attempt_workspace(
         pass
 
 
+def _cleanup_failed_private_source(filepath: Path) -> None:
+    """Best-effort cleanup only for a private attempt output we own."""
+    if not ATTEMPT_OUTPUT_MARKER_RE.search(filepath.stem):
+        return
+    try:
+        filepath.unlink()
+    except OSError:
+        pass
+
+
 def claim_final_output_with_version(
     filepath: Path,
     final_stem: str,
     output_version: int,
     *,
     os_module: Any = os,
+    validate_version: Callable[[int], None] = validate_output_version,
 ) -> tuple[Path, int]:
     """Atomically claim a no-overwrite final path in the same directory."""
-    validate_output_version(output_version)
+    validate_version(output_version)
     version = output_version
     while True:
         suffix = "" if version == 1 else f" ({version})"
@@ -166,13 +177,34 @@ def claim_final_output_with_version(
         except FileExistsError:
             version += 1
             continue
-        filepath.unlink()
+        except OSError:
+            _cleanup_failed_private_source(filepath)
+            raise
+        try:
+            filepath.unlink()
+        except OSError as unlink_error:
+            try:
+                target.unlink()
+            except OSError as rollback_error:
+                _cleanup_failed_private_source(filepath)
+                unlink_error.add_note(
+                    f"无法回滚本次创建的最终文件: {target} ({rollback_error})"
+                )
+                raise unlink_error from rollback_error
+            raise
         return target, version
 
 
 def claim_final_output(
-    filepath: Path, final_stem: str, output_version: int, *, os_module: Any = os
+    filepath: Path,
+    final_stem: str,
+    output_version: int,
+    *,
+    os_module: Any = os,
+    claim_output: Callable[[Path, str, int], tuple[Path, int]] | None = None,
 ) -> Path:
+    if claim_output is not None:
+        return claim_output(filepath, final_stem, output_version)[0]
     return claim_final_output_with_version(
         filepath, final_stem, output_version, os_module=os_module
     )[0]
@@ -250,20 +282,3 @@ def format_filesize(filepath: Path, info: dict) -> str:
     else:
         size = info.get("filesize_approx") or info.get("filesize")
     return f"{size / (1024 * 1024):.2f} MB" if size else "未知（请查看文件）"
-
-
-# Compatibility spellings for callers moving from downloader.py.
-_prepare_output_dir = prepare_output_dir
-_prepared_output_dir = prepared_output_dir
-_validate_output_version = validate_output_version
-_output_template = output_template
-_attempt_output_template = attempt_output_template
-_new_attempt_workspace = new_attempt_workspace
-_cleanup_attempt_workspace = cleanup_attempt_workspace
-_claim_final_output = claim_final_output
-_claim_final_output_with_version = claim_final_output_with_version
-_finalize_video_output = finalize_video_output
-_finalize_video_output_with_version = finalize_video_output_with_version
-_audio_output_version = audio_output_version
-_resolve_output_path = resolve_output_path
-_format_filesize = format_filesize

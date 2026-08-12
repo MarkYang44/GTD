@@ -18,6 +18,37 @@ def frontend_template_source():
 
 
 class BilibiliUrlDetectionTests(unittest.TestCase):
+    def test_downloader_detection_helpers_keep_normalizer_and_detector_seams(self):
+        normalized = "https://youtu.be/abc123"
+        with (
+            patch.object(downloader, "normalize_url", return_value=normalized) as normalize,
+            patch.object(
+                downloader,
+                "_detect_normalized_platform",
+                return_value=downloader.YOUTUBE,
+            ) as detect,
+        ):
+            self.assertEqual(downloader.detect_platform("shared text"), downloader.YOUTUBE)
+
+        normalize.assert_called_once_with("shared text")
+        detect.assert_called_once_with(normalized)
+
+        with (
+            patch.object(downloader, "normalize_url", return_value=normalized) as normalize,
+            patch.object(
+                downloader,
+                "_detect_normalized_platform",
+                return_value=downloader.YOUTUBE,
+            ) as detect,
+        ):
+            self.assertEqual(
+                downloader.make_task("shared text"),
+                (downloader.YOUTUBE, normalized),
+            )
+
+        normalize.assert_called_once_with("shared text")
+        detect.assert_called_once_with(normalized)
+
     def test_media_sources_exports_match_downloader_source_behavior(self):
         cases = (
             ("YouTube", "分享 https://youtu.be/abc123。", downloader.YOUTUBE),
@@ -34,6 +65,26 @@ class BilibiliUrlDetectionTests(unittest.TestCase):
         self.assertEqual(media_sources.YOUTUBE, downloader.YOUTUBE)
         self.assertEqual(media_sources.INSTAGRAM, downloader.INSTAGRAM)
         self.assertEqual(media_sources.BILIBILI, downloader.BILIBILI)
+
+    def test_media_sources_direct_collection_headers_and_cookie_contract(self):
+        collection = "https://www.youtube.com/playlist?list=PL123"
+        self.assertEqual(
+            media_sources.detect_collection_platform(collection),
+            downloader.detect_collection_platform(collection),
+        )
+        self.assertEqual(
+            media_sources.platform_http_headers(media_sources.INSTAGRAM),
+            downloader.platform_http_headers(downloader.INSTAGRAM),
+        )
+
+        with tempfile.TemporaryDirectory() as temporary:
+            project_dir = Path(temporary)
+            expected = project_dir / "bilibili_cookies.txt"
+            expected.touch()
+            self.assertEqual(
+                media_sources.find_cookie_file(media_sources.BILIBILI, project_dir),
+                expected,
+            )
 
     def test_accepts_single_video_and_short_link_urls(self):
         accepted = [

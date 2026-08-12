@@ -93,9 +93,10 @@ def _detect_normalized_platform(normalized: str) -> Optional[str]:
 def detect_platform(
     url: str,
     normalizer: Callable[[str], str] = normalize_url,
+    detector: Callable[[str], Optional[str]] = _detect_normalized_platform,
 ) -> Optional[str]:
     """Recognize a supported single-media URL."""
-    return _detect_normalized_platform(normalizer(url))
+    return detector(normalizer(url))
 
 
 def detect_collection_platform(
@@ -165,10 +166,11 @@ def is_valid_bilibili_url(url: str) -> bool:
 def make_task(
     url: str,
     normalizer: Callable[[str], str] = normalize_url,
+    detector: Callable[[str], Optional[str]] = _detect_normalized_platform,
 ) -> Optional[VideoTask]:
     """Convert a user input string into a normalized download task."""
     normalized = normalizer(url)
-    platform = _detect_normalized_platform(normalized)
+    platform = detector(normalized)
     return (platform, normalized) if platform is not None else None
 
 
