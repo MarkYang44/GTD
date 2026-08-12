@@ -187,9 +187,6 @@ def claim_final_output_with_version(
                 target.unlink()
             except OSError as rollback_error:
                 _cleanup_failed_private_source(filepath)
-                unlink_error.add_note(
-                    f"无法回滚本次创建的最终文件: {target} ({rollback_error})"
-                )
                 raise unlink_error from rollback_error
             raise
         return target, version

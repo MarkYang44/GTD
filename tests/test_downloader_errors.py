@@ -145,6 +145,55 @@ class DownloadOutputTemplateTests(unittest.TestCase):
             self.assertTrue(source.exists())
             self.assertFalse(target.exists())
 
+    def test_output_files_rollback_failure_keeps_original_unlink_error_as_top_level(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "Clip [.__mvd_token].mp4"
+            target = Path(directory) / "Clip.mp4"
+            source.write_bytes(b"media")
+            original_unlink = Path.unlink
+            source_error = OSError("source unlink failed")
+            rollback_error = OSError("rollback unlink failed")
+
+            def fail_source_and_target_unlink(path, *args, **kwargs):
+                if path == source:
+                    raise source_error
+                if path == target:
+                    raise rollback_error
+                return original_unlink(path, *args, **kwargs)
+
+            with patch.object(Path, "unlink", new=fail_source_and_target_unlink):
+                with self.assertRaises(OSError) as raised:
+                    output_files.claim_final_output_with_version(source, "Clip", 1)
+
+            self.assertIs(raised.exception, source_error)
+            self.assertIs(raised.exception.__cause__, rollback_error)
+            self.assertTrue(source.exists())
+            self.assertTrue(target.exists())
+
+    def test_output_files_keeps_existing_candidate_after_conflict_then_link_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "Clip [.__mvd_token].mp4"
+            existing = Path(directory) / "Clip.mp4"
+            second_candidate = Path(directory) / "Clip (2).mp4"
+            source.write_bytes(b"new media")
+            existing.write_bytes(b"existing media")
+
+            with patch.object(
+                output_files.os,
+                "link",
+                side_effect=(FileExistsError(), OSError("link failed")),
+            ):
+                with self.assertRaisesRegex(OSError, "link failed"):
+                    output_files.claim_final_output_with_version(source, "Clip", 1)
+
+            self.assertFalse(source.exists())
+            self.assertEqual(existing.read_bytes(), b"existing media")
+            self.assertFalse(second_candidate.exists())
+
+    def test_output_files_does_not_use_python_311_exception_notes(self):
+        source = Path(output_files.__file__).read_text(encoding="utf-8")
+        self.assertNotIn(".add_note(", source)
+
     def test_output_files_templates_match_downloader_exports(self):
         output_dir = Path("/tmp/output")
         workspace = output_dir / ".attempts" / "0123456789abcdef"
