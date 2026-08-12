@@ -600,6 +600,91 @@ class TaskManagerTests(unittest.TestCase):
         self.assertEqual(failed[0]["error_code"], "NETWORK_TIMEOUT")
         self.assertNotIn("secret", repr(failed[0]))
 
+    def test_terminal_task_releases_execution_handles(self):
+        manager = TaskManager(
+            lambda url, **kwargs: {"title": "done", "filepath": "/tmp/done.mp4"},
+            max_workers=1,
+        )
+        batch = manager.create_batch(
+            [TaskSeed("youtube", "https://youtu.be/x")],
+            "video",
+            "mp3",
+            "standard",
+        )
+        task_id = batch["tasks"][0]["id"]
+
+        self.assertTrue(manager.wait_for_idle())
+        self.assertNotIn(task_id, manager._tokens)
+        self.assertNotIn(task_id, manager._futures)
+        manager.shutdown()
+
+    def test_cancelled_queued_task_releases_execution_handles(self):
+        entered = threading.Event()
+        release = threading.Event()
+
+        def runner(url, **kwargs):
+            entered.set()
+            release.wait(1)
+            return {"title": url, "filepath": "/tmp/done.mp4"}
+
+        manager = TaskManager(runner, max_workers=1)
+        batch = manager.create_batch(
+            [
+                TaskSeed("youtube", "https://youtu.be/one"),
+                TaskSeed("youtube", "https://youtu.be/two"),
+            ],
+            "video",
+            "mp3",
+            "standard",
+        )
+        task_id = batch["tasks"][1]["id"]
+
+        self.assertTrue(entered.wait(1))
+        try:
+            manager.cancel(batch["id"], task_id)
+            self.assertNotIn(task_id, manager._tokens)
+            self.assertNotIn(task_id, manager._futures)
+        finally:
+            release.set()
+            manager.shutdown()
+
+    def test_public_attempt_history_keeps_only_the_latest_records(self):
+        public_attempt_limit = 20
+        failure = DownloadFailure(
+            DownloadErrorInfo(
+                "NETWORK_TIMEOUT",
+                "超时",
+                "重试",
+                True,
+                "timeout",
+            )
+        )
+        manager = TaskManager(
+            lambda url, **kwargs: (_ for _ in ()).throw(failure),
+            max_workers=1,
+        )
+        batch = manager.create_batch(
+            [TaskSeed("youtube", "https://youtu.be/x")],
+            "video",
+            "mp3",
+            "standard",
+        )
+        task_id = batch["tasks"][0]["id"]
+
+        self.assertTrue(manager.wait_for_idle())
+        for _ in range(public_attempt_limit + 5):
+            manager.retry(batch["id"], task_id)
+            self.assertTrue(manager.wait_for_idle())
+        task = manager.snapshot(batch["id"])["tasks"][0]
+        manager.shutdown()
+
+        self.assertEqual(task["attempt_count"], public_attempt_limit + 6)
+        self.assertEqual(len(task["attempts"]), public_attempt_limit)
+        self.assertEqual(
+            task["attempts"][0]["number"],
+            task["attempt_count"] - public_attempt_limit + 1,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

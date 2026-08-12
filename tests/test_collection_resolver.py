@@ -368,6 +368,34 @@ class PreviewStoreTests(unittest.TestCase):
             store.put(preview)
             self.assertIsNone(store.get(preview.id))
 
+    def test_store_prunes_expired_previews_before_evicting_earliest_deadline(self):
+        def preview(preview_id):
+            return resolver.CollectionPreview(
+                preview_id,
+                preview_id,
+                "youtube",
+                (),
+                False,
+            )
+
+        store = resolver.PreviewStore(ttl_seconds=10, max_items=2)
+        with patch(
+            "collection_resolver.time.monotonic",
+            side_effect=[1, 20, 21, 22],
+        ):
+            store.put(preview("expired"))
+            store.put(preview("first"))
+            store.put(preview("second"))
+            store.put(preview("third"))
+
+        self.assertNotIn("expired", store._items)
+        self.assertNotIn("first", store._items)
+        self.assertEqual(set(store._items), {"second", "third"})
+
+    def test_store_rejects_nonpositive_capacity(self):
+        with self.assertRaises(ValueError):
+            resolver.PreviewStore(max_items=0)
+
 
 if __name__ == "__main__":
     unittest.main()

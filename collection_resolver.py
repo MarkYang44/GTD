@@ -295,32 +295,46 @@ def resolve_inputs(
 
 
 class PreviewStore:
-    def __init__(self, ttl_seconds: int = 1800):
+    def __init__(self, ttl_seconds: int = 1800, max_items: int = 100):
+        if (
+            not isinstance(max_items, int)
+            or isinstance(max_items, bool)
+            or max_items < 1
+        ):
+            raise ValueError("预览存储容量必须大于零")
         self.ttl_seconds = ttl_seconds
+        self.max_items = max_items
         self._lock = threading.Lock()
         self._items: dict[str, tuple[float, CollectionPreview]] = {}
 
     def put(self, preview: CollectionPreview) -> str:
         with self._lock:
+            now = time.monotonic()
+            self._prune_locked(now)
             self._items[preview.id] = (
-                time.monotonic() + self.ttl_seconds,
+                now + self.ttl_seconds,
                 preview,
             )
+            while len(self._items) > self.max_items:
+                oldest = min(self._items, key=lambda key: self._items[key][0])
+                self._items.pop(oldest, None)
         return preview.id
 
     def get(self, preview_id: str) -> CollectionPreview | None:
-        self.prune()
         with self._lock:
+            self._prune_locked(time.monotonic())
             item = self._items.get(preview_id)
             return item[1] if item else None
 
     def prune(self) -> None:
-        now = time.monotonic()
         with self._lock:
-            expired = [
-                key
-                for key, (deadline, _) in self._items.items()
-                if deadline <= now
-            ]
-            for key in expired:
-                self._items.pop(key, None)
+            self._prune_locked(time.monotonic())
+
+    def _prune_locked(self, now: float) -> None:
+        expired = [
+            key
+            for key, (deadline, _) in self._items.items()
+            if deadline <= now
+        ]
+        for key in expired:
+            self._items.pop(key, None)

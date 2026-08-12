@@ -25,6 +25,9 @@ from download_logging import (
 )
 
 
+MAX_PUBLIC_ATTEMPTS = 20
+
+
 class CancellationToken:
     """A cooperative, one-way cancellation signal."""
 
@@ -196,6 +199,7 @@ class TaskManager:
                     platform=task["platform"],
                     attempt_number=task["attempt_count"],
                 )
+                self._release_execution_handles_locked(task_id)
                 self._prune_locked()
             else:
                 log_download_event(
@@ -626,6 +630,7 @@ class TaskManager:
             task["cancel_requested"] = False
             self._clear_progress_fields(task)
             log_download_event(self._logger, status, **event_fields)
+            self._release_execution_handles_locked(task_id)
             self._prune_locked()
 
     def _public_batch(self, batch: dict[str, object]) -> dict[str, object]:
@@ -672,6 +677,7 @@ class TaskManager:
             and bool(error.get("retryable"))
         )
         public["can_redownload"] = status == "completed"
+        public["attempts"] = public["attempts"][-MAX_PUBLIC_ATTEMPTS:]
         return public
 
     def _require_batch(self, batch_id: str) -> dict[str, object]:
@@ -713,6 +719,10 @@ class TaskManager:
                 self._futures.pop(task_id, None)
                 self._generations.pop(task_id, None)
             self._rebuild_version_reservations_locked()
+
+    def _release_execution_handles_locked(self, task_id: str) -> None:
+        self._tokens.pop(task_id, None)
+        self._futures.pop(task_id, None)
 
     @staticmethod
     def _clear_progress_fields(task: dict[str, object]) -> None:
