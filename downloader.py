@@ -153,20 +153,40 @@ def ensure_downloads_dir(download_dir: str | Path | None = None) -> Path:
     return target
 
 
-def _prepared_output_dir(
-    download_dir: str | Path | None,
-    validated: bool,
-) -> Path:
-    """Use a batch-validated directory without repeating its write probe."""
-    if not validated:
-        return ensure_downloads_dir(download_dir)
+_PREPARED_OUTPUT_DIR_CAPABILITY = object()
 
-    if not isinstance(download_dir, (str, os.PathLike)):
-        raise ValueError("下载目录必须是路径字符串")
-    target = Path(download_dir).absolute()
-    if not target.is_dir():
-        raise ValueError(f"下载位置不是文件夹: {target}")
-    return target
+
+@dataclass(frozen=True)
+class _PreparedOutputDir(os.PathLike[str]):
+    """A private capability created only after full directory validation."""
+
+    path: Path
+    capability: object
+
+    def __fspath__(self) -> str:
+        return str(self.path)
+
+    def __str__(self) -> str:
+        return str(self.path)
+
+
+def _prepare_output_dir(download_dir: str | Path | None) -> _PreparedOutputDir:
+    """Fully validate a batch directory and create its private capability."""
+    return _PreparedOutputDir(
+        ensure_downloads_dir(download_dir),
+        _PREPARED_OUTPUT_DIR_CAPABILITY,
+    )
+
+
+def _prepared_output_dir(prepared: object) -> Path:
+    """Read a previously validated directory without repeating its write probe."""
+    if not isinstance(prepared, _PreparedOutputDir) or (
+        prepared.capability is not _PREPARED_OUTPUT_DIR_CAPABILITY
+    ):
+        raise ValueError("已验证下载目录必须由内部批次准备")
+    if not prepared.path.is_absolute() or not prepared.path.is_dir():
+        raise ValueError(f"下载位置不是文件夹: {prepared.path}")
+    return prepared.path
 
 
 # ---------------------------------------------------------------------------
@@ -1641,9 +1661,53 @@ def download_video(
     output_version: int = 1,
     raise_errors: bool = False,
     output_dir: str | Path | None = None,
-    output_dir_validated: bool = False,
 ) -> Optional[DownloadResult]:
     """自动识别平台并使用 yt-dlp 下载单个视频。"""
+    return _download_video(
+        url,
+        index=index,
+        total=total,
+        platform=platform,
+        progress_callback=progress_callback,
+        media_type=media_type,
+        audio_format=audio_format,
+        speed_mode=speed_mode,
+        cancel_token=cancel_token,
+        output_version=output_version,
+        raise_errors=raise_errors,
+        output_dir=ensure_downloads_dir(output_dir),
+    )
+
+
+def _download_video_with_prepared_dir(
+    url: str,
+    *,
+    output_dir: _PreparedOutputDir,
+    **kwargs,
+) -> Optional[DownloadResult]:
+    """Private batch-only entry point for a directory capability."""
+    return _download_video(
+        url,
+        output_dir=_prepared_output_dir(output_dir),
+        **kwargs,
+    )
+
+
+def _download_video(
+    url: str,
+    index: int = 1,
+    total: int = 1,
+    platform: Optional[str] = None,
+    progress_callback: YtdlpProgressCallback = None,
+    media_type: str = VIDEO,
+    audio_format: str = MP3,
+    speed_mode: str = STANDARD,
+    cancel_token: CancellationToken | None = None,
+    output_version: int = 1,
+    raise_errors: bool = False,
+    output_dir: Path = DOWNLOADS_DIR,
+) -> Optional[DownloadResult]:
+    """Download to an already prepared absolute directory."""
     platform = platform or detect_platform(url)
     if platform is None:
         print(f"\n❌ 无法识别视频平台: {url}")
@@ -1658,7 +1722,6 @@ def download_video(
     if cancel_token:
         cancel_token.raise_if_cancelled()
 
-    output_dir = _prepared_output_dir(output_dir, output_dir_validated)
     if platform == BILIBILI:
         try:
             return _download_bilibili(
@@ -1908,7 +1971,7 @@ def download_tasks(
         raise ValueError(f"不支持的速度模式: {speed_mode}")
     if not isinstance(audio_format, str) or audio_format not in AUDIO_FORMATS:
         raise ValueError(f"不支持的音频格式: {audio_format}")
-    output_dir = ensure_downloads_dir(output_dir)
+    output_dir = _prepare_output_dir(output_dir)
 
     total = len(tasks)
     if not tasks:
@@ -1946,7 +2009,7 @@ def download_tasks(
                 attempt_number=1,
             )
             try:
-                result = download_video(
+                result = _download_video_with_prepared_dir(
                     url,
                     index=task_index + 1,
                     total=total,
@@ -1958,7 +2021,6 @@ def download_tasks(
                     audio_format=audio_format,
                     speed_mode=speed_mode,
                     output_dir=output_dir,
-                    output_dir_validated=True,
                     raise_errors=True,
                 )
                 if result is None:

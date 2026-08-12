@@ -778,7 +778,7 @@ class BilibiliSurfaceIntegrationTests(unittest.TestCase):
         url = "https://b23.tv/BV1GJ411x7h7"
 
         with patch.object(web_app.task_manager, "create_batch") as create:
-            create.return_value = {"id": "batch", "total": 1}
+            create.return_value = {"id": "batch", "total": 1, "download_dir": "/tmp/downloads"}
             response = self.client.post(
                 "/api/download",
                 json={"urls": [url], "media_type": downloader.AUDIO},
@@ -905,7 +905,7 @@ class ShareTextSurfaceTests(unittest.TestCase):
         )
 
         with patch.object(web_app.task_manager, "create_batch") as create:
-            create.return_value = {"id": "batch", "total": 1}
+            create.return_value = {"id": "batch", "total": 1, "download_dir": "/tmp/downloads"}
             response = self.client.post(
                 "/api/download",
                 json={"urls": [share_text], "media_type": downloader.VIDEO},

@@ -1,3 +1,4 @@
+import inspect
 import sys
 import tempfile
 import unittest
@@ -92,6 +93,23 @@ class DownloadDirectoryTests(unittest.TestCase):
 
             self.assertEqual(probe_count, 1)
 
+    def test_prepared_output_directory_rejects_raw_relative_path_and_none(self):
+        for path in (".", None):
+            with self.subTest(path=path):
+                with self.assertRaisesRegex(ValueError, "已验证下载目录"):
+                    downloader._prepared_output_dir(path)
+
+    def test_public_download_video_has_no_validation_bypass_parameter(self):
+        self.assertNotIn(
+            "output_dir_validated",
+            inspect.signature(downloader.download_video).parameters,
+        )
+        with self.assertRaises(TypeError):
+            downloader.download_video(
+                "https://b23.tv/example",
+                output_dir_validated=True,
+            )
+
     def test_batch_and_runner_keep_selected_directory(self):
         calls = []
 
@@ -102,22 +120,25 @@ class DownloadDirectoryTests(unittest.TestCase):
                 "filepath": str(Path(kwargs["output_dir"]) / "ok.mp4"),
             }
 
-        manager = TaskManager(runner, max_workers=1)
-        batch = manager.create_batch(
-            [TaskSeed("youtube", "https://youtu.be/x", "X", 1)],
-            "video",
-            "mp3",
-            "standard",
-            "D:/Media",
-        )
-        self.assertTrue(manager.wait_for_idle())
-        snapshot = manager.snapshot(batch["id"])
-        manager.shutdown()
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary) / "media"
+            manager = TaskManager(runner, max_workers=1)
+            batch = manager.create_batch(
+                [TaskSeed("youtube", "https://youtu.be/x", "X", 1)],
+                "video",
+                "mp3",
+                "standard",
+                str(target),
+            )
+            self.assertTrue(manager.wait_for_idle())
+            snapshot = manager.snapshot(batch["id"])
+            manager.shutdown()
 
-        self.assertEqual(snapshot["download_dir"], "D:/Media")
-        self.assertEqual(snapshot["tasks"][0]["download_dir"], "D:/Media")
-        self.assertEqual(calls[0]["output_dir"], "D:/Media")
-        self.assertTrue(calls[0]["output_dir_validated"])
+        resolved = str(target.resolve())
+        self.assertEqual(snapshot["download_dir"], resolved)
+        self.assertEqual(snapshot["tasks"][0]["download_dir"], resolved)
+        self.assertEqual(calls[0]["output_dir"], resolved)
+        self.assertNotIn("output_dir_validated", calls[0])
 
 
 class FolderPickerTests(unittest.TestCase):
@@ -192,7 +213,12 @@ class DownloadLocationSurfaceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             target = Path(temporary) / "web-output"
             with patch.object(web_app.task_manager, "create_batch") as create:
-                create.return_value = {"id": "batch", "total": 1}
+                resolved = str(target.resolve())
+                create.return_value = {
+                    "id": "batch",
+                    "total": 1,
+                    "download_dir": resolved,
+                }
                 response = self.client.post(
                     "/api/download",
                     json={
@@ -202,8 +228,7 @@ class DownloadLocationSurfaceTests(unittest.TestCase):
                 )
 
         self.assertEqual(response.status_code, 200)
-        resolved = str(target.resolve())
-        self.assertEqual(create.call_args.args[4], resolved)
+        self.assertEqual(create.call_args.args[4], str(target))
         self.assertEqual(response.get_json()["download_dir"], resolved)
 
     def test_web_picker_endpoint_returns_verified_directory(self):

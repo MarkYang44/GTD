@@ -204,16 +204,6 @@ def api_download():
         return _invalid_request("不支持的音频格式")
     if download_dir is not None and not isinstance(download_dir, str):
         return _invalid_request("download_dir 必须是路径字符串")
-    try:
-        resolved_download_dir = ensure_downloads_dir(download_dir)
-    except ValueError as error:
-        return _api_error(
-            "INVALID_DOWNLOAD_DIR",
-            str(error),
-            "请输入一个可创建且可写的文件夹，留空则使用默认 downloads",
-            400,
-        )
-
     has_urls = "urls" in body
     has_preview = "preview_id" in body or "selected_entry_ids" in body
     if has_urls == has_preview:
@@ -305,13 +295,21 @@ def api_download():
                 400,
             )
 
-    batch = task_manager.create_batch(
-        seeds,
-        media_type,
-        audio_format,
-        speed_mode,
-        str(resolved_download_dir),
-    )
+    try:
+        batch = task_manager.create_batch(
+            seeds,
+            media_type,
+            audio_format,
+            speed_mode,
+            download_dir,
+        )
+    except ValueError as error:
+        return _api_error(
+            "INVALID_DOWNLOAD_DIR",
+            str(error),
+            "请输入一个可创建且可写的文件夹，留空则使用默认 downloads",
+            400,
+        )
 
     return jsonify(
         {
@@ -319,7 +317,7 @@ def api_download():
             "task_count": batch["total"],
             "rejected_count": len(rejected),
             "rejected": rejected,
-            "download_dir": str(resolved_download_dir),
+            "download_dir": batch["download_dir"],
         }
     )
 

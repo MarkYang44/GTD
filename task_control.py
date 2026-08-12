@@ -100,6 +100,10 @@ class TaskManager:
             raise ValueError("一次最多创建 100 个下载任务")
         if not all(isinstance(entry, TaskSeed) for entry in entries):
             raise ValueError("下载任务格式无效")
+        from downloader import _prepare_output_dir
+
+        prepared_output_dir = _prepare_output_dir(download_dir)
+        resolved_download_dir = str(prepared_output_dir)
 
         with self._lock:
             batch_id = uuid.uuid4().hex
@@ -109,7 +113,7 @@ class TaskManager:
                     entry,
                     media_type,
                     audio_format,
-                    download_dir,
+                    resolved_download_dir,
                 )
                 output_version = self._reserve_version_locked(version_key)
                 tasks.append(
@@ -119,7 +123,8 @@ class TaskManager:
                         media_type,
                         audio_format,
                         speed_mode,
-                        download_dir=download_dir,
+                        download_dir=resolved_download_dir,
+                        prepared_output_dir=prepared_output_dir,
                         output_version=output_version,
                         version_key=version_key,
                     )
@@ -130,7 +135,7 @@ class TaskManager:
                 "media_type": media_type,
                 "audio_format": audio_format,
                 "speed_mode": speed_mode,
-                "download_dir": download_dir,
+                "download_dir": resolved_download_dir,
                 "tasks": tasks,
             }
             self._batches[batch_id] = batch
@@ -269,6 +274,7 @@ class TaskManager:
                 str(source["audio_format"]),
                 str(source["speed_mode"]),
                 download_dir=source.get("download_dir"),
+                prepared_output_dir=source.get("_prepared_output_dir"),
                 output_version=version,
                 version_key=reservation_key,
             )
@@ -312,6 +318,7 @@ class TaskManager:
         audio_format: str,
         speed_mode: str,
         download_dir: str | None = None,
+        prepared_output_dir: object | None = None,
         output_version: int = 1,
         version_key: str | None = None,
     ) -> dict[str, object]:
@@ -326,6 +333,7 @@ class TaskManager:
             "audio_format": audio_format,
             "speed_mode": speed_mode,
             "download_dir": download_dir,
+            "_prepared_output_dir": prepared_output_dir,
             "speed_mode_used": None,
             "turbo_fallback": False,
             "output_version": output_version,
@@ -461,7 +469,8 @@ class TaskManager:
                     current["postprocessing"] = deepcopy(data)
 
         try:
-            result = self._runner(
+            runner, output_dir = self._runner_and_output_dir(task)
+            result = runner(
                 url,
                 platform=runner_fields["platform"],
                 progress_callback=relay,
@@ -470,8 +479,7 @@ class TaskManager:
                 speed_mode=runner_fields["speed_mode"],
                 cancel_token=token,
                 output_version=runner_fields["output_version"],
-                output_dir=task.get("download_dir"),
-                output_dir_validated=True,
+                output_dir=output_dir,
                 raise_errors=True,
             )
             if result is None:
@@ -604,6 +612,17 @@ class TaskManager:
             log_download_event(self._logger, status, **event_fields)
             self._prune_locked()
 
+    def _runner_and_output_dir(
+        self,
+        task: dict[str, object],
+    ) -> tuple[Callable[..., dict[str, object] | None], object]:
+        """Select the private prepared-directory runner for downloader calls."""
+        from downloader import download_video, _download_video_with_prepared_dir
+
+        if self._runner is download_video:
+            return _download_video_with_prepared_dir, task["_prepared_output_dir"]
+        return self._runner, task["download_dir"]
+
     def _public_batch(self, batch: dict[str, object]) -> dict[str, object]:
         tasks = [self._public_task(task) for task in batch["tasks"]]
         counts = {
@@ -631,7 +650,12 @@ class TaskManager:
         public = {
             key: deepcopy(value)
             for key, value in task.items()
-            if key not in {"cancel_requested", "version_key", "base_filepath"}
+            if key not in {
+                "cancel_requested",
+                "version_key",
+                "base_filepath",
+                "_prepared_output_dir",
+            }
         }
         public["can_cancel"] = status == "queued" or (
             status == "running" and not task["cancel_requested"]

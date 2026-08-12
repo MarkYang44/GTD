@@ -498,7 +498,7 @@ class WebDownloadApiTests(unittest.TestCase):
 
     def test_download_api_defaults_to_video_batch(self):
         with patch.object(web_app.task_manager, "create_batch") as create:
-            create.return_value = {"id": "batch", "total": 1}
+            create.return_value = {"id": "batch", "total": 1, "download_dir": "/tmp/downloads"}
             response = self.client.post(
                 "/api/download",
                 json={"urls": ["https://youtu.be/example"]},
@@ -511,7 +511,7 @@ class WebDownloadApiTests(unittest.TestCase):
 
     def test_download_api_creates_audio_batch_and_forwards_media_type(self):
         with patch.object(web_app.task_manager, "create_batch") as create:
-            create.return_value = {"id": "batch", "total": 1}
+            create.return_value = {"id": "batch", "total": 1, "download_dir": "/tmp/downloads"}
             response = self.client.post(
                 "/api/download",
                 json={
@@ -526,7 +526,7 @@ class WebDownloadApiTests(unittest.TestCase):
 
     def test_download_api_creates_flac_audio_batch(self):
         with patch.object(web_app.task_manager, "create_batch") as create:
-            create.return_value = {"id": "batch", "total": 1}
+            create.return_value = {"id": "batch", "total": 1, "download_dir": "/tmp/downloads"}
             response = self.client.post(
                 "/api/download",
                 json={
@@ -618,7 +618,7 @@ class WebDownloadApiTests(unittest.TestCase):
 
     def test_download_api_keeps_valid_urls_and_reports_rejected_entries(self):
         with patch.object(web_app.task_manager, "create_batch") as create:
-            create.return_value = {"id": "batch", "total": 1}
+            create.return_value = {"id": "batch", "total": 1, "download_dir": "/tmp/downloads"}
             response = self.client.post(
                 "/api/download",
                 json={
@@ -656,7 +656,7 @@ class WebTurboApiTests(unittest.TestCase):
 
     def test_download_defaults_to_standard_speed_mode(self):
         with patch.object(web_app.task_manager, "create_batch") as create:
-            create.return_value = {"id": "batch", "total": 1}
+            create.return_value = {"id": "batch", "total": 1, "download_dir": "/tmp/downloads"}
             response = self.client.post(
                 "/api/download",
                 json={"urls": ["https://b23.tv/example"]},
@@ -667,7 +667,7 @@ class WebTurboApiTests(unittest.TestCase):
 
     def test_download_forwards_turbo_to_background_thread(self):
         with patch.object(web_app.task_manager, "create_batch") as create:
-            create.return_value = {"id": "batch", "total": 1}
+            create.return_value = {"id": "batch", "total": 1, "download_dir": "/tmp/downloads"}
             response = self.client.post(
                 "/api/download",
                 json={
@@ -758,7 +758,11 @@ class WebTaskOperationApiTests(unittest.TestCase):
                 web_app.task_manager,
                 "create_batch",
             ) as create:
-                create.return_value = {"id": "b", "total": 1}
+                create.return_value = {
+                    "id": "b",
+                    "total": 1,
+                    "download_dir": "/tmp/downloads",
+                }
                 response = self.client.post(
                     "/api/download",
                     json={
@@ -803,7 +807,7 @@ class WebTaskOperationApiTests(unittest.TestCase):
         web_app.preview_store.put(preview)
 
         with patch.object(web_app.task_manager, "create_batch") as create:
-            create.return_value = {"id": "batch", "total": 2}
+            create.return_value = {"id": "batch", "total": 2, "download_dir": "/tmp/downloads"}
             response = self.client.post(
                 "/api/download",
                 json={

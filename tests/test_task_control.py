@@ -12,7 +12,7 @@ from task_control import TaskManager, TaskSeed
 
 
 class TaskManagerTests(unittest.TestCase):
-    def test_runner_receives_validated_download_directory_flag(self):
+    def test_runner_receives_validated_absolute_download_directory(self):
         calls = []
 
         def runner(url, **kwargs):
@@ -30,7 +30,40 @@ class TaskManagerTests(unittest.TestCase):
         self.assertTrue(manager.wait_for_idle())
         manager.shutdown()
 
-        self.assertTrue(calls[0]["output_dir_validated"])
+        self.assertTrue(Path(calls[0]["output_dir"]).is_absolute())
+        self.assertNotIn("output_dir_validated", calls[0])
+
+    def test_default_download_directory_is_validated_once_per_batch(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            default = Path(temporary) / "downloads"
+            probe_count = 0
+            original_open = Path.open
+
+            def count_probes(path, *args, **kwargs):
+                nonlocal probe_count
+                if path.name.startswith(".__mvd_write_test_"):
+                    probe_count += 1
+                return original_open(path, *args, **kwargs)
+
+            with (
+                patch.object(downloader, "DOWNLOADS_DIR", default),
+                patch.object(Path, "open", new=count_probes),
+                patch("downloader._download_bilibili", return_value={}),
+            ):
+                manager = TaskManager(downloader.download_video, max_workers=1)
+                batch = manager.create_batch(
+                    [TaskSeed("bilibili", "https://b23.tv/example")],
+                    "video",
+                    "mp3",
+                    "standard",
+                )
+                self.assertTrue(manager.wait_for_idle())
+                snapshot = manager.snapshot(batch["id"])
+                manager.shutdown()
+
+        self.assertEqual(snapshot["completed"], 1)
+        self.assertEqual(snapshot["download_dir"], str(default.resolve()))
+        self.assertEqual(probe_count, 1)
 
     def test_queued_task_cancels_without_calling_runner(self):
         release = threading.Event()

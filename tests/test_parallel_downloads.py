@@ -29,7 +29,7 @@ class ParallelDownloadTests(unittest.TestCase):
                 active -= 1
             return {"title": url}
 
-        with patch("downloader.download_video", side_effect=fake_download):
+        with patch("downloader._download_video_with_prepared_dir", side_effect=fake_download):
             results = downloader.download_tasks(tasks)
 
         self.assertEqual(maximum_active, 2)
@@ -66,7 +66,7 @@ class ParallelDownloadTests(unittest.TestCase):
                     active_bilibili -= 1
             return {"title": url}
 
-        with patch("downloader.download_video", side_effect=fake_download):
+        with patch("downloader._download_video_with_prepared_dir", side_effect=fake_download):
             downloader.download_tasks(tasks)
 
         self.assertEqual(maximum_active, 3)
@@ -98,7 +98,7 @@ class ParallelDownloadTests(unittest.TestCase):
             release_downloads.wait(timeout=1)
             return {"title": url}
 
-        with patch("downloader.download_video", side_effect=fake_download):
+        with patch("downloader._download_video_with_prepared_dir", side_effect=fake_download):
             batch_thread = threading.Thread(
                 target=downloader.download_tasks,
                 args=(tasks, callback),
@@ -136,7 +136,7 @@ class ParallelDownloadTests(unittest.TestCase):
                 active -= 1
             return {"title": url}
 
-        with patch("downloader.download_video", side_effect=fake_download):
+        with patch("downloader._download_video_with_prepared_dir", side_effect=fake_download):
             results = downloader.download_tasks(tasks)
 
         self.assertEqual(maximum_active, 3)
@@ -161,7 +161,7 @@ class ParallelDownloadTests(unittest.TestCase):
             progress_callback("progress", {"percent_text": url})
             return {"title": url}
 
-        with patch("downloader.download_video", side_effect=fake_download):
+        with patch("downloader._download_video_with_prepared_dir", side_effect=fake_download):
             downloader.download_tasks(tasks, progress_callback=callback)
 
         for index, (_, url) in enumerate(tasks):
@@ -189,7 +189,7 @@ class ParallelDownloadTests(unittest.TestCase):
                 raise RuntimeError("boom")
             return {"title": url}
 
-        with patch("downloader.download_video", side_effect=fake_download):
+        with patch("downloader._download_video_with_prepared_dir", side_effect=fake_download):
             with contextlib.redirect_stdout(io.StringIO()):
                 results = downloader.download_tasks(
                     tasks,
@@ -214,7 +214,7 @@ class ParallelDownloadTests(unittest.TestCase):
             )
         )
 
-        with patch("downloader.download_video", side_effect=failure):
+        with patch("downloader._download_video_with_prepared_dir", side_effect=failure):
             downloader.download_tasks(
                 [(downloader.YOUTUBE, "https://youtu.be/fail")],
                 progress_callback=lambda index, event, data: events.append(
@@ -231,7 +231,7 @@ class ParallelDownloadTests(unittest.TestCase):
         events = []
 
         with patch(
-            "downloader.download_video",
+            "downloader._download_video_with_prepared_dir",
             side_effect=DownloadCancelled(),
         ):
             downloader.download_tasks(
@@ -257,7 +257,7 @@ class ParallelDownloadTests(unittest.TestCase):
                 "audio_format": kwargs["audio_format"],
             }
 
-        with patch("downloader.download_video", side_effect=fake_download) as mocked:
+        with patch("downloader._download_video_with_prepared_dir", side_effect=fake_download) as mocked:
             results = downloader.download_tasks(
                 tasks,
                 media_type=downloader.AUDIO,
@@ -290,7 +290,7 @@ class ParallelDownloadTests(unittest.TestCase):
         ]
 
         with patch(
-            "downloader.download_video",
+            "downloader._download_video_with_prepared_dir",
             side_effect=lambda url, **kwargs: {
                 "title": url,
                 "speed_mode_requested": kwargs["speed_mode"],
