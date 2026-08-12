@@ -41,13 +41,34 @@ def task_render_signature_source():
 
 
 class WebConfigurationTests(unittest.TestCase):
-    def test_frontend_uses_external_assets_and_exports_inline_handlers(self):
-        template = frontend_template_source()
-        stylesheet = Path("static/css/index.css")
-        script = Path("static/js/index.js")
+    def test_homepage_serves_the_rendered_static_assets_with_expected_mime_types(self):
+        client = web_app.app.test_client()
+        homepage = client.get("/")
+        html = homepage.get_data(as_text=True)
 
-        self.assertTrue(stylesheet.is_file())
-        self.assertTrue(script.is_file())
+        self.assertEqual(homepage.status_code, 200)
+        stylesheet_urls = re.findall(
+            r'<link rel="stylesheet" href="([^"]+)">', html
+        )
+        script_urls = re.findall(
+            r'<script defer src="([^"]+)"></script>', html
+        )
+        self.assertEqual(stylesheet_urls, ["/static/css/index.css"])
+        self.assertEqual(script_urls, ["/static/js/index.js"])
+
+        stylesheet = client.get(stylesheet_urls[0])
+        script = client.get(script_urls[0])
+        self.addCleanup(stylesheet.close)
+        self.addCleanup(script.close)
+        self.assertEqual(stylesheet.status_code, 200)
+        self.assertEqual(stylesheet.mimetype, "text/css")
+        self.assertEqual(script.status_code, 200)
+        self.assertEqual(script.mimetype, "text/javascript")
+
+    def test_frontend_exports_all_static_and_dynamic_inline_handlers(self):
+        template = frontend_template_source()
+        script = frontend_script_source()
+
         self.assertIn(
             "{{ url_for('static', filename='css/index.css') }}",
             template,
@@ -59,15 +80,29 @@ class WebConfigurationTests(unittest.TestCase):
         self.assertNotIn("<style", template)
         self.assertNotIn("<script>", template)
 
-        window_exports = script.read_text(encoding="utf-8").split(
-            "Object.assign(window, {", 1
-        )[1].split("});", 1)[0]
-        inline_handlers = re.findall(
-            r'on(?:click|change|input)="([A-Za-z_$][A-Za-z0-9_$]*)\(', template
+        exports_match = re.search(
+            r"Object\.assign\(window, \{(?P<exports>.*?)\n  \}\);",
+            script,
+            re.DOTALL,
         )
-        for handler in inline_handlers:
-            with self.subTest(handler=handler):
-                self.assertRegex(window_exports, rf"\b{handler}\b")
+        self.assertIsNotNone(exports_match)
+        exported_handlers = set(
+            re.findall(
+                r"^    ([A-Za-z_$][A-Za-z0-9_$]*),$",
+                exports_match.group("exports"),
+                re.MULTILINE,
+            )
+        )
+        handler_pattern = r'on[A-Za-z]+\s*=\s*["\']([A-Za-z_$][A-Za-z0-9_$]*)\('
+        template_handlers = set(re.findall(handler_pattern, template))
+        dynamic_handlers = set(re.findall(handler_pattern, script))
+
+        self.assertIn("updateCollectionSelection", dynamic_handlers)
+        self.assertIn("operateTask", dynamic_handlers)
+        self.assertSetEqual(
+            (template_handlers | dynamic_handlers) - exported_handlers,
+            set(),
+        )
 
     def test_web_exposes_multi_resolution_character_favicons(self):
         html = web_app.app.test_client().get("/").get_data(as_text=True)

@@ -27,3 +27,10 @@
 - No service was started or modified, and no download content was touched.
 - Serial visibility-aware polling, task render signatures, requests, and adaptive/turbo behavior were mechanically preserved.
 - The template contains only external asset tags for the former large CSS and JavaScript blocks.
+
+## Review Follow-up
+
+- Added a Flask-client delivery test that parses the rendered homepage, requires exactly `/static/css/index.css` and `/static/js/index.js`, then fetches both URLs and verifies HTTP 200 with `text/css` and `text/javascript` MIME types.
+- Strengthened the inline-handler test to scan both the template and `static/js/index.js` generated HTML. It now checks the dynamic `updateCollectionSelection` and `operateTask` handlers and compares the full handler union against the parsed `Object.assign(window, {...})` export set.
+- This was a characterization-test follow-up: the correct production behavior already existed, so the tests passed without a production change.
+- Follow-up verification: focused Web/Bilibili suite passed 94 tests; full discovery passed 265 tests with 2 Windows-only skips; Node syntax, compileall, and diff checks passed.
