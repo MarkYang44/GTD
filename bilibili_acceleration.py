@@ -101,9 +101,12 @@ class CdnProbeCache:
 
 
 CDN_PROBE_CACHE = CdnProbeCache(CDN_CACHE_TTL_SECONDS)
+_ARIA2C_PATH_UNSET = object()
+_aria2c_path_cached: str | None | object = _ARIA2C_PATH_UNSET
+_aria2c_path_lock = threading.Lock()
 
 
-def aria2c_path() -> str | None:
+def _discover_aria2c_path() -> str | None:
     """Locate an explicit, project-local, PATH, or common package install."""
     executable_name = "aria2c.exe" if os.name == "nt" else "aria2c"
     candidates: list[str | Path | None] = [
@@ -146,6 +149,22 @@ def aria2c_path() -> str | None:
         if path.is_file():
             return str(path.resolve())
     return None
+
+
+def aria2c_path(refresh: bool = False) -> str | None:
+    """Return the process-cached aria2c path, refreshing only when requested."""
+    global _aria2c_path_cached
+    with _aria2c_path_lock:
+        if refresh or _aria2c_path_cached is _ARIA2C_PATH_UNSET:
+            _aria2c_path_cached = _discover_aria2c_path()
+        return _aria2c_path_cached
+
+
+def reset_aria2c_path_cache() -> None:
+    """Clear cached executable discovery for tests and service reconfiguration."""
+    global _aria2c_path_cached
+    with _aria2c_path_lock:
+        _aria2c_path_cached = _ARIA2C_PATH_UNSET
 
 
 def effective_speed_mode(

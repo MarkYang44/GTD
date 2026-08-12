@@ -91,6 +91,9 @@ MAX_PARALLEL_BILIBILI_DOWNLOADS = 2
 SHARE_URL_RE = media_sources.SHARE_URL_RE
 TRAILING_URL_PUNCTUATION = media_sources.TRAILING_URL_PUNCTUATION
 ATTEMPT_OUTPUT_MARKER_RE = output_files.ATTEMPT_OUTPUT_MARKER_RE
+_NODE_PATH_UNSET = object()
+_node_path_cached: str | None | object = _NODE_PATH_UNSET
+_node_path_lock = threading.Lock()
 
 # 类型别名
 VideoTask = media_sources.VideoTask  # (platform, normalized_url)
@@ -113,6 +116,22 @@ class _QuietYtdlpLogger:
 
     def error(self, message: str) -> None:
         return None
+
+
+def _node_path(refresh: bool = False) -> str | None:
+    """Return the process-cached Node executable used for YouTube JS support."""
+    global _node_path_cached
+    with _node_path_lock:
+        if refresh or _node_path_cached is _NODE_PATH_UNSET:
+            _node_path_cached = shutil.which("node")
+        return _node_path_cached
+
+
+def _reset_node_path_cache() -> None:
+    """Clear Node discovery for tests and explicit service reconfiguration."""
+    global _node_path_cached
+    with _node_path_lock:
+        _node_path_cached = _NODE_PATH_UNSET
 
 
 # ---------------------------------------------------------------------------
@@ -371,7 +390,7 @@ def _build_ydl_options(
         options["paths"] = {"temp": str(attempt_workspace)}
 
     if platform == YOUTUBE:
-        node_path = shutil.which("node")
+        node_path = _node_path()
         options["js_runtimes"] = {"node": {"path": node_path} if node_path else {}}
         options["remote_components"] = ["ejs:github"]
     elif platform == INSTAGRAM:
@@ -782,6 +801,36 @@ def _build_download_result(
     return result
 
 
+def _finalize_download_output(
+    info: dict,
+    filepath: Path,
+    media_type: str,
+    profile: AudioOutputProfile | None,
+    output_version: int,
+) -> tuple[Path, AudioOutputProfile | None, int]:
+    """Claim a visible output name and retain the metadata for its real file."""
+    _validate_output_version(output_version)
+    if media_type == AUDIO:
+        if profile is None:
+            raise ValueError("音频结果缺少输出格式信息")
+        profile = _profile_for_output_path(profile, filepath)
+        if output_version == 1:
+            filepath = _rename_audio_output(filepath, profile)
+        else:
+            filepath = _rename_audio_output(
+                filepath,
+                profile,
+                output_version=output_version,
+            )
+        return filepath, profile, _audio_output_version(filepath, output_version)
+
+    filepath, output_version_actual = _finalize_video_output_with_version(
+        filepath,
+        output_version,
+    )
+    return filepath, None, output_version_actual
+
+
 def _download_bilibili(
     url: str,
     index: int,
@@ -927,27 +976,15 @@ def _download_bilibili(
                 options,
                 output_dir,
             )
-            if audio_profile:
-                audio_profile = _profile_for_output_path(audio_profile, filepath)
-                if output_version == 1:
-                    filepath = _rename_audio_output(filepath, audio_profile)
-                else:
-                    filepath = _rename_audio_output(
-                        filepath,
-                        audio_profile,
-                        output_version=output_version,
-                    )
-                output_version_actual = _audio_output_version(
+            filepath, audio_profile, output_version_actual = (
+                _finalize_download_output(
+                    final_info,
                     filepath,
+                    media_type,
+                    audio_profile,
                     output_version,
                 )
-            else:
-                filepath, output_version_actual = (
-                    _finalize_video_output_with_version(
-                        filepath,
-                        output_version,
-                    )
-                )
+            )
             return _build_download_result(
                 final_info,
                 filepath,
@@ -1190,48 +1227,27 @@ def _download_video(
                     audio_format=audio_profile.used,
                     audio_profile=audio_profile,
                 )
-            audio_profile = _profile_for_output_path(audio_profile, filepath)
-            if output_version == 1:
-                filepath = _rename_audio_output(filepath, audio_profile)
-            else:
-                filepath = _rename_audio_output(
+            filepath, audio_profile, output_version_actual = (
+                _finalize_download_output(
+                    info,
                     filepath,
+                    media_type,
                     audio_profile,
-                    output_version=output_version,
+                    output_version,
                 )
-            output_version_actual = _audio_output_version(
-                filepath,
-                output_version,
             )
-            result = {
-                "platform": platform_name,
-                "title": info.get("title", "未知标题"),
-                "filepath": str(filepath),
-                "filesize": _format_filesize(filepath, info),
-                "media_type": media_type,
-                "speed_mode_requested": speed_mode,
-                "speed_mode_used": STANDARD,
-                "turbo_fallback": False,
-                "cdn_host": "未知",
-                "http_chunk_size": 0,
-                "format": _audio_format_name(audio_profile),
-                "acodec": (
-                    audio_profile.source_acodec
-                    if audio_profile.used == SOURCE
-                    else audio_profile.used
-                ),
-                "audio_format_requested": audio_profile.requested,
-                "audio_format_used": audio_profile.used,
-                "audio_format_fallback": audio_profile.fallback,
-                "output_ext": audio_profile.output_ext,
-                "cover_embedded": audio_profile.cover_embedded,
-                "source_acodec": audio_profile.source_acodec or "未知",
-                "source_abr_kbps": (
-                    audio_profile.source_abr_kbps or "未知"
-                ),
-                "output_version_actual": output_version_actual,
-            }
-            return result
+            return _build_download_result(
+                info,
+                filepath,
+                platform_name,
+                media_type,
+                speed_mode,
+                STANDARD,
+                False,
+                AccelerationPlan(False, None, 0),
+                audio_profile,
+                output_version_actual,
+            )
 
         options = _build_ydl_options(
             platform,
@@ -1259,40 +1275,25 @@ def _download_video(
                 output_dir,
                 media_type=media_type,
             )
-            filepath, output_version_actual = (
-                _finalize_video_output_with_version(
-                    filepath,
-                    output_version,
-                )
+            filepath, _, output_version_actual = _finalize_download_output(
+                info,
+                filepath,
+                media_type,
+                None,
+                output_version,
             )
-            resolution = info.get("resolution") or (
-                f"{info.get('width')}x{info.get('height')}"
-                if info.get("width") and info.get("height")
-                else "未知"
+            return _build_download_result(
+                info,
+                filepath,
+                platform_name,
+                media_type,
+                speed_mode,
+                STANDARD,
+                False,
+                AccelerationPlan(False, None, 0),
+                None,
+                output_version_actual,
             )
-
-            result = {
-                "platform": platform_name,
-                "title": info.get("title", "未知标题"),
-                "filepath": str(filepath),
-                "filesize": _format_filesize(filepath, info),
-                "media_type": media_type,
-                "speed_mode_requested": speed_mode,
-                "speed_mode_used": STANDARD,
-                "turbo_fallback": False,
-                "cdn_host": "未知",
-                "http_chunk_size": 0,
-                "output_version_actual": output_version_actual,
-            }
-            result.update(
-                {
-                    "resolution": resolution,
-                    "fps": info.get("fps") or "未知",
-                    "vcodec": info.get("vcodec") or "未知",
-                    "acodec": info.get("acodec") or "未知",
-                }
-            )
-            return result
 
     except DownloadCancelled as error:
         if raise_errors:

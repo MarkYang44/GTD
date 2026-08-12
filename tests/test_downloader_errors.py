@@ -609,6 +609,97 @@ class DownloadOutputTemplateTests(unittest.TestCase):
                 {path.read_bytes() for path in claimed},
                 {b"first", b"second"},
             )
+
+    def test_shared_finalizer_keeps_audio_metadata_in_platform_parity(self):
+        info = {
+            "title": "Song",
+            "filesize": 1024 * 1024,
+        }
+        profile = downloader.AudioOutputProfile(
+            downloader.SOURCE,
+            downloader.SOURCE,
+            False,
+            "Opus",
+            160,
+            "webm",
+            False,
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            output_dir = Path(directory)
+            normal_source = output_dir / "Song [.__mvd_normal].opus"
+            bilibili_source = output_dir / "Song [BV1TEST] [.__mvd_bili].opus"
+            normal_source.write_bytes(b"normal")
+            bilibili_source.write_bytes(b"bilibili")
+
+            normal_path, normal_profile, normal_version = (
+                downloader._finalize_download_output(
+                    info,
+                    normal_source,
+                    downloader.AUDIO,
+                    profile,
+                    1,
+                )
+            )
+            bilibili_path, bilibili_profile, bilibili_version = (
+                downloader._finalize_download_output(
+                    info,
+                    bilibili_source,
+                    downloader.AUDIO,
+                    profile,
+                    1,
+                )
+            )
+
+        normal_result = downloader._build_download_result(
+            info,
+            normal_path,
+            "YouTube",
+            downloader.AUDIO,
+            downloader.STANDARD,
+            downloader.STANDARD,
+            False,
+            downloader.AccelerationPlan(False, None, 0),
+            normal_profile,
+            normal_version,
+        )
+        bilibili_result = downloader._build_download_result(
+            info,
+            bilibili_path,
+            "Bilibili",
+            downloader.AUDIO,
+            downloader.STANDARD,
+            downloader.STANDARD,
+            False,
+            downloader.AccelerationPlan(False, None, 0),
+            bilibili_profile,
+            bilibili_version,
+        )
+
+        self.assertEqual(normal_result.keys(), bilibili_result.keys())
+        for key in (
+            "title", "filesize", "media_type", "format", "acodec",
+            "audio_format_requested", "audio_format_used",
+            "audio_format_fallback", "output_ext", "cover_embedded",
+            "source_acodec", "source_abr_kbps", "output_version_actual",
+        ):
+            with self.subTest(key=key):
+                self.assertEqual(normal_result[key], bilibili_result[key])
+        self.assertEqual(normal_path.name, "Song [Source Opus · 160kbps].opus")
+        self.assertEqual(
+            bilibili_path.name,
+            "Song [BV1TEST] [Source Opus · 160kbps].opus",
+        )
+        self.assertEqual(normal_result["format"], "SOURCE OPUS")
+        self.assertTrue(normal_result["cover_embedded"])
+        self.assertEqual(normal_result["output_ext"], "opus")
+
+    def test_node_discovery_is_cached_until_explicit_refresh(self):
+        with patch("downloader.shutil.which", return_value="/opt/bin/node") as which:
+            self.assertEqual(downloader._node_path(refresh=True), "/opt/bin/node")
+            self.assertEqual(downloader._node_path(), "/opt/bin/node")
+            self.assertEqual(which.call_count, 1)
+            self.assertEqual(downloader._node_path(refresh=True), "/opt/bin/node")
+            self.assertEqual(which.call_count, 2)
     def test_instagram_same_title_different_ids_prepare_distinct_paths(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             output_dir = Path(temp_dir)

@@ -340,7 +340,7 @@ class Aria2ModeTests(unittest.TestCase):
                 ),
             ):
                 self.assertEqual(
-                    acceleration.aria2c_path(),
+                    acceleration.aria2c_path(refresh=True),
                     str(executable.resolve()),
                 )
 
@@ -360,9 +360,37 @@ class Aria2ModeTests(unittest.TestCase):
                     return_value=str(project_dir / "path-copy"),
                 ),
             ):
-                detected = acceleration.aria2c_path()
+                detected = acceleration.aria2c_path(refresh=True)
 
         self.assertEqual(detected, str(executable.resolve()))
+
+    def test_aria2c_discovery_is_cached_until_explicit_refresh(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            executable = Path(temporary) / "aria2c"
+            executable.write_bytes(b"test")
+            with (
+                patch.dict("bilibili_acceleration.os.environ", {}, clear=True),
+                patch.object(
+                    acceleration,
+                    "PROJECT_ARIA2_DIR",
+                    Path(temporary) / "missing",
+                ),
+                patch(
+                    "bilibili_acceleration.shutil.which",
+                    return_value=str(executable),
+                ) as which,
+            ):
+                self.assertEqual(
+                    acceleration.aria2c_path(refresh=True),
+                    str(executable.resolve()),
+                )
+                self.assertEqual(
+                    acceleration.aria2c_path(),
+                    str(executable.resolve()),
+                )
+                self.assertEqual(which.call_count, 1)
+                acceleration.aria2c_path(refresh=True)
+                self.assertEqual(which.call_count, 2)
 
     def test_turbo_only_becomes_effective_for_bilibili_with_aria2(self):
         self.assertEqual(
