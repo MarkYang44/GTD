@@ -67,6 +67,7 @@
   let defaultDownloadDir = "downloads";
   let downloadDirectoryHistoryCache = [];
   let downloadDirectoryHistoryLoaded = false;
+  const metricTargets = new WeakMap();
 
   function downloadDirectoryHistoryKey(path) {
     let comparable = path.trim().replace(/[\\/]+$/, "");
@@ -282,9 +283,13 @@
   function setOperationalMetrics(active, queue) {
     [[activeMetric, active], [queueMetric, queue]].forEach(([element, value]) => {
       const nextValue = String(value).padStart(2, "0");
-      if (element.textContent === nextValue) return;
-      window.MotionSystem?.setNumber(element, nextValue);
-      if (!window.MotionSystem?.setNumber) element.textContent = nextValue;
+      if (metricTargets.get(element) === nextValue || element.textContent === nextValue) return;
+      if (typeof window.MotionSystem?.setNumber === "function") {
+        window.MotionSystem?.setNumber(element, nextValue);
+      } else {
+        element.textContent = nextValue;
+      }
+      metricTargets.set(element, nextValue);
       element.classList.remove("metric-flash");
       void element.offsetWidth;
       element.classList.add("metric-flash");

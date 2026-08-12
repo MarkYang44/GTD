@@ -75,6 +75,7 @@
     progressElement?.style.setProperty("--motion-scroll-progress", String(progress));
     const topbar = document.querySelector?.("#topbar");
     topbar?.style.setProperty("--motion-scroll-progress", String(progress));
+    topbar?.classList?.toggle("is-scrolled", scrollY > 12);
     document.dispatchEvent(new CustomEvent("motion:scroll-frame", { detail: { scrollY, progress } }));
   }
 
@@ -102,7 +103,10 @@
     for (const [element, animation] of numberAnimations) {
       if (animation.startedAt === null) animation.startedAt = timestamp;
       const progress = clamp((timestamp - animation.startedAt) / NUMBER_DURATION, 0, 1);
-      element.textContent = String(Math.round(animation.start + (animation.target - animation.start) * progress));
+      element.textContent = formatNumber(
+        Math.round(animation.start + (animation.target - animation.start) * progress),
+        animation.minimumDigits,
+      );
       if (progress === 1) {
         numberAnimations.delete(element);
       } else {
@@ -202,10 +206,13 @@
   function setNumber(element, value) {
     if (!element) return;
     numberAnimations.delete(element);
+    const numericText = typeof value === "string" && /^-?\d+$/.test(value.trim())
+      ? value.trim()
+      : null;
     const numericValue = typeof value === "number"
       ? value
-      : typeof value === "string" && /^-?\d+$/.test(value.trim())
-        ? Number(value)
+      : numericText !== null
+        ? Number(numericText)
         : Number.NaN;
     if (!enabled || reduced || !Number.isInteger(numericValue)) {
       element.textContent = String(value);
@@ -213,12 +220,23 @@
     }
     const currentText = element.textContent.trim();
     const currentValue = /^-?\d+$/.test(currentText) ? Number.parseInt(currentText, 10) : numericValue;
+    const minimumDigits = numericText ? numericText.replace("-", "").length : 0;
     if (currentValue === numericValue) {
-      element.textContent = String(numericValue);
+      element.textContent = formatNumber(numericValue, minimumDigits);
       return;
     }
-    numberAnimations.set(element, { start: currentValue, target: numericValue, startedAt: null });
+    numberAnimations.set(element, {
+      start: currentValue,
+      target: numericValue,
+      minimumDigits,
+      startedAt: null,
+    });
     scheduleFrame();
+  }
+
+  function formatNumber(value, minimumDigits = 0) {
+    const sign = value < 0 ? "-" : "";
+    return sign + String(Math.abs(value)).padStart(minimumDigits, "0");
   }
 
   function cancelFrame() {

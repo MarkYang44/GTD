@@ -1,5 +1,6 @@
 import json
 import re
+import subprocess
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -500,6 +501,67 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertNotIn("new IntersectionObserver", source)
         self.assertNotIn('matchMedia("(pointer: fine)")', source)
         self.assertIn("window.MotionSystem?.setNumber(element, nextValue)", source)
+
+    def test_metric_bridge_falls_back_and_deduplicates_inflight_targets(self):
+        script = r'''
+const assert = require("assert");
+const fs = require("fs");
+
+class ClassList {
+  constructor() { this.addCounts = {}; }
+  add(...names) { names.forEach((name) => { this.addCounts[name] = (this.addCounts[name] || 0) + 1; }); }
+  remove() {}
+}
+class Element {
+  constructor() {
+    this.textContent = "00";
+    this.classList = new ClassList();
+    this.style = {};
+  }
+  addEventListener() {}
+  appendChild() {}
+  replaceChildren() {}
+  setAttribute() {}
+  focus() {}
+  contains() { return false; }
+  get offsetWidth() { return 0; }
+}
+const elements = new Map();
+global.document = {
+  hidden: false,
+  getElementById(id) {
+    if (!elements.has(id)) elements.set(id, new Element());
+    return elements.get(id);
+  },
+  querySelectorAll() { return []; },
+  querySelector() { return null; },
+  addEventListener() {},
+  createElement() { return new Element(); },
+  createTextNode() { return {}; },
+};
+global.window = { MotionSystem: {}, setTimeout() {} };
+global.fetch = () => Promise.reject(new Error("offline"));
+const source = fs.readFileSync("static/js/index.js", "utf8");
+new Function(`${source}\nwindow.__setOperationalMetrics = setOperationalMetrics;`)();
+
+const active = elements.get("metric-active");
+assert.doesNotThrow(() => window.__setOperationalMetrics(2, 0));
+assert.strictEqual(active.textContent, "02");
+assert.strictEqual(active.classList.addCounts["metric-flash"], 1);
+
+const calls = [];
+window.MotionSystem = { setNumber(element, value) { calls.push([element, value]); } };
+window.__setOperationalMetrics(3, 4);
+const callsAfterChange = calls.length;
+const flashesAfterChange = active.classList.addCounts["metric-flash"];
+window.__setOperationalMetrics(3, 4);
+assert.strictEqual(calls.length, callsAfterChange);
+assert.strictEqual(active.classList.addCounts["metric-flash"], flashesAfterChange);
+'''
+        result = subprocess.run(
+            ["node", "-e", script], capture_output=True, text=True, check=False
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_frontend_computes_active_and_queued_task_counts(self):
         html = frontend_surface_source()

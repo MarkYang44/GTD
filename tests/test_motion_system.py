@@ -157,6 +157,90 @@ assert.strictEqual(number.textContent, "true");
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_runtime_syncs_topbar_threshold_and_preserves_numeric_string_width(self):
+        script = r'''
+const assert = require("assert");
+const fs = require("fs");
+
+class ClassList {
+  constructor() { this.values = new Set(); }
+  add(...names) { names.forEach((name) => this.values.add(name)); }
+  remove(...names) { names.forEach((name) => this.values.delete(name)); }
+  toggle(name, force) { if (force) this.add(name); else this.remove(name); }
+  contains(name) { return this.values.has(name); }
+}
+class Element {
+  constructor(attributes = {}) {
+    this.attributes = attributes;
+    this.classList = new ClassList();
+    this.style = { setProperty() {} };
+    this.textContent = "00";
+    this.listeners = {};
+  }
+  getAttribute(name) { return this.attributes[name] ?? null; }
+  addEventListener(name, listener) { (this.listeners[name] ||= []).push(listener); }
+  removeEventListener() {}
+  getBoundingClientRect() { return { left: 0, top: 0, width: 100, height: 100 }; }
+}
+
+const root = { classList: new ClassList(), querySelectorAll() { return []; } };
+const topbar = new Element();
+const progress = new Element();
+const listeners = {};
+global.document = {
+  documentElement: root,
+  hidden: false,
+  body: { scrollHeight: 1100 },
+  querySelectorAll: root.querySelectorAll.bind(root),
+  querySelector(selector) { return selector === "#topbar" ? topbar : selector === "#scroll-progress" ? progress : null; },
+  addEventListener(name, listener) { (listeners[name] ||= []).push(listener); },
+  removeEventListener() {},
+  dispatchEvent() {},
+};
+const windowListeners = {};
+global.window = {
+  matchMedia(query) { return { matches: query.includes("pointer: fine") }; },
+  scrollY: 12,
+  innerHeight: 100,
+  addEventListener(name, listener) { (windowListeners[name] ||= []).push(listener); },
+  removeEventListener() {},
+};
+const frames = new Map(); let nextId = 1;
+global.requestAnimationFrame = (callback) => { const id = nextId++; frames.set(id, callback); return id; };
+global.cancelAnimationFrame = (id) => frames.delete(id);
+global.IntersectionObserver = class { constructor() {} observe() {} disconnect() {} };
+global.CustomEvent = class { constructor(type, init) { this.type = type; this.detail = init.detail; } };
+function runFrames(timestamp) {
+  for (const [id, callback] of [...frames]) { frames.delete(id); callback(timestamp); }
+}
+
+new Function(fs.readFileSync("static/js/motion.js", "utf8"))();
+runFrames(0);
+assert(!topbar.classList.contains("is-scrolled"));
+window.scrollY = 13;
+windowListeners.scroll[0]();
+runFrames(1);
+assert(topbar.classList.contains("is-scrolled"));
+
+const number = new Element();
+window.MotionSystem.setNumber(number, "02");
+runFrames(0);
+runFrames(140);
+assert.strictEqual(number.textContent, "01");
+runFrames(280);
+assert.strictEqual(number.textContent, "02");
+window.MotionSystem.setNumber(number, 3);
+runFrames(300);
+runFrames(580);
+assert.strictEqual(number.textContent, "3");
+window.MotionSystem.setNumber(number, "not-a-number");
+assert.strictEqual(number.textContent, "not-a-number");
+'''
+        result = subprocess.run(
+            ["node", "-e", script], capture_output=True, text=True, check=False
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_runtime_visibility_and_asynchronous_errors_fail_open(self):
         script = r'''
 const assert = require("assert");
