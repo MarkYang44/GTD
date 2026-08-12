@@ -3,12 +3,28 @@ import subprocess
 import unittest
 from pathlib import Path
 
+import app as web_app
 
 CSS_PATH = Path("static/css/motion.css")
 JS_PATH = Path("static/js/motion.js")
 
 
 class SharedMotionAssetTests(unittest.TestCase):
+    def test_guide_serves_shared_motion_assets_with_browser_mime_types(self):
+        client = web_app.app.test_client()
+        guide = client.get("/guide")
+
+        self.assertEqual(guide.status_code, 200)
+        self.assertIn('href="/static/css/motion.css"', guide.get_data(as_text=True))
+        self.assertIn('<script defer src="/static/js/motion.js"></script>', guide.get_data(as_text=True))
+
+        stylesheet = client.get("/static/css/motion.css")
+        script = client.get("/static/js/motion.js")
+        self.assertEqual(stylesheet.status_code, 200)
+        self.assertEqual(script.status_code, 200)
+        self.assertEqual(stylesheet.mimetype, "text/css")
+        self.assertIn(script.mimetype, {"application/javascript", "text/javascript"})
+
     def test_shared_assets_define_the_declared_motion_contract(self):
         css = CSS_PATH.read_text(encoding="utf-8")
         script = JS_PATH.read_text(encoding="utf-8")

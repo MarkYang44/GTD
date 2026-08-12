@@ -35,6 +35,19 @@ class WebGuideTests(unittest.TestCase):
         self.assertIn("white-space: nowrap", html)
         self.assertIn("@media (max-width: 1180px)", html)
 
+    def test_guide_loads_shared_motion_assets_and_declares_reading_safe_motion(self):
+        html = self.client.get("/guide").get_data(as_text=True)
+
+        self.assertIn('href="/static/css/motion.css"', html)
+        self.assertIn('<script defer src="/static/js/motion.js"></script>', html)
+        self.assertIn('class="guide-heading" data-motion-group="guide-hero"', html)
+        self.assertIn('class="guide-document"', html)
+        self.assertIn("data-motion-surface", html)
+        self.assertIn("motion:scroll-frame", html)
+        self.assertIn("window.MotionSystem?.refresh", html)
+        self.assertNotIn("const pointerLight", html)
+        self.assertNotIn("requestAnimationFrame(updateScrollState)", html)
+
     def test_web_guide_excludes_cli_only_instructions(self):
         source = Path("docs/WEB_GUIDE.md").read_text(encoding="utf-8")
 
