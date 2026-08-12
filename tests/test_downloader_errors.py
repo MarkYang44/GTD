@@ -3,6 +3,7 @@ import io
 import tempfile
 import threading
 import unittest
+from dataclasses import FrozenInstanceError
 from pathlib import Path
 from unittest.mock import patch
 
@@ -16,29 +17,88 @@ import yt_dlp
 
 
 class DownloadErrorMessageTests(unittest.TestCase):
-    def test_audio_output_module_profiles_match_downloader_compatibility_helpers(self):
-        samples = [
-            ({"acodec": "flac", "ext": "flac", "abr": 1521.267}, downloader.MP3),
-            ({"acodec": "flac", "ext": "flac", "abr": 1521.267}, downloader.FLAC),
-            ({"acodec": "opus", "ext": "webm", "abr": 160}, downloader.SOURCE),
-            ({"acodec": "mp4a.40.2", "ext": "m4a", "abr": 128}, downloader.WAV),
+    def test_audio_output_module_has_fixed_profiles_labels_and_postprocessors(self):
+        cases = [
+            (
+                {"acodec": "flac", "ext": "flac", "abr": 1521.267},
+                downloader.MP3,
+                audio_output.AudioOutputProfile(
+                    downloader.MP3, downloader.MP3, False, "FLAC", 1521, "mp3", True
+                ),
+                "MP3 V0 · 源FLAC 1521kbps",
+                "mp3",
+                "0",
+                True,
+            ),
+            (
+                {"acodec": "flac", "ext": "flac", "abr": 1521.267},
+                downloader.FLAC,
+                audio_output.AudioOutputProfile(
+                    downloader.FLAC, downloader.FLAC, False, "FLAC", 1521, "flac", True
+                ),
+                "FLAC Lossless · 1521kbps",
+                "flac",
+                None,
+                True,
+            ),
+            (
+                {"acodec": "mp4a.40.2", "ext": "m4a", "abr": 245.75},
+                downloader.FLAC,
+                audio_output.AudioOutputProfile(
+                    downloader.FLAC, downloader.MP3, True, "AAC", 246, "mp3", True
+                ),
+                "MP3 V0 · 源AAC 246kbps",
+                "mp3",
+                "0",
+                True,
+            ),
+            (
+                {"acodec": "opus", "ext": "webm", "abr": 160},
+                downloader.SOURCE,
+                audio_output.AudioOutputProfile(
+                    downloader.SOURCE, downloader.SOURCE, False, "Opus", 160, "webm", False
+                ),
+                "Source Opus · 160kbps",
+                "best",
+                None,
+                False,
+            ),
+            (
+                {"acodec": "mp4a.40.2", "ext": "m4a", "abr": 128},
+                downloader.WAV,
+                audio_output.AudioOutputProfile(
+                    downloader.WAV, downloader.WAV, False, "AAC", 128, "wav", False
+                ),
+                "WAV PCM · 源AAC 128kbps",
+                "wav",
+                None,
+                False,
+            ),
         ]
 
-        for info, requested in samples:
+        for info, requested, expected, label, codec, quality, embeds_cover in cases:
             with self.subTest(requested=requested):
-                expected = downloader._audio_output_profile(info, requested)
                 actual = audio_output.audio_output_profile(info, requested)
+                postprocessors = audio_output.audio_postprocessors(actual)
                 self.assertEqual(actual, expected)
+                self.assertEqual(audio_output.audio_quality_label(actual), label)
+                self.assertEqual(postprocessors[0]["preferredcodec"], codec)
+                self.assertEqual(postprocessors[1], {
+                    "key": "FFmpegMetadata",
+                    "add_metadata": True,
+                    "add_chapters": False,
+                    "add_infojson": False,
+                })
+                if quality is None:
+                    self.assertNotIn("preferredquality", postprocessors[0])
+                else:
+                    self.assertEqual(postprocessors[0]["preferredquality"], quality)
                 self.assertEqual(
-                    audio_output.audio_quality_label(actual),
-                    downloader._audio_quality_label(expected),
-                )
-                self.assertEqual(
-                    audio_output.audio_postprocessors(actual),
-                    downloader._audio_postprocessors(expected),
+                    "EmbedThumbnail" in [item["key"] for item in postprocessors],
+                    embeds_cover,
                 )
 
-    def test_audio_output_module_source_validation_and_final_path_profile_match_downloader(self):
+    def test_audio_output_module_source_validation_and_final_path_profile_contract(self):
         source_info = {"acodec": "opus", "ext": "webm", "abr": 160}
         profile = audio_output.audio_output_profile(source_info, downloader.SOURCE)
 
@@ -51,13 +111,12 @@ class DownloadErrorMessageTests(unittest.TestCase):
         self.assertIsNone(audio_output.ensure_source_copy_supported(source_info, profile))
         self.assertEqual(
             audio_output.profile_for_output_path(profile, Path("Song.opus")),
-            downloader._profile_for_output_path(
-                downloader._audio_output_profile(source_info, downloader.SOURCE),
-                Path("Song.opus"),
+            audio_output.AudioOutputProfile(
+                downloader.SOURCE, downloader.SOURCE, False, "Opus", 160, "opus", True
             ),
         )
 
-    def test_download_progress_module_matches_ansi_size_eta_and_postprocessor_contracts(self):
+    def test_download_progress_module_has_fixed_ansi_size_eta_and_stage_contracts(self):
         payload = {
             "_percent_str": "\x1b[0;94m12.3%\x1b[0m",
             "speed": 2.5 * 1024 * 1024,
@@ -67,20 +126,168 @@ class DownloadErrorMessageTests(unittest.TestCase):
 
         self.assertEqual(
             download_progress.extract_progress_snapshot(payload),
-            downloader._extract_progress_snapshot(payload),
+            {
+                "percent_text": "12.3%",
+                "speed_mbps": 2.5,
+                "speed_text": "2.50 MB/s",
+                "eta_text": "01:05",
+                "total_size_bytes": 750 * 1024 * 1024,
+                "total_size_text": "750.00 MiB",
+                "total_size_is_estimate": True,
+            },
         )
         self.assertEqual(
             download_progress.postprocessing_preparation(downloader.AUDIO, downloader.MP3),
-            downloader._postprocessing_preparation(downloader.AUDIO, downloader.MP3),
+            {
+                "stage": "preparing",
+                "stage_text": "正在准备将完整音轨转码为 MP3 V0。",
+                "detail_text": "随后还会写入元数据与封面；长音频可能需要数十秒至数分钟。",
+            },
         )
-        self.assertEqual(
-            download_progress.postprocessor_stage(
-                "ExtractAudio", downloader.AUDIO, downloader.MP3
-            ),
-            downloader._postprocessor_stage(
-                "ExtractAudio", downloader.AUDIO, downloader.MP3
-            ),
+        expected_stages = [
+            ("ExtractAudio", downloader.AUDIO, downloader.MP3, (
+                "transcoding_audio", "正在将完整音轨转码为 MP3 V0…", "长音频需要完整解码并重新编码，可能持续数十秒至数分钟。"
+            )),
+            ("ExtractAudio", downloader.AUDIO, downloader.WAV, (
+                "decoding_audio", "正在将完整音轨解码为 WAV…", "长音频需要完整解码，期间没有下载进度属于正常现象。"
+            )),
+            ("ExtractAudio", downloader.AUDIO, downloader.FLAC, (
+                "extracting_audio", "正在提取并整理音轨…", "大文件需要读取并写入完整音轨，请耐心等待。"
+            )),
+            ("EmbedThumbnail", downloader.AUDIO, downloader.MP3, (
+                "embedding_thumbnail", "正在嵌入封面…", "程序正在把封面写入最终媒体文件。"
+            )),
+            ("Metadata", downloader.AUDIO, downloader.MP3, (
+                "writing_metadata", "正在写入媒体信息…", "程序正在保存标题、作者和其他媒体标签。"
+            )),
+            ("Merger", downloader.VIDEO, downloader.MP3, (
+                "merging_streams", "正在合并视频与音频…", "高分辨率或长视频需要读取并写入完整媒体流。"
+            )),
+            ("Remux", downloader.VIDEO, downloader.MP3, (
+                "remuxing_video", "正在整理视频封装…", "程序正在生成兼容性更好的最终视频文件。"
+            )),
+            ("MoveFiles", downloader.VIDEO, downloader.MP3, (
+                "finalizing", "正在整理最终文件…", "处理即将完成，程序正在确认文件名与保存位置。"
+            )),
+            ("unknown", downloader.VIDEO, downloader.MP3, (
+                "postprocessing", "正在处理媒体文件…", "程序仍在正常工作，请保持窗口打开。"
+            )),
+        ]
+        for postprocessor, media_type, audio_format, expected in expected_stages:
+            with self.subTest(postprocessor=postprocessor, audio_format=audio_format):
+                actual = download_progress.postprocessor_stage(
+                    postprocessor, media_type, audio_format
+                )
+                self.assertEqual(actual, expected)
+
+    def test_download_progress_module_accepts_protocol_only_cancel_token(self):
+        class ProtocolOnlyToken:
+            def __init__(self):
+                self.calls = 0
+
+            def raise_if_cancelled(self):
+                self.calls += 1
+                raise RuntimeError("cancelled through protocol")
+
+        token = ProtocolOnlyToken()
+        hook = download_progress.make_progress_hook(1, 1, cancel_token=token)
+
+        with self.assertRaisesRegex(RuntimeError, "cancelled through protocol"):
+            hook({"status": "downloading"})
+
+        self.assertEqual(token.calls, 1)
+
+    def test_audio_output_profile_is_downloader_compatible_and_frozen(self):
+        self.assertIs(downloader.AudioOutputProfile, audio_output.AudioOutputProfile)
+        profile = audio_output.audio_output_profile({}, downloader.MP3)
+
+        with self.assertRaises(FrozenInstanceError):
+            profile.used = downloader.FLAC
+
+    def test_downloader_progress_snapshot_preserves_component_patch_seams(self):
+        with (
+            patch.object(downloader, "_format_download_speed", return_value=(7.5, "patched speed")) as speed,
+            patch.object(downloader, "_strip_ansi", return_value="patched percent") as strip,
+            patch.object(downloader, "_progress_total_size", return_value=(9, True)) as size,
+            patch.object(downloader, "_format_eta", return_value="patched eta") as eta,
+            patch.object(downloader, "_format_size_bytes", return_value="patched size") as format_size,
+        ):
+            snapshot = downloader._extract_progress_snapshot({"speed": 1, "eta": 2})
+
+        self.assertEqual(snapshot, {
+            "percent_text": "patched percent",
+            "speed_mbps": 7.5,
+            "speed_text": "patched speed",
+            "eta_text": "patched eta",
+            "total_size_bytes": 9,
+            "total_size_text": "patched size",
+            "total_size_is_estimate": True,
+        })
+        for mocked in (speed, strip, size, eta, format_size):
+            mocked.assert_called_once()
+
+    def test_downloader_progress_hook_preserves_composite_patch_seams(self):
+        snapshot = {
+            "percent_text": "patched percent", "speed_mbps": 1.0,
+            "speed_text": "patched speed", "eta_text": "patched eta",
+            "total_size_bytes": None, "total_size_text": "",
+            "total_size_is_estimate": False,
+        }
+        preparation = {"stage": "patched", "stage_text": "patched stage", "detail_text": "patched detail"}
+        events = []
+        with (
+            patch.object(downloader, "_extract_progress_snapshot", return_value=snapshot) as extract,
+            patch.object(downloader, "_postprocessing_preparation", return_value=preparation) as prepare,
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            hook = downloader._make_progress_hook(
+                1, 1, progress_callback=lambda event, data: events.append((event, data))
+            )
+            hook({"status": "downloading"})
+            hook({"status": "finished"})
+
+        extract.assert_called_once()
+        prepare.assert_called_once_with(downloader.VIDEO, downloader.MP3)
+        self.assertEqual(events, [("progress", snapshot), ("postprocessing", preparation)])
+
+    def test_downloader_postprocessor_hook_preserves_stage_patch_seam(self):
+        stage = ("patched", "patched stage", "patched detail")
+        events = []
+        with (
+            patch.object(downloader, "_postprocessor_stage", return_value=stage) as stage_helper,
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            hook = downloader._make_postprocessor_status_hook(
+                1, 1, progress_callback=lambda event, data: events.append((event, data))
+            )
+            hook({"status": "started", "postprocessor": "anything"})
+
+        stage_helper.assert_called_once_with("anything", downloader.VIDEO, downloader.MP3)
+        self.assertEqual(events, [("postprocessing", {
+            "stage": "patched", "stage_text": "patched stage", "detail_text": "patched detail"
+        })])
+
+    def test_downloader_audio_profile_and_source_validation_preserve_patch_seams(self):
+        selected = {"acodec": "ignored", "ext": "m4a", "abr": 123}
+        with (
+            patch.object(downloader, "_selected_audio_info", return_value=selected) as selected_helper,
+            patch.object(downloader, "_display_audio_codec", return_value="PATCHED") as display,
+        ):
+            profile = downloader._audio_output_profile({}, downloader.MP3)
+
+        selected_helper.assert_called_once_with({})
+        display.assert_called_once_with("ignored")
+        self.assertEqual(profile.source_acodec, "PATCHED")
+
+        source_profile = audio_output.AudioOutputProfile(
+            downloader.SOURCE, downloader.SOURCE, False, "Opus", 160, "opus", True
         )
+        with patch.object(
+            downloader, "_selected_audio_info", return_value={"acodec": "opus"}
+        ) as source_selected:
+            self.assertIsNone(downloader._ensure_source_copy_supported({}, source_profile))
+
+        source_selected.assert_called_once_with({})
     def test_attempt_workspace_is_forwarded_to_ytdlp_temp_paths(self):
         workspace = Path("/tmp/private-attempt")
 

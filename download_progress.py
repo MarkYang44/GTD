@@ -110,19 +110,27 @@ def progress_total_size(data: dict) -> tuple[int | None, bool]:
     return None, False
 
 
-def extract_progress_snapshot(data: dict) -> dict[str, object]:
+def extract_progress_snapshot(
+    data: dict,
+    *,
+    format_download_speed_fn: Callable[[object], tuple[float | None, str]] = format_download_speed,
+    strip_ansi_fn: Callable[[object], str] = strip_ansi,
+    progress_total_size_fn: Callable[[dict], tuple[int | None, bool]] = progress_total_size,
+    format_eta_fn: Callable[[object], str] = format_eta,
+    format_size_bytes_fn: Callable[[object], str] = format_size_bytes,
+) -> dict[str, object]:
     """Extract the fields displayed by a Web task card."""
-    speed_mbps, speed_text = format_download_speed(data.get("speed"))
-    percent_text = strip_ansi(data.get("_percent_str")) or "计算中"
-    total_size_bytes, total_size_is_estimate = progress_total_size(data)
+    speed_mbps, speed_text = format_download_speed_fn(data.get("speed"))
+    percent_text = strip_ansi_fn(data.get("_percent_str")) or "计算中"
+    total_size_bytes, total_size_is_estimate = progress_total_size_fn(data)
 
     return {
         "percent_text": percent_text,
         "speed_mbps": speed_mbps,
         "speed_text": speed_text,
-        "eta_text": format_eta(data.get("eta")),
+        "eta_text": format_eta_fn(data.get("eta")),
         "total_size_bytes": total_size_bytes,
-        "total_size_text": format_size_bytes(total_size_bytes),
+        "total_size_text": format_size_bytes_fn(total_size_bytes),
         "total_size_is_estimate": total_size_is_estimate,
     }
 
@@ -225,6 +233,9 @@ def make_progress_hook(
     cancel_token: CancellationProtocol | None = None,
     media_type: str = VIDEO,
     audio_format: str = MP3,
+    *,
+    extract_progress_snapshot_fn: Callable[[dict], dict[str, object]] = extract_progress_snapshot,
+    postprocessing_preparation_fn: Callable[[str, str], dict[str, object]] = postprocessing_preparation,
 ):
     """Create a numbered yt-dlp progress callback for CLI output."""
 
@@ -233,7 +244,7 @@ def make_progress_hook(
             cancel_token.raise_if_cancelled()
         status = data.get("status")
         if status == "downloading":
-            snapshot = extract_progress_snapshot(data)
+            snapshot = extract_progress_snapshot_fn(data)
             if progress_callback:
                 progress_callback("progress", snapshot)
 
@@ -248,7 +259,7 @@ def make_progress_hook(
                 )
             )
         elif status == "finished":
-            payload = postprocessing_preparation(media_type, audio_format)
+            payload = postprocessing_preparation_fn(media_type, audio_format)
             if progress_callback:
                 progress_callback("postprocessing", payload)
             print(
@@ -274,11 +285,13 @@ def make_postprocessor_status_hook(
     progress_callback: YtdlpProgressCallback = None,
     media_type: str = VIDEO,
     audio_format: str = MP3,
+    *,
+    postprocessor_stage_fn: Callable[[object, str, str], tuple[str, str, str]] = postprocessor_stage,
 ):
     def status_hook(data: dict) -> None:
         if data.get("status") != "started":
             return
-        stage, stage_text, detail_text = postprocessor_stage(
+        stage, stage_text, detail_text = postprocessor_stage_fn(
             data.get("postprocessor"),
             media_type,
             audio_format,

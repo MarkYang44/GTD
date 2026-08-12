@@ -18,26 +18,23 @@ from typing import Callable, Optional
 
 import yt_dlp
 
+import audio_output
+import download_progress
 from audio_output import (
     AudioOutputProfile,
     audio_format_name as _audio_format_name,
-    audio_output_profile as _audio_output_profile,
     audio_postprocessors as _audio_postprocessors,
     audio_quality_label as _audio_quality_label,
     display_audio_codec as _display_audio_codec,
-    ensure_source_copy_supported as _ensure_source_copy_supported,
     profile_for_output_path as _profile_for_output_path,
     selected_audio_info as _selected_audio_info,
 )
 from download_progress import (
     ANSI_ESCAPE_RE,
-    extract_progress_snapshot as _extract_progress_snapshot,
     format_download_speed as _format_download_speed,
     format_eta as _format_eta,
     format_size_bytes as _format_size_bytes,
     make_cancel_hook as _make_cancel_hook,
-    make_postprocessor_status_hook as _make_postprocessor_status_hook,
-    make_progress_hook as _make_progress_hook,
     postprocessing_preparation as _postprocessing_preparation,
     postprocessor_stage as _postprocessor_stage,
     progress_total_size as _progress_total_size,
@@ -204,6 +201,81 @@ def _find_cookie_file(platform: str) -> Optional[Path]:
 
 def platform_http_headers(platform: str) -> dict[str, str]:
     return media_sources.platform_http_headers(platform)
+
+
+def _extract_progress_snapshot(data: dict) -> dict[str, object]:
+    """Compatibility wrapper retaining downloader-level patch seams."""
+    return download_progress.extract_progress_snapshot(
+        data,
+        format_download_speed_fn=_format_download_speed,
+        strip_ansi_fn=_strip_ansi,
+        progress_total_size_fn=_progress_total_size,
+        format_eta_fn=_format_eta,
+        format_size_bytes_fn=_format_size_bytes,
+    )
+
+
+def _make_progress_hook(
+    index: int,
+    total: int,
+    progress_callback: YtdlpProgressCallback = None,
+    cancel_token: CancellationToken | None = None,
+    media_type: str = VIDEO,
+    audio_format: str = MP3,
+):
+    """Compatibility wrapper retaining downloader-level patch seams."""
+    return download_progress.make_progress_hook(
+        index,
+        total,
+        progress_callback,
+        cancel_token,
+        media_type,
+        audio_format,
+        extract_progress_snapshot_fn=_extract_progress_snapshot,
+        postprocessing_preparation_fn=_postprocessing_preparation,
+    )
+
+
+def _make_postprocessor_status_hook(
+    index: int,
+    total: int,
+    progress_callback: YtdlpProgressCallback = None,
+    media_type: str = VIDEO,
+    audio_format: str = MP3,
+):
+    """Compatibility wrapper retaining downloader-level patch seams."""
+    return download_progress.make_postprocessor_status_hook(
+        index,
+        total,
+        progress_callback,
+        media_type,
+        audio_format,
+        postprocessor_stage_fn=_postprocessor_stage,
+    )
+
+
+def _audio_output_profile(info: dict, requested: str) -> AudioOutputProfile:
+    """Compatibility wrapper retaining downloader-level patch seams."""
+    return audio_output.audio_output_profile(
+        info,
+        requested,
+        selected_audio_info_fn=_selected_audio_info,
+        display_audio_codec_fn=_display_audio_codec,
+    )
+
+
+def _ensure_source_copy_supported(
+    info: dict,
+    profile: AudioOutputProfile,
+) -> None:
+    """Compatibility wrapper retaining downloader-level patch seams."""
+    return audio_output.ensure_source_copy_supported(
+        info,
+        profile,
+        selected_audio_info_fn=_selected_audio_info,
+        classify_download_error_fn=classify_download_error,
+        download_failure_cls=DownloadFailure,
+    )
 
 
 def _validate_output_version(output_version: int) -> None:

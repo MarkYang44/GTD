@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import Callable
 
 from download_errors import DownloadFailure, classify_download_error
 
@@ -49,11 +50,17 @@ def display_audio_codec(value: object) -> str | None:
     return codec.upper() or None
 
 
-def audio_output_profile(info: dict, requested: str) -> AudioOutputProfile:
+def audio_output_profile(
+    info: dict,
+    requested: str,
+    *,
+    selected_audio_info_fn: Callable[[dict], dict] = selected_audio_info,
+    display_audio_codec_fn: Callable[[object], str | None] = display_audio_codec,
+) -> AudioOutputProfile:
     if requested not in AUDIO_FORMATS:
         raise ValueError(f"不支持的音频格式: {requested}")
-    selected = selected_audio_info(info)
-    source_acodec = display_audio_codec(selected.get("acodec"))
+    selected = selected_audio_info_fn(info)
+    source_acodec = display_audio_codec_fn(selected.get("acodec"))
     raw_bitrate = selected.get("abr") or selected.get("tbr")
     source_abr_kbps = (
         round(raw_bitrate)
@@ -186,11 +193,15 @@ def profile_for_output_path(
 def ensure_source_copy_supported(
     info: dict,
     profile: AudioOutputProfile,
+    *,
+    selected_audio_info_fn: Callable[[dict], dict] = selected_audio_info,
+    classify_download_error_fn: Callable[[Exception], object] = classify_download_error,
+    download_failure_cls: type[DownloadFailure] = DownloadFailure,
 ) -> None:
     """Reject source outputs that yt-dlp would silently transcode to MP3."""
     if profile.used != SOURCE:
         return
-    selected = selected_audio_info(info)
+    selected = selected_audio_info_fn(info)
     codec = str(selected.get("acodec") or "").lower()
     supported = (
         "aac",
@@ -202,8 +213,8 @@ def ensure_source_copy_supported(
         "vorbis",
     )
     if not codec.startswith(supported):
-        raise DownloadFailure(
-            classify_download_error(
+        raise download_failure_cls(
+            classify_download_error_fn(
                 ValueError(
                     f"requested format cannot be copied without transcoding: {codec or 'unknown'}"
                 )
