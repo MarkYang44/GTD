@@ -225,6 +225,17 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn("document.hidden", source)
         self.assertIn('document.addEventListener("visibilitychange"', source)
 
+    def test_frontend_immediately_polls_when_an_active_page_becomes_visible(self):
+        source = frontend_script_source()
+        visibility_handler = source.split(
+            'document.addEventListener("visibilitychange", () => {', 1
+        )[1].split("\n  });", 1)[0]
+
+        self.assertIn("!document.hidden", visibility_handler)
+        self.assertIn("pollingActive", visibility_handler)
+        self.assertIn("!pollInFlight", visibility_handler)
+        self.assertIn("pollStatus()", visibility_handler)
+
     def test_frontend_skips_unchanged_task_dom_render(self):
         source = frontend_script_source()
 

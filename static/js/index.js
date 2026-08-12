@@ -582,6 +582,10 @@
   }
 
   document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && pollingActive && !pollInFlight) {
+      pollStatus();
+      return;
+    }
     if (!pollInFlight) {
       scheduleNextPoll(document.hidden ? HIDDEN_POLL_INTERVAL_MS : VISIBLE_POLL_INTERVAL_MS);
     }

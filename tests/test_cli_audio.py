@@ -1,7 +1,9 @@
 import contextlib
 import io
 import sys
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import downloader
@@ -10,6 +12,41 @@ from collection_resolver import CollectionEntry, CollectionPreview
 
 
 class CliAudioModeTests(unittest.TestCase):
+    def test_command_line_download_flow_validates_directory_once(self):
+        url = "https://youtu.be/example"
+        result = {
+            "platform": "YouTube",
+            "title": "Example",
+            "filepath": "/tmp/Example.mp4",
+            "resolution": "1920x1080",
+            "fps": 30,
+            "vcodec": "h264",
+            "acodec": "aac",
+            "filesize": "1.00 MB",
+            "media_type": downloader.VIDEO,
+            "speed_mode_used": downloader.STANDARD,
+        }
+        probe_count = 0
+        original_open = Path.open
+
+        def count_probes(path, *args, **kwargs):
+            nonlocal probe_count
+            if path.name.startswith(".__mvd_write_test_"):
+                probe_count += 1
+            return original_open(path, *args, **kwargs)
+
+        with tempfile.TemporaryDirectory() as temporary, \
+            patch.object(sys, "argv", ["main.py", "--output-dir", temporary, url]), \
+            patch("main.check_ffmpeg", return_value=True), \
+            patch("main.resolve_cli_tasks", return_value=[(downloader.YOUTUBE, url)]), \
+            patch("downloader.download_video", return_value=result), \
+            patch.object(Path, "open", new=count_probes), \
+            contextlib.redirect_stdout(io.StringIO()):
+            exit_code = cli_main.main()
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(probe_count, 1)
+
     def test_parse_command_line_selects_audio_and_removes_flag(self):
         url = "https://youtu.be/example"
 

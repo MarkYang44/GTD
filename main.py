@@ -36,6 +36,9 @@ from downloader import (
     check_ffmpeg,
     download_tasks,
     ensure_downloads_dir,
+    _PreparedOutputDir,
+    _prepare_output_dir,
+    _prepared_output_dir,
     aria2c_path,
     detect_collection_platform,
     make_task,
@@ -169,7 +172,9 @@ def parse_command_line(
     return media_type, audio_format, speed_mode, urls, item_selection, output_dir
 
 
-def choose_download_location() -> Path:
+def choose_download_location(
+    *, prepared: bool = False
+) -> Path | _PreparedOutputDir:
     """Let an interactive user keep downloads, type a path, or pick a folder."""
     default_dir = DOWNLOADS_DIR.resolve()
     print("请选择下载位置：")
@@ -179,14 +184,18 @@ def choose_download_location() -> Path:
     while True:
         choice = input("选择 1 至 3（直接回车使用默认位置）: ").strip().lower()
         if choice in {"", "1", "default"}:
-            return ensure_downloads_dir()
+            return _prepare_output_dir() if prepared else ensure_downloads_dir()
         if choice in {"2", "manual"}:
             value = input("下载文件夹路径: ").strip()
             if not value:
                 print("⚠️  路径不能为空；若要使用默认位置请选择 1。")
                 continue
             try:
-                return ensure_downloads_dir(value)
+                return (
+                    _prepare_output_dir(value)
+                    if prepared
+                    else ensure_downloads_dir(value)
+                )
             except ValueError as error:
                 print(f"⚠️  {error}")
                 continue
@@ -200,7 +209,11 @@ def choose_download_location() -> Path:
                 print("已取消文件夹选择，请重新选择下载位置。")
                 continue
             try:
-                return ensure_downloads_dir(selected)
+                return (
+                    _prepare_output_dir(selected)
+                    if prepared
+                    else ensure_downloads_dir(selected)
+                )
             except ValueError as error:
                 print(f"⚠️  {error}")
                 continue
@@ -503,7 +516,12 @@ def print_summary(
         print(f"😞 全部 {total} 个{media_name}下载失败，请检查链接、Cookie 和网络后重试。")
     else:
         print(f"📦 {success} 个成功，{failed} 个失败。")
-    print(f"📁 文件保存在: {ensure_downloads_dir(output_dir)}")
+    resolved_output_dir = (
+        _prepared_output_dir(output_dir)
+        if isinstance(output_dir, _PreparedOutputDir)
+        else ensure_downloads_dir(output_dir)
+    )
+    print(f"📁 文件保存在: {resolved_output_dir}")
     print("=" * 60)
 
 
@@ -530,7 +548,7 @@ def main() -> int:
                 item_selection,
                 output_dir_value,
             ) = parse_command_line(sys.argv[1:])
-            output_dir = ensure_downloads_dir(output_dir_value)
+            output_dir = _prepare_output_dir(output_dir_value)
             tasks = resolve_cli_tasks(
                 url_args,
                 item_selection=item_selection,
@@ -553,7 +571,7 @@ def main() -> int:
                 choose_audio_format() if media_type == AUDIO else MP3
             )
             speed_mode = choose_speed_mode()
-            output_dir = choose_download_location()
+            output_dir = choose_download_location(prepared=True)
             inputs = get_inputs_from_user(media_type=media_type)
             tasks = resolve_cli_tasks(inputs, interactive=True)
         except DownloadFailure as error:

@@ -1,5 +1,7 @@
 import copy
 import json
+import subprocess
+import sys
 import threading
 import time
 import tempfile
@@ -10,10 +12,30 @@ from unittest.mock import patch
 
 import downloader
 from download_errors import DownloadErrorInfo, DownloadFailure
-from task_control import TaskManager, TaskSeed
+from task_control import MAX_PUBLIC_ATTEMPTS, TaskManager, TaskSeed
 
 
 class TaskManagerTests(unittest.TestCase):
+    def test_custom_task_manager_never_imports_downloader(self):
+        program = """
+import sys
+from task_control import TaskManager, TaskSeed
+manager = TaskManager(lambda url, **kwargs: {\"title\": url, \"filepath\": \"/tmp/ok.mp4\"}, max_workers=1)
+manager.create_batch([TaskSeed(\"youtube\", \"https://youtu.be/x\")], \"video\", \"mp3\", \"standard\")
+assert manager.wait_for_idle()
+manager.shutdown()
+assert \"downloader\" not in sys.modules
+"""
+        completed = subprocess.run(
+            [sys.executable, "-c", program],
+            cwd=Path(__file__).resolve().parent.parent,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+
     def test_runner_receives_validated_absolute_download_directory(self):
         calls = []
 
@@ -62,6 +84,7 @@ class TaskManagerTests(unittest.TestCase):
                     downloader.download_video,
                     max_workers=1,
                     capability_aware_runner=True,
+                    directory_preparer=downloader._prepare_output_dir,
                 )
                 batch = manager.create_batch(
                     [TaskSeed("bilibili", "https://b23.tv/example")],
@@ -684,6 +707,37 @@ class TaskManagerTests(unittest.TestCase):
             task["attempts"][0]["number"],
             task["attempt_count"] - public_attempt_limit + 1,
         )
+
+    def test_public_task_does_not_deepcopy_discarded_attempt_history(self):
+        class CannotDeepcopy:
+            def __deepcopy__(self, memo):
+                raise AssertionError("discarded attempts must not be copied")
+
+        manager = TaskManager(
+            lambda url, **kwargs: {"title": url, "filepath": "/tmp/ok.mp4"},
+            max_workers=1,
+        )
+        batch = manager.create_batch(
+            [TaskSeed("youtube", "https://youtu.be/x")],
+            "video",
+            "mp3",
+            "standard",
+        )
+        self.assertTrue(manager.wait_for_idle())
+        internal_task = manager._batches[batch["id"]]["tasks"][0]
+        internal_task["attempt_count"] = MAX_PUBLIC_ATTEMPTS + 1
+        internal_task["attempts"] = [
+            {"number": 1, "marker": CannotDeepcopy()}
+        ] + [
+            {"number": index} for index in range(2, MAX_PUBLIC_ATTEMPTS + 2)
+        ]
+
+        task = manager.snapshot(batch["id"])["tasks"][0]
+        manager.shutdown()
+
+        self.assertEqual(task["attempt_count"], MAX_PUBLIC_ATTEMPTS + 1)
+        self.assertEqual(len(task["attempts"]), MAX_PUBLIC_ATTEMPTS)
+        self.assertEqual(task["attempts"][0]["number"], 2)
 
 
 if __name__ == "__main__":

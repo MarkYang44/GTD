@@ -1354,7 +1354,11 @@ def download_tasks(
         raise ValueError(f"不支持的速度模式: {speed_mode}")
     if not isinstance(audio_format, str) or audio_format not in AUDIO_FORMATS:
         raise ValueError(f"不支持的音频格式: {audio_format}")
-    output_dir = _prepare_output_dir(output_dir)
+    output_dir = (
+        output_dir
+        if isinstance(output_dir, _PreparedOutputDir)
+        else _prepare_output_dir(output_dir)
+    )
 
     total = len(tasks)
     if not tasks:

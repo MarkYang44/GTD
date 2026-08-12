@@ -23,6 +23,11 @@ from download_logging import (
     log_download_event,
     redact_value,
 )
+from output_files import (
+    _PreparedOutputDir,
+    prepare_output_dir,
+    prepared_output_dir,
+)
 
 
 MAX_PUBLIC_ATTEMPTS = 20
@@ -68,6 +73,9 @@ class TaskManager:
         max_batches: int = 100,
         logger=None,
         capability_aware_runner: bool = False,
+        directory_preparer: Callable[
+            [str | Path | None], _PreparedOutputDir
+        ] = prepare_output_dir,
     ) -> None:
         if max_workers < 1 or max_bilibili < 1 or max_batches < 1:
             raise ValueError("任务管理器容量必须大于零")
@@ -75,6 +83,7 @@ class TaskManager:
             raise ValueError("能力感知下载器标记必须是布尔值")
         self._runner = runner
         self._capability_aware_runner = capability_aware_runner
+        self._directory_preparer = directory_preparer
         self._max_batches = max_batches
         self._lock = threading.RLock()
         self._executor = ThreadPoolExecutor(
@@ -107,19 +116,13 @@ class TaskManager:
             raise ValueError("一次最多创建 100 个下载任务")
         if not all(isinstance(entry, TaskSeed) for entry in entries):
             raise ValueError("下载任务格式无效")
-        from downloader import (
-            _PreparedOutputDir,
-            _prepare_output_dir,
-            _prepared_output_dir,
-        )
-
-        prepared_output_dir = (
+        prepared_dir = (
             download_dir
             if isinstance(download_dir, _PreparedOutputDir)
-            else _prepare_output_dir(download_dir)
+            else self._directory_preparer(download_dir)
         )
-        _prepared_output_dir(prepared_output_dir)
-        resolved_download_dir = str(prepared_output_dir)
+        prepared_output_dir(prepared_dir)
+        resolved_download_dir = str(prepared_dir)
 
         with self._lock:
             batch_id = uuid.uuid4().hex
@@ -140,7 +143,7 @@ class TaskManager:
                         audio_format,
                         speed_mode,
                         download_dir=resolved_download_dir,
-                        prepared_output_dir=prepared_output_dir,
+                        prepared_output_dir=prepared_dir,
                         output_version=output_version,
                         version_key=version_key,
                     )
@@ -661,12 +664,14 @@ class TaskManager:
             key: deepcopy(value)
             for key, value in task.items()
             if key not in {
+                "attempts",
                 "cancel_requested",
                 "version_key",
                 "base_filepath",
                 "_prepared_output_dir",
             }
         }
+        public["attempts"] = deepcopy(task["attempts"][-MAX_PUBLIC_ATTEMPTS:])
         public["can_cancel"] = status == "queued" or (
             status == "running" and not task["cancel_requested"]
         )
@@ -677,7 +682,6 @@ class TaskManager:
             and bool(error.get("retryable"))
         )
         public["can_redownload"] = status == "completed"
-        public["attempts"] = public["attempts"][-MAX_PUBLIC_ATTEMPTS:]
         return public
 
     def _require_batch(self, batch_id: str) -> dict[str, object]:
