@@ -1,3 +1,5 @@
+import copy
+import json
 import threading
 import time
 import tempfile
@@ -30,7 +32,13 @@ class TaskManagerTests(unittest.TestCase):
         self.assertTrue(manager.wait_for_idle())
         manager.shutdown()
 
-        self.assertEqual(calls[0]["output_dir"], str(Path("/tmp").resolve()))
+        output_dir = calls[0]["output_dir"]
+        self.assertIs(type(output_dir), str)
+        self.assertEqual(output_dir, str(Path("/tmp").resolve()))
+        self.assertEqual(copy.deepcopy(output_dir), output_dir)
+        self.assertEqual(json.loads(json.dumps({"output_dir": output_dir})), {
+            "output_dir": output_dir,
+        })
         self.assertNotIn("output_dir_validated", calls[0])
 
     def test_default_download_directory_is_validated_once_per_batch(self):
@@ -50,7 +58,11 @@ class TaskManagerTests(unittest.TestCase):
                 patch.object(Path, "open", new=count_probes),
                 patch("downloader._download_bilibili", return_value={}),
             ):
-                manager = TaskManager(downloader.download_video, max_workers=1)
+                manager = TaskManager(
+                    downloader.download_video,
+                    max_workers=1,
+                    capability_aware_runner=True,
+                )
                 batch = manager.create_batch(
                     [TaskSeed("bilibili", "https://b23.tv/example")],
                     "video",

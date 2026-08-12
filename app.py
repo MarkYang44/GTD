@@ -55,6 +55,7 @@ task_manager = TaskManager(
     max_workers=3,
     max_bilibili=2,
     max_batches=MAX_STORED_BATCHES,
+    capability_aware_runner=True,
 )
 
 # ---------------------------------------------------------------------------

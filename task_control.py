@@ -64,10 +64,14 @@ class TaskManager:
         max_bilibili: int = 2,
         max_batches: int = 100,
         logger=None,
+        capability_aware_runner: bool = False,
     ) -> None:
         if max_workers < 1 or max_bilibili < 1 or max_batches < 1:
             raise ValueError("任务管理器容量必须大于零")
+        if not isinstance(capability_aware_runner, bool):
+            raise ValueError("能力感知下载器标记必须是布尔值")
         self._runner = runner
+        self._capability_aware_runner = capability_aware_runner
         self._max_batches = max_batches
         self._lock = threading.RLock()
         self._executor = ThreadPoolExecutor(
@@ -487,7 +491,11 @@ class TaskManager:
                 speed_mode=runner_fields["speed_mode"],
                 cancel_token=token,
                 output_version=runner_fields["output_version"],
-                output_dir=task["_prepared_output_dir"],
+                output_dir=(
+                    task["_prepared_output_dir"]
+                    if self._capability_aware_runner
+                    else task["download_dir"]
+                ),
                 raise_errors=True,
             )
             if result is None:

@@ -108,7 +108,7 @@ Expected: new assertions fail because every task calls the full directory valida
 
 - [ ] **Step 3: Add the trusted internal path**
 
-Keep `ensure_downloads_dir()` unchanged for raw external paths. Add a private `_PreparedOutputDir` capability plus preparation and resolution helpers. `download_tasks()` and TaskManager retain one prepared capability per batch; the Web route creates one after request validation and passes it directly to TaskManager. Request JSON never supplies a capability.
+Keep `ensure_downloads_dir()` unchanged for raw external paths. Add a private `_PreparedOutputDir` capability plus preparation and resolution helpers. `download_tasks()` uses its prepared capability directly; TaskManager retains one per batch but passes it only when constructed with explicit `capability_aware_runner=True`, while ordinary custom runners receive a plain resolved `str`. The Web route creates one after request validation and configures its global TaskManager explicitly. Request JSON never supplies a capability.
 
 - [ ] **Step 4: Run focused tests**
 
