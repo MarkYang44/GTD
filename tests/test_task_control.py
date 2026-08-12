@@ -12,6 +12,26 @@ from task_control import TaskManager, TaskSeed
 
 
 class TaskManagerTests(unittest.TestCase):
+    def test_runner_receives_validated_download_directory_flag(self):
+        calls = []
+
+        def runner(url, **kwargs):
+            calls.append(kwargs)
+            return {"title": url, "filepath": "/tmp/ok.mp4"}
+
+        manager = TaskManager(runner, max_workers=1)
+        manager.create_batch(
+            [TaskSeed("youtube", "https://youtu.be/x")],
+            "video",
+            "mp3",
+            "standard",
+            "/tmp",
+        )
+        self.assertTrue(manager.wait_for_idle())
+        manager.shutdown()
+
+        self.assertTrue(calls[0]["output_dir_validated"])
+
     def test_queued_task_cancels_without_calling_runner(self):
         release = threading.Event()
         calls = []

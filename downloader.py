@@ -153,6 +153,22 @@ def ensure_downloads_dir(download_dir: str | Path | None = None) -> Path:
     return target
 
 
+def _prepared_output_dir(
+    download_dir: str | Path | None,
+    validated: bool,
+) -> Path:
+    """Use a batch-validated directory without repeating its write probe."""
+    if not validated:
+        return ensure_downloads_dir(download_dir)
+
+    if not isinstance(download_dir, (str, os.PathLike)):
+        raise ValueError("下载目录必须是路径字符串")
+    target = Path(download_dir).absolute()
+    if not target.is_dir():
+        raise ValueError(f"下载位置不是文件夹: {target}")
+    return target
+
+
 # ---------------------------------------------------------------------------
 # 链接识别与校验
 # ---------------------------------------------------------------------------
@@ -1625,6 +1641,7 @@ def download_video(
     output_version: int = 1,
     raise_errors: bool = False,
     output_dir: str | Path | None = None,
+    output_dir_validated: bool = False,
 ) -> Optional[DownloadResult]:
     """自动识别平台并使用 yt-dlp 下载单个视频。"""
     platform = platform or detect_platform(url)
@@ -1641,7 +1658,7 @@ def download_video(
     if cancel_token:
         cancel_token.raise_if_cancelled()
 
-    output_dir = ensure_downloads_dir(output_dir)
+    output_dir = _prepared_output_dir(output_dir, output_dir_validated)
     if platform == BILIBILI:
         try:
             return _download_bilibili(
@@ -1941,6 +1958,7 @@ def download_tasks(
                     audio_format=audio_format,
                     speed_mode=speed_mode,
                     output_dir=output_dir,
+                    output_dir_validated=True,
                     raise_errors=True,
                 )
                 if result is None:

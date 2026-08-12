@@ -42,6 +42,56 @@ class DownloadDirectoryTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "无法创建下载目录|不是文件夹"):
                 downloader.ensure_downloads_dir(target)
 
+    def test_batch_reuses_one_validated_download_directory(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            probe_count = 0
+            original_open = Path.open
+
+            def count_probes(path, *args, **kwargs):
+                nonlocal probe_count
+                if path.name.startswith(".__mvd_write_test_"):
+                    probe_count += 1
+                return original_open(path, *args, **kwargs)
+
+            with (
+                patch.object(Path, "open", new=count_probes),
+                patch("downloader._download_bilibili", return_value={}),
+            ):
+                downloader.download_tasks(
+                    [
+                        (downloader.BILIBILI, "https://b23.tv/one"),
+                        (downloader.BILIBILI, "https://b23.tv/two"),
+                    ],
+                    output_dir=directory,
+                )
+
+            self.assertEqual(probe_count, 1)
+
+    def test_direct_download_still_validates_download_directory(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            probe_count = 0
+            original_open = Path.open
+
+            def count_probes(path, *args, **kwargs):
+                nonlocal probe_count
+                if path.name.startswith(".__mvd_write_test_"):
+                    probe_count += 1
+                return original_open(path, *args, **kwargs)
+
+            with (
+                patch.object(Path, "open", new=count_probes),
+                patch("downloader._download_bilibili", return_value={}),
+            ):
+                downloader.download_video(
+                    "https://b23.tv/example",
+                    platform=downloader.BILIBILI,
+                    output_dir=directory,
+                )
+
+            self.assertEqual(probe_count, 1)
+
     def test_batch_and_runner_keep_selected_directory(self):
         calls = []
 
@@ -67,6 +117,7 @@ class DownloadDirectoryTests(unittest.TestCase):
         self.assertEqual(snapshot["download_dir"], "D:/Media")
         self.assertEqual(snapshot["tasks"][0]["download_dir"], "D:/Media")
         self.assertEqual(calls[0]["output_dir"], "D:/Media")
+        self.assertTrue(calls[0]["output_dir_validated"])
 
 
 class FolderPickerTests(unittest.TestCase):

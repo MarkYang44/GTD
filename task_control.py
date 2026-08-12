@@ -471,6 +471,7 @@ class TaskManager:
                 cancel_token=token,
                 output_version=runner_fields["output_version"],
                 output_dir=task.get("download_dir"),
+                output_dir_validated=True,
                 raise_errors=True,
             )
             if result is None:
