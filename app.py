@@ -74,6 +74,12 @@ def guide():
     )
 
 
+@app.route("/kozekilmu")
+def kozekilmu():
+    """A hidden LMU Fuji GT3 victory page reached from the task mascot."""
+    return render_template("kozekilmu.html")
+
+
 @app.route("/favicon.ico")
 def favicon():
     """Serve the multi-resolution icon at the legacy browser location."""

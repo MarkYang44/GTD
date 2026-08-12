@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0f172a">
+<link rel="icon" href="{{ url_for('static', filename='icons/favicon.ico', v='20260811') }}" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/favicon-32x32.png', v='20260811') }}">
+<link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png', v='20260811') }}">
+<link rel="manifest" href="{{ url_for('static', filename='site.webmanifest', v='20260811') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,400&amp;display=swap" rel="stylesheet">
+<title>你怎么知道我在2026年7月12号的 LMU 富士赛道 GT3 铜赛拿了冠军 😋</title>
+<style>
+  @font-face {
+    font-family: "Palatino UI Italic";
+    src: local("Palatino Italic"), local("Palatino-Italic");
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+  }
+  :root {
+    --background: #0f172a;
+    --background-deep: #0b1222;
+    --surface: #111827;
+    --surface-hover: #162033;
+    --primary: #009b95;
+    --accent: #00a19b;
+    --foreground: #f8fafc;
+    --muted: #94a3b8;
+    --muted-strong: #cbd5e1;
+    --border: rgba(148, 163, 184, .16);
+    --border-strong: rgba(0, 161, 155, .38);
+    --ui-font: "Palatino UI Italic", Palatino, "Book Antiqua", Georgia,
+               -apple-system, BlinkMacSystemFont, "Noto Sans SC", serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    min-width: 320px;
+    min-height: 100vh;
+    overflow-x: hidden;
+    color: var(--foreground);
+    background:
+      radial-gradient(circle at 18% 9%, rgba(0, 161, 155, .12), transparent 30rem),
+      radial-gradient(circle at 88% 31%, rgba(251, 113, 133, .055), transparent 27rem),
+      linear-gradient(180deg, var(--background-deep) 0%, var(--background) 38%, #0d1628 100%);
+    font-family: var(--ui-font);
+    line-height: 1.5;
+  }
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    pointer-events: none;
+    background-image:
+      linear-gradient(rgba(148, 163, 184, .035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148, 163, 184, .035) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: linear-gradient(to bottom, #000 0%, transparent 88%);
+  }
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    opacity: .025;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.92' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.7'/%3E%3C/svg%3E");
+  }
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  img { display: block; max-width: 100%; }
+
+  .scroll-progress {
+    position: fixed;
+    inset: 0 auto auto 0;
+    z-index: 300;
+    width: 100%;
+    height: 2px;
+    pointer-events: none;
+    transform: scaleX(0);
+    transform-origin: left center;
+    background: linear-gradient(90deg, var(--primary), #44d7c9);
+    box-shadow: 0 0 14px rgba(0, 161, 155, .7);
+  }
+  .pointer-light {
+    position: fixed;
+    z-index: 0;
+    width: 460px;
+    height: 460px;
+    border-radius: 50%;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate3d(-50%, -50%, 0);
+    background: radial-gradient(circle, rgba(0, 161, 155, .09), transparent 68%);
+    transition: opacity .35s ease;
+  }
+  .has-fine-pointer .pointer-light { opacity: 1; }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    height: 68px;
+    border-bottom: 1px solid transparent;
+    background: rgba(11, 18, 34, 0);
+    transition: background .25s ease, border-color .25s ease, box-shadow .25s ease;
+  }
+  .topbar.is-scrolled {
+    border-color: var(--border);
+    background: rgba(11, 18, 34, .88);
+    box-shadow: 0 12px 28px rgba(2, 6, 23, .2);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+  }
+  .topbar-inner {
+    width: min(1180px, calc(100% - 40px));
+    height: 100%;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .brand {
+    color: var(--foreground);
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: 17px;
+    font-style: italic;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .topbar-actions { display: flex; align-items: center; gap: 16px; }
+  .topbar-link {
+    display: inline-flex;
+    min-height: 34px;
+    padding: 0 13px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    color: var(--muted-strong);
+    background: rgba(15, 23, 42, .18);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-decoration: none;
+    transition: color .18s ease, border-color .18s ease, background-color .18s ease, box-shadow .18s ease;
+  }
+  .topbar-link:hover {
+    color: var(--foreground);
+    border-color: var(--border-strong);
+    background: rgba(0, 155, 149, .08);
+    box-shadow: 0 0 16px rgba(0, 161, 155, .08);
+  }
+  .service-status { display: grid; width: 36px; height: 36px; padding: 3px; place-items: center; }
+  .service-avatar { width: 30px; height: 30px; object-fit: contain; }
+
+  .main {
+    position: relative;
+    z-index: 1;
+    width: min(1180px, calc(100% - 40px));
+    margin: 0 auto;
+    padding: 56px 0 88px;
+  }
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.08fr) minmax(340px, .92fr);
+    min-height: 430px;
+    align-items: center;
+    gap: clamp(34px, 6vw, 86px);
+  }
+  .hero-kicker, .section-index, .data-label {
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+  }
+  .hero-title {
+    max-width: 760px;
+    margin-top: 20px;
+    font-size: clamp(37px, 5vw, 66px);
+    font-weight: 500;
+    line-height: 1.1;
+    letter-spacing: -.035em;
+    text-wrap: balance;
+  }
+  .hero-date {
+    color: var(--accent);
+    font-family: var(--ui-font);
+    font-size: .96em;
+    font-style: normal;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums lining-nums;
+    letter-spacing: -.015em;
+    white-space: nowrap;
+  }
+  .hero-subtitle { max-width: 650px; margin-top: 24px; color: var(--muted); font-size: 14px; }
+  .hero-stamp {
+    position: relative;
+    aspect-ratio: 1;
+    width: min(100%, 410px);
+    justify-self: end;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: radial-gradient(circle, rgba(0, 161, 155, .08), transparent 66%);
+  }
+  .hero-stamp::before, .hero-stamp::after { content: ""; position: absolute; border-radius: 50%; border: 1px solid rgba(0, 161, 155, .12); }
+  .hero-stamp::before { inset: 8%; }
+  .hero-stamp::after { inset: 22%; }
+  .stamp-rank {
+    position: relative;
+    z-index: 1;
+    color: var(--foreground);
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: clamp(102px, 14vw, 172px);
+    font-style: italic;
+    line-height: .7;
+  }
+  .stamp-copy {
+    position: absolute;
+    bottom: 22%;
+    z-index: 2;
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .2em;
+  }
+
+  .race-data {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    margin: 30px 0 76px;
+    border-block: 1px solid var(--border);
+  }
+  .data-item { min-width: 0; padding: 24px clamp(16px, 3vw, 32px); border-right: 1px solid var(--border); }
+  .data-item:last-child { border-right: 0; }
+  .data-value { display: block; margin-top: 8px; color: var(--foreground); font-size: clamp(20px, 3vw, 31px); line-height: 1.1; }
+
+  .video-section { margin-bottom: 86px; }
+  .section-heading { display: flex; margin-bottom: 22px; align-items: flex-end; justify-content: space-between; gap: 24px; }
+  .section-title { margin-top: 8px; font-size: clamp(28px, 4vw, 42px); font-weight: 500; }
+  .section-note { color: var(--muted); font-size: 12px; }
+  .video-card {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    color: var(--foreground);
+    background: var(--surface);
+    text-decoration: none;
+    isolation: isolate;
+  }
+  .video-card img { width: 100%; aspect-ratio: 1.333; object-fit: cover; transition: transform .55s cubic-bezier(.2, .75, .2, 1), filter .35s ease; }
+  .video-card::after { content: ""; position: absolute; inset: 38% 0 0; z-index: 1; background: linear-gradient(transparent, rgba(3, 8, 18, .92)); }
+  .video-overlay { position: absolute; inset: auto 0 0; z-index: 2; display: flex; padding: clamp(22px, 5vw, 52px); align-items: flex-end; justify-content: space-between; gap: 24px; }
+  .video-kicker { display: block; margin-bottom: 9px; color: #44d7c9; font-size: 10px; font-weight: 700; letter-spacing: .16em; }
+  .video-title { max-width: 760px; font-size: clamp(20px, 3vw, 36px); font-weight: 500; line-height: 1.2; }
+  .video-play {
+    flex: 0 0 auto;
+    display: grid;
+    width: 64px;
+    height: 64px;
+    place-items: center;
+    border: 1px solid var(--border-strong);
+    color: var(--foreground);
+    background: rgba(11, 18, 34, .72);
+    font-size: 20px;
+    transition: transform .2s ease, background .2s ease, box-shadow .2s ease;
+  }
+  .video-card:hover img { transform: scale(1.018); filter: brightness(1.06); }
+  .video-card:hover .video-play { transform: translateY(-3px); background: rgba(0, 155, 149, .25); box-shadow: 0 0 26px rgba(0, 161, 155, .22); }
+
+  .gallery { margin-bottom: 22px; }
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    column-gap: clamp(24px, 2vw, 32px);
+    row-gap: clamp(28px, 2.4vw, 38px);
+  }
+  .shot {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .shot img { width: 100%; height: 100%; object-fit: cover; transition: transform .4s ease, filter .4s ease; }
+  .shot:hover img { transform: scale(1.015); filter: brightness(1.07); }
+  .shot-summary { grid-column: span 7; aspect-ratio: 1.896; }
+  .shot-result { grid-column: span 5; aspect-ratio: 1.77; }
+  .shot-table { grid-column: 1 / -1; aspect-ratio: 1.816; }
+  .shot-stats { grid-column: span 5; aspect-ratio: 2.16; }
+  .shot-achievements { grid-column: span 7; aspect-ratio: 2.36; }
+  .shot-caption {
+    position: absolute;
+    inset: auto 0 0;
+    padding: 34px 16px 12px;
+    color: var(--muted-strong);
+    background: linear-gradient(transparent, rgba(3, 8, 18, .82));
+    font-size: 11px;
+    letter-spacing: .08em;
+  }
+
+  .footer {
+    position: relative;
+    z-index: 1;
+    width: min(1180px, calc(100% - 40px));
+    margin: 0 auto;
+    padding: 25px 0 30px;
+    display: grid;
+    gap: 7px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 11px;
+    text-align: center;
+  }
+  .footer-line-en { color: rgba(148, 163, 184, .78); }
+
+  @media (hover: hover) and (pointer: fine) {
+    .service-status:hover { background: rgba(0, 155, 149, .055); box-shadow: inset 0 0 0 1px var(--border-strong), 0 0 16px rgba(0, 161, 155, .12); }
+  }
+  @media (max-width: 820px) {
+    .hero { grid-template-columns: 1fr; min-height: 0; }
+    .hero-stamp { width: 280px; justify-self: center; }
+    .race-data { grid-template-columns: repeat(2, 1fr); }
+    .data-item:nth-child(2) { border-right: 0; }
+    .data-item:nth-child(-n+2) { border-bottom: 1px solid var(--border); }
+    .shot-summary, .shot-result, .shot-stats, .shot-achievements { grid-column: 1 / -1; }
+  }
+  @media (max-width: 560px) {
+    .topbar { height: 60px; }
+    .topbar-inner, .main, .footer { width: min(100% - 28px, 1180px); }
+    .brand { font-size: 15px; }
+    .topbar-actions { gap: 8px; }
+    .topbar-link { min-height: 31px; padding: 0 10px; font-size: 11px; }
+    .service-status { width: 32px; height: 32px; padding: 2px; }
+    .service-avatar { width: 28px; height: 28px; }
+    .main { padding: 38px 0 60px; }
+    .hero-title { font-size: 37px; }
+    .hero-stamp { width: 230px; }
+    .race-data { margin-bottom: 58px; }
+    .data-item { padding: 18px 14px; }
+    .data-value { font-size: 20px; }
+    .section-heading { align-items: flex-start; flex-direction: column; gap: 7px; }
+    .video-section { margin-bottom: 60px; }
+    .video-card img { aspect-ratio: 1.12; }
+    .video-overlay { padding: 22px; align-items: flex-start; flex-direction: column; }
+    .video-play { width: 50px; height: 50px; }
+    .gallery-grid { column-gap: 20px; row-gap: 20px; }
+    .shot, .shot-table { grid-column: 1 / -1; aspect-ratio: auto; }
+    .shot img { height: auto; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { transition-duration: .01ms !important; }
+    .pointer-light { display: none; }
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .topbar.is-scrolled { background: var(--background-deep); }
+  }
+</style>
+</head>
+<body>
+<div class="scroll-progress" id="scroll-progress" aria-hidden="true"></div>
+<div class="pointer-light" id="pointer-light" aria-hidden="true"></div>
+
+<header class="topbar" id="topbar">
+  <div class="topbar-inner">
+    <div class="brand">Designed by Mark Yang</div>
+    <div class="topbar-actions">
+      <a class="topbar-link" href="{{ url_for('index') }}#task-card">返回下载</a>
+      <div class="service-status" role="img" aria-label="Kozeki Ui">
+        <img class="service-avatar" src="{{ url_for('static', filename='icons/favicon-32x32.png', v='20260811') }}" srcset="{{ url_for('static', filename='icons/favicon-32x32.png', v='20260811') }} 1x, {{ url_for('static', filename='icons/favicon-64x64.png', v='20260811') }} 2x, {{ url_for('static', filename='icons/character-icon-128x128.png', v='20260811') }} 3x" width="30" height="30" alt="" aria-hidden="true">
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="main">
+  <section class="hero" aria-labelledby="easter-egg-title">
+    <div>
+      <p class="hero-kicker">SECRET / FUJI SPEEDWAY</p>
+      <h1 class="hero-title" id="easter-egg-title">你怎么知道我在<span class="hero-date">2026年7月12号</span>的 LMU 富士赛道 GT3 铜赛拿了冠军 😋</h1>
+      <p class="hero-subtitle">从第 8 位发车到全场第 1：12 圈、上升 7 位、在富士山脚拿下第一场 LMU 胜利。点到这里了，那就顺便看完证据吧。</p>
+    </div>
+    <div class="hero-stamp" aria-label="第一名">
+      <span class="stamp-rank">1</span>
+      <span class="stamp-copy">ST / FIRST LMU WIN</span>
+    </div>
+  </section>
+
+  <section class="race-data" aria-label="赛事摘要">
+    <div class="data-item"><span class="data-label">Circuit</span><span class="data-value">Fuji</span></div>
+    <div class="data-item"><span class="data-label">Class</span><span class="data-value">LMGT3</span></div>
+    <div class="data-item"><span class="data-label">Grid → Finish</span><span class="data-value">P8 → P1</span></div>
+    <div class="data-item"><span class="data-label">Race Date</span><span class="data-value">12.07.2026</span></div>
+  </section>
+
+  <section class="video-section" aria-labelledby="race-video-title">
+    <header class="section-heading">
+      <div><span class="section-index">01 / RACE FILM</span><h2 class="section-title" id="race-video-title">Maybe not today, but one day…</h2></div>
+      <span class="section-note">点击主视觉前往 Bilibili 观看</span>
+    </header>
+    <a class="video-card" href="https://b23.tv/F3xhGEK" target="_blank" rel="noopener noreferrer" aria-label="在 Bilibili 观看 LMU 第一胜视频">
+      <img src="{{ url_for('static', filename='kozekilmu/lmu-first-win.png') }}" width="1448" height="1086" alt="红色 BMW M4 GT3 赛车在富士赛道取得 LMU 首胜的视频封面">
+      <span class="video-overlay">
+        <span><span class="video-kicker">BILIBILI / LMU</span><span class="video-title">模拟赛车萌新拿下 LMU 第一胜</span></span>
+        <span class="video-play" aria-hidden="true">▶</span>
+      </span>
+    </a>
+  </section>
+
+  <section class="gallery" aria-labelledby="evidence-title">
+    <header class="section-heading">
+      <div><span class="section-index">02 / RECEIPTS</span><h2 class="section-title" id="evidence-title">冠军证据，甚至有点太全了。</h2></div>
+      <span class="section-note">LMU · LMGT3 Fixed · Fuji Speedway</span>
+    </header>
+    <div class="gallery-grid">
+      <figure class="shot shot-summary"><img src="{{ url_for('static', filename='kozekilmu/race-summary.png') }}" width="2304" height="1215" loading="lazy" alt="LMU 富士 GT3 比赛前三名总结，Ui Kozeki 获得第一名"><figcaption class="shot-caption">OVERALL P1 / +7 POSITIONS</figcaption></figure>
+      <figure class="shot shot-result"><img src="{{ url_for('static', filename='kozekilmu/fuji-result.png') }}" width="747" height="422" loading="lazy" alt="LMU 富士赛道比赛结果卡片，显示第一名"><figcaption class="shot-caption">FUJI SPEEDWAY / 1ST</figcaption></figure>
+      <figure class="shot shot-table"><img src="{{ url_for('static', filename='kozekilmu/classification.png') }}" width="2239" height="1233" loading="lazy" alt="LMU 富士 GT3 完整比赛排名，Ui Kozeki 排名第一"><figcaption class="shot-caption">12 LAPS / 21:04 / WINNER</figcaption></figure>
+      <figure class="shot shot-stats"><img src="{{ url_for('static', filename='kozekilmu/career-stats.png') }}" width="897" height="415" loading="lazy" alt="LMU 生涯数据，显示一次组别胜利和十次领奖台"><figcaption class="shot-caption">CAREER STATS / FIRST CLASS WIN</figcaption></figure>
+      <figure class="shot shot-achievements"><img src="{{ url_for('static', filename='kozekilmu/achievements.png') }}" width="533" height="226" loading="lazy" alt="First Past the Post 与 At the Foot of the Mountain 两项成就"><figcaption class="shot-caption">ACHIEVEMENTS UNLOCKED</figcaption></figure>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <span>这不是下载记录，这是冠军记录。 -- Kozeki Ui</span>
+  <span class="footer-line-en" lang="en">Maybe not today, but one day. Apparently, that day was July 12, 2026.</span>
+</footer>
+
+<script>
+  (() => {
+    const root = document.documentElement;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const finePointer = window.matchMedia("(pointer: fine)").matches;
+    const progress = document.getElementById("scroll-progress");
+    const topbar = document.getElementById("topbar");
+    const pointerLight = document.getElementById("pointer-light");
+    let scrollFrame = null;
+    let pointerFrame = null;
+    let pointerX = 0;
+    let pointerY = 0;
+    const updateScrollState = () => {
+      const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+      progress.style.transform = `scaleX(${scrollable > 0 ? Math.min(window.scrollY / scrollable, 1) : 0})`;
+      topbar.classList.toggle("is-scrolled", window.scrollY > 12);
+      scrollFrame = null;
+    };
+    const scheduleScrollUpdate = () => { if (scrollFrame === null) scrollFrame = requestAnimationFrame(updateScrollState); };
+    window.addEventListener("scroll", scheduleScrollUpdate, { passive: true });
+    window.addEventListener("resize", scheduleScrollUpdate, { passive: true });
+    scheduleScrollUpdate();
+    if (finePointer && !reducedMotion) {
+      root.classList.add("has-fine-pointer");
+      window.addEventListener("pointermove", event => {
+        pointerX = event.clientX;
+        pointerY = event.clientY;
+        if (pointerFrame !== null) return;
+        pointerFrame = requestAnimationFrame(() => {
+          pointerLight.style.transform = `translate3d(${pointerX - 230}px, ${pointerY - 230}px, 0)`;
+          pointerFrame = null;
+        });
+      }, { passive: true });
+    }
+  })();
+</script>
+</body>
+</html>

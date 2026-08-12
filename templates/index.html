@@ -81,7 +81,7 @@
   }
 
   button, textarea { font: inherit; }
-  button:focus-visible, textarea:focus-visible, .topbar-link:focus-visible {
+  button:focus-visible, textarea:focus-visible, .topbar-link:focus-visible, .empty-state .icon:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 3px;
   }
@@ -798,6 +798,8 @@
     margin: 0 auto 16px;
     padding: 5px;
     place-items: center;
+    color: inherit;
+    text-decoration: none;
     transition: background-color .18s ease, box-shadow .18s ease;
   }
   .empty-state .icon img {
@@ -1091,7 +1093,7 @@
     </div>
     <div id="task-container" aria-live="polite">
       <div class="empty-state">
-        <div class="icon" aria-hidden="true">
+        <a class="icon" href="{{ url_for('kozekilmu') }}" aria-label="打开隐藏的 LMU 富士 GT3 冠军页面">
           <img
             src="{{ url_for('static', filename='icons/favicon-64x64.png', v='20260811') }}"
             srcset="{{ url_for('static', filename='icons/favicon-64x64.png', v='20260811') }} 1x, {{ url_for('static', filename='icons/character-icon-128x128.png', v='20260811') }} 2x, {{ url_for('static', filename='icons/character-icon-192x192.png', v='20260811') }} 3x"
@@ -1101,7 +1103,7 @@
             loading="lazy"
             decoding="async"
           >
-        </div>
+        </a>
         <p>在上方对应区块粘贴链接并开始下载</p>
       </div>
     </div>
