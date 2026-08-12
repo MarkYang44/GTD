@@ -1,0 +1,80 @@
+:root {
+  --motion-fast: 190ms;
+  --motion-enter: 680ms;
+  --motion-stagger: 70ms;
+  --motion-ease: cubic-bezier(.2, .75, .2, 1);
+}
+
+[data-motion-reveal] {
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+
+.motion-ready.motion-enabled [data-motion-reveal]:not(.motion-visible) {
+  opacity: 0;
+  transform: translate3d(0, 16px, 0);
+  filter: blur(6px);
+}
+
+.motion-ready.motion-enabled [data-motion-reveal].motion-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  filter: blur(0);
+  transition: opacity var(--motion-enter) var(--motion-ease),
+              transform var(--motion-enter) var(--motion-ease),
+              filter var(--motion-enter) var(--motion-ease);
+  transition-delay: calc(var(--motion-order, 0) * var(--motion-stagger));
+}
+
+[data-motion-surface] {
+  --motion-x: 50%;
+  --motion-y: 50%;
+  --motion-rx: 0deg;
+  --motion-ry: 0deg;
+  position: relative;
+  isolation: isolate;
+}
+
+[data-motion-surface] > * {
+  position: relative;
+  z-index: 1;
+}
+
+.motion-fine-pointer [data-motion-surface]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: var(--motion-sheen-opacity, 0);
+  background: radial-gradient(circle at var(--motion-x) var(--motion-y), rgba(0, 161, 155, .11), transparent 38%);
+  transition: opacity var(--motion-fast) ease;
+}
+
+.motion-fine-pointer [data-motion-surface].motion-surface-active {
+  transform: perspective(1200px) rotateX(var(--motion-rx)) rotateY(var(--motion-ry));
+}
+
+[data-motion-parallax] {
+  transform: translate3d(0, var(--motion-parallax-offset, 0px), 0);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .motion-fine-pointer [data-motion-surface] {
+    transition: transform var(--motion-fast) var(--motion-ease);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-motion-reveal], [data-motion-parallax], [data-motion-surface] {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    transition: none !important;
+  }
+
+  [data-motion-surface]::before {
+    display: none !important;
+  }
+}
