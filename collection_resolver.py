@@ -12,7 +12,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 import yt_dlp
 
 from download_errors import DownloadFailure, classify_download_error
-from downloader import (
+from media_sources import (
     BILIBILI,
     INSTAGRAM,
     YOUTUBE,

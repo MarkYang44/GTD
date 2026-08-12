@@ -17,10 +17,11 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Callable, Optional
-from urllib.parse import parse_qs, urlparse
 
 import yt_dlp
 
+import media_sources
+import output_files
 from download_errors import (
     DownloadCancelled,
     DownloadFailure,
@@ -54,9 +55,9 @@ from bilibili_acceleration import (
 PROJECT_DIR = Path(__file__).resolve().parent
 DOWNLOADS_DIR = PROJECT_DIR / "downloads"
 
-YOUTUBE = "youtube"
-INSTAGRAM = "instagram"
-BILIBILI = "bilibili"
+YOUTUBE = media_sources.YOUTUBE
+INSTAGRAM = media_sources.INSTAGRAM
+BILIBILI = media_sources.BILIBILI
 VIDEO = "video"
 AUDIO = "audio"
 MEDIA_TYPES = {VIDEO, AUDIO}
@@ -65,20 +66,16 @@ FLAC = "flac"
 SOURCE = "source"
 WAV = "wav"
 AUDIO_FORMATS = {MP3, FLAC, SOURCE, WAV}
-PLATFORM_NAMES = {
-    YOUTUBE: "YouTube",
-    INSTAGRAM: "Instagram",
-    BILIBILI: "Bilibili",
-}
+PLATFORM_NAMES = media_sources.PLATFORM_NAMES
 MAX_PARALLEL_DOWNLOADS = 3
 MAX_PARALLEL_BILIBILI_DOWNLOADS = 2
 ANSI_ESCAPE_RE = re.compile(r"\x1b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
-SHARE_URL_RE = re.compile(r"https?://[^\s]+", re.IGNORECASE)
-TRAILING_URL_PUNCTUATION = "】）》」』〕〉)]}>\"'“”‘’,.!?;:，。！？；："
-ATTEMPT_OUTPUT_MARKER_RE = re.compile(r" \[\.__mvd_[A-Za-z0-9_-]+\]$")
+SHARE_URL_RE = media_sources.SHARE_URL_RE
+TRAILING_URL_PUNCTUATION = media_sources.TRAILING_URL_PUNCTUATION
+ATTEMPT_OUTPUT_MARKER_RE = output_files.ATTEMPT_OUTPUT_MARKER_RE
 
 # 类型别名
-VideoTask = tuple[str, str]          # (platform, normalized_url)
+VideoTask = media_sources.VideoTask  # (platform, normalized_url)
 DownloadResult = dict[str, object]   # 单视频下载结果
 ProgressCallback = Callable[[int, str, object], None] | None
 YtdlpProgressCallback = Callable[[str, dict[str, object]], None] | None
@@ -115,278 +112,79 @@ class _QuietYtdlpLogger:
 # 目录工具
 # ---------------------------------------------------------------------------
 def ensure_downloads_dir(download_dir: str | Path | None = None) -> Path:
-    """Resolve, create, and verify a user-selected download directory."""
-    if download_dir is None or (
-        isinstance(download_dir, str) and not download_dir.strip()
-    ):
-        target = DOWNLOADS_DIR
-    elif not isinstance(download_dir, (str, os.PathLike)):
-        raise ValueError("下载目录必须是路径字符串")
-    else:
-        raw = os.path.expandvars(str(download_dir).strip())
-        if "\x00" in raw:
-            raise ValueError("下载目录包含无效字符")
-        if os.name != "nt" and re.match(r"^[A-Za-z]:[\\/]", raw):
-            raise ValueError("当前系统不能使用 Windows 盘符路径")
-        path = Path(raw).expanduser()
-        target = path if path.is_absolute() else PROJECT_DIR / path
-
-    try:
-        target = target.resolve(strict=False)
-        target.mkdir(parents=True, exist_ok=True)
-    except OSError as error:
-        raise ValueError(f"无法创建下载目录: {target}") from error
-    if not target.is_dir():
-        raise ValueError(f"下载位置不是文件夹: {target}")
-
-    probe = target / f".__mvd_write_test_{uuid.uuid4().hex}.tmp"
-    try:
-        with probe.open("x", encoding="utf-8") as handle:
-            handle.write("ok")
-        probe.unlink()
-    except OSError as error:
-        try:
-            probe.unlink(missing_ok=True)
-        except OSError:
-            pass
-        raise ValueError(f"下载目录不可写: {target}") from error
-    return target
+    """Compatibility wrapper retaining downloader-level filesystem seams."""
+    return output_files.ensure_downloads_dir(
+        download_dir,
+        project_dir=PROJECT_DIR,
+        downloads_dir=DOWNLOADS_DIR,
+        path_cls=Path,
+        os_module=os,
+        uuid_module=uuid,
+    )
 
 
-_PREPARED_OUTPUT_DIR_CAPABILITY = object()
-
-
-class _PreparedOutputDir(str):
-    """A private capability created only after full directory validation."""
-
-    def __new__(cls, path: Path, capability: object):
-        prepared = super().__new__(cls, str(path))
-        prepared.path = path
-        prepared.capability = capability
-        return prepared
-
+_PreparedOutputDir = output_files._PreparedOutputDir
 
 
 def _prepare_output_dir(download_dir: str | Path | None) -> _PreparedOutputDir:
-    """Fully validate a batch directory and create its private capability."""
-    return _PreparedOutputDir(
-        ensure_downloads_dir(download_dir),
-        _PREPARED_OUTPUT_DIR_CAPABILITY,
+    return output_files.prepare_output_dir(
+        download_dir,
+        ensure_directory=ensure_downloads_dir,
     )
 
 
 def _prepared_output_dir(prepared: object) -> Path:
-    """Read a previously validated directory without repeating its write probe."""
-    if not isinstance(prepared, _PreparedOutputDir) or (
-        prepared.capability is not _PREPARED_OUTPUT_DIR_CAPABILITY
-    ):
-        raise ValueError("已验证下载目录必须由内部批次准备")
-    if not prepared.path.is_absolute() or not prepared.path.is_dir():
-        raise ValueError(f"下载位置不是文件夹: {prepared.path}")
-    return prepared.path
+    return output_files.prepared_output_dir(prepared)
 
 
 # ---------------------------------------------------------------------------
 # 链接识别与校验
 # ---------------------------------------------------------------------------
 def normalize_url(url: str) -> str:
-    """提取输入中的首个 HTTP(S) URL，清理末尾标点并补全协议。"""
-    value = url.strip()
-    match = SHARE_URL_RE.search(value)
-    normalized = match.group(0) if match else value
-    normalized = normalized.rstrip(TRAILING_URL_PUNCTUATION)
-    if normalized and not re.match(r"^https?://", normalized, re.IGNORECASE):
-        normalized = f"https://{normalized}"
-    return normalized
+    return media_sources.normalize_url(url)
 
 
 def _detect_normalized_platform(normalized: str) -> Optional[str]:
-    """识别已标准化链接的平台；无法识别时返回 None。"""
-    if not normalized:
-        return None
-
-    try:
-        parsed = urlparse(normalized)
-    except ValueError:
-        return None
-
-    if parsed.scheme not in {"http", "https"}:
-        return None
-
-    host = (parsed.hostname or "").lower()
-    path_parts = [part for part in parsed.path.split("/") if part]
-
-    # -- YouTube --
-    youtube_hosts = {
-        "youtube.com",
-        "www.youtube.com",
-        "m.youtube.com",
-        "music.youtube.com",
-    }
-    if host in youtube_hosts:
-        if parsed.path == "/watch" and parse_qs(parsed.query).get("v"):
-            return YOUTUBE
-        if len(path_parts) >= 2 and path_parts[0] in {"shorts", "embed", "live"}:
-            return YOUTUBE
-
-    if host in {"youtu.be", "www.youtu.be"} and path_parts:
-        return YOUTUBE
-
-    # -- Instagram --
-    instagram_hosts = {
-        "instagram.com",
-        "www.instagram.com",
-        "m.instagram.com",
-    }
-    if (
-        host in instagram_hosts
-        and len(path_parts) >= 2
-        and path_parts[0] in {"p", "reel", "reels", "tv", "stories"}
-    ):
-        return INSTAGRAM
-
-    # -- Bilibili --
-    bilibili_hosts = {
-        "bilibili.com",
-        "www.bilibili.com",
-        "m.bilibili.com",
-    }
-    if (
-        host in bilibili_hosts
-        and len(path_parts) >= 2
-        and path_parts[0] == "video"
-        and re.fullmatch(
-            r"(?:BV[0-9A-Za-z]+|av\d+)",
-            path_parts[1],
-            re.IGNORECASE,
-        )
-    ):
-        return BILIBILI
-
-    if host in {"b23.tv", "www.b23.tv"} and path_parts:
-        return BILIBILI
-
-    return None
+    return media_sources._detect_normalized_platform(normalized)
 
 
 def detect_platform(url: str) -> Optional[str]:
-    """识别合法视频链接的平台；无法识别时返回 None。"""
-    return _detect_normalized_platform(normalize_url(url))
+    return media_sources.detect_platform(url, normalizer=normalize_url)
 
 
 def detect_collection_platform(url: str) -> Optional[str]:
-    """识别当前项目明确支持展开的播放列表、合集或多条目链接。"""
-    normalized = normalize_url(url)
-    try:
-        parsed = urlparse(normalized)
-    except ValueError:
-        return None
-    if parsed.scheme not in {"http", "https"}:
-        return None
-
-    host = (parsed.hostname or "").lower()
-    path_parts = [part for part in parsed.path.split("/") if part]
-    query = parse_qs(parsed.query)
-    youtube_hosts = {
-        "youtube.com",
-        "www.youtube.com",
-        "m.youtube.com",
-        "music.youtube.com",
-    }
-    if host in youtube_hosts and (
-        parsed.path == "/playlist" or bool(query.get("list"))
-    ):
-        return YOUTUBE
-
-    bilibili_hosts = {
-        "bilibili.com",
-        "www.bilibili.com",
-        "m.bilibili.com",
-    }
-    if host in bilibili_hosts and path_parts:
-        if path_parts[0] in {"video", "medialist", "list"}:
-            return BILIBILI
-    if (
-        host == "space.bilibili.com"
-        and len(path_parts) >= 3
-        and path_parts[0].isdigit()
-        and path_parts[1] == "lists"
-    ):
-        return BILIBILI
-    if host in {"b23.tv", "www.b23.tv"} and path_parts:
-        return BILIBILI
-
-    instagram_hosts = {
-        "instagram.com",
-        "www.instagram.com",
-        "m.instagram.com",
-    }
-    if (
-        host in instagram_hosts
-        and len(path_parts) >= 2
-        and path_parts[0] in {"p", "reel", "reels", "tv"}
-    ):
-        return INSTAGRAM
-    return None
+    return media_sources.detect_collection_platform(url, normalizer=normalize_url)
 
 
 def is_valid_youtube_url(url: str) -> bool:
-    """判断链接是否为支持的 YouTube 视频链接。"""
     return detect_platform(url) == YOUTUBE
 
 
 def is_valid_instagram_url(url: str) -> bool:
-    """判断链接是否为支持的 Instagram 视频链接。"""
     return detect_platform(url) == INSTAGRAM
 
 
 def is_valid_bilibili_url(url: str) -> bool:
-    """判断链接是否为支持的 Bilibili 单视频或短链接。"""
     return detect_platform(url) == BILIBILI
 
 
 def make_task(url: str) -> Optional[VideoTask]:
-    """将用户输入转换为下载任务。"""
-    normalized = normalize_url(url)
-    platform = _detect_normalized_platform(normalized)
-    if platform is None:
-        return None
-    return platform, normalized
+    return media_sources.make_task(url, normalizer=normalize_url)
 
 
 # ---------------------------------------------------------------------------
 # Cookie 查找
 # ---------------------------------------------------------------------------
 def find_cookie_file(platform: str) -> Optional[Path]:
-    """优先使用平台专用 Cookie，随后使用通用 cookies.txt。"""
-    candidates = [
-        PROJECT_DIR / f"{platform}_cookies.txt",
-        PROJECT_DIR / "cookies.txt",
-    ]
-    return next((path for path in candidates if path.is_file()), None)
+    return media_sources.find_cookie_file(platform, project_dir=PROJECT_DIR)
 
 
 def _find_cookie_file(platform: str) -> Optional[Path]:
-    """保留内部兼容入口。"""
     return find_cookie_file(platform)
 
 
 def platform_http_headers(platform: str) -> dict[str, str]:
-    """返回元数据提取与下载共用的平台安全请求头。"""
-    if platform != INSTAGRAM:
-        return {}
-    return {
-        "User-Agent": (
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/131.0.0.0 Safari/537.36"
-        ),
-        "Accept": (
-            "text/html,application/xhtml+xml,application/xml;"
-            "q=0.9,*/*;q=0.8"
-        ),
-        "Accept-Language": "en-US,en;q=0.9",
-    }
+    return media_sources.platform_http_headers(platform)
 
 
 # ---------------------------------------------------------------------------
@@ -671,12 +469,7 @@ def _make_postprocessor_status_hook(
 
 
 def _validate_output_version(output_version: int) -> None:
-    if (
-        isinstance(output_version, bool)
-        or not isinstance(output_version, int)
-        or output_version < 1
-    ):
-        raise ValueError("输出版本必须是大于等于 1 的整数")
+    output_files.validate_output_version(output_version)
 
 
 def _output_template(
@@ -684,13 +477,7 @@ def _output_template(
     output_dir: Path,
     output_version: int,
 ) -> str:
-    suffix = "" if output_version == 1 else f" ({output_version})"
-    name = (
-        f"%(title)s [%(id)s]{suffix}.%(ext)s"
-        if platform in {INSTAGRAM, BILIBILI}
-        else f"%(title)s{suffix}.%(ext)s"
-    )
-    return str(output_dir / name)
+    return output_files.output_template(platform, output_dir, output_version)
 
 
 def _attempt_output_template(
@@ -698,16 +485,7 @@ def _attempt_output_template(
     output_dir: Path,
     attempt_workspace: Path,
 ) -> str:
-    """Use an attempt-unique working name before atomic final claiming."""
-    base = (
-        "%(title)s [%(id)s]"
-        if platform in {INSTAGRAM, BILIBILI}
-        else "%(title)s"
-    )
-    return str(
-        output_dir
-        / f"{base} [.__mvd_{attempt_workspace.name}].%(ext)s"
-    )
+    return output_files.attempt_output_template(platform, output_dir, attempt_workspace)
 
 
 # ---------------------------------------------------------------------------
@@ -1081,11 +859,12 @@ def _claim_final_output(
     final_stem: str,
     output_version: int,
 ) -> Path:
-    return _claim_final_output_with_version(
+    return output_files.claim_final_output(
         filepath,
         final_stem,
         output_version,
-    )[0]
+        os_module=os,
+    )
 
 
 def _claim_final_output_with_version(
@@ -1093,47 +872,40 @@ def _claim_final_output_with_version(
     final_stem: str,
     output_version: int,
 ) -> tuple[Path, int]:
-    """Atomically claim a no-overwrite final path in the same directory."""
-    _validate_output_version(output_version)
-    version = output_version
-    while True:
-        suffix = "" if version == 1 else f" ({version})"
-        target = filepath.with_name(f"{final_stem}{suffix}{filepath.suffix}")
-        try:
-            os.link(filepath, target)
-        except FileExistsError:
-            version += 1
-            continue
-        filepath.unlink()
-        return target, version
+    return output_files.claim_final_output_with_version(
+        filepath,
+        final_stem,
+        output_version,
+        os_module=os,
+    )
 
 
 def _finalize_video_output(
     filepath: Path,
     output_version: int = 1,
 ) -> Path:
-    return _finalize_video_output_with_version(filepath, output_version)[0]
+    return output_files.finalize_video_output(
+        filepath,
+        output_version,
+        os_module=os,
+        claim_output=_claim_final_output_with_version,
+    )
 
 
 def _finalize_video_output_with_version(
     filepath: Path,
     output_version: int = 1,
 ) -> tuple[Path, int]:
-    """Remove the private marker and atomically reserve the visible filename."""
-    final_stem = ATTEMPT_OUTPUT_MARKER_RE.sub("", filepath.stem)
-    if final_stem == filepath.stem:
-        return filepath, output_version
-    return _claim_final_output_with_version(
+    return output_files.finalize_video_output_with_version(
         filepath,
-        final_stem,
         output_version,
+        os_module=os,
+        claim_output=_claim_final_output_with_version,
     )
 
 
 def _audio_output_version(filepath: Path, requested: int) -> int:
-    """Read the version suffix that this module adds after the quality label."""
-    match = re.search(r"\[[^\]]+\] \((\d+)\)$", filepath.stem)
-    return max(requested, int(match.group(1))) if match else requested
+    return output_files.audio_output_version(filepath, requested)
 
 
 def _resolve_output_path(
@@ -1145,37 +917,20 @@ def _resolve_output_path(
     audio_profile: AudioOutputProfile | None = None,
     audio_output_ext: str | None = None,
 ) -> Path:
-    """根据 yt-dlp 的输出信息定位后处理后的实际文件。"""
-    if audio_format not in AUDIO_FORMATS:
-        raise ValueError(f"不支持的音频格式: {audio_format}")
-    prepared = Path(ydl.prepare_filename(info))
-    output_ext = (
-        audio_output_ext
-        or (audio_profile.output_ext if audio_profile is not None else None)
-        or audio_format
+    return output_files.resolve_output_path(
+        ydl,
+        info,
+        output_dir,
+        media_type,
+        audio_format,
+        audio_profile,
+        audio_output_ext,
+        path_cls=Path,
     )
-    output_suffix = f".{output_ext}" if media_type == AUDIO else ".mp4"
-    candidates = [prepared.with_suffix(output_suffix), prepared]
-
-    for candidate in candidates:
-        if candidate.is_file():
-            return candidate
-
-    matches = sorted(
-        output_dir.glob(f"{prepared.stem}.*"),
-        key=lambda path: path.stat().st_mtime,
-        reverse=True,
-    )
-    return matches[0] if matches else prepared.with_suffix(output_suffix)
 
 
 def _format_filesize(filepath: Path, info: dict) -> str:
-    """优先使用磁盘上的最终文件大小。"""
-    if filepath.is_file():
-        size = filepath.stat().st_size
-    else:
-        size = info.get("filesize_approx") or info.get("filesize")
-    return f"{size / (1024 * 1024):.2f} MB" if size else "未知（请查看文件）"
+    return output_files.format_filesize(filepath, info)
 
 
 # ---------------------------------------------------------------------------
@@ -1268,24 +1023,15 @@ def _extract_bilibili_info(url: str, options: dict):
 
 
 def _new_attempt_workspace(output_dir: Path) -> Path:
-    """Create a private temporary directory owned by one download attempt."""
-    root = output_dir / ".attempts"
-    root.mkdir(parents=True, exist_ok=True)
-    workspace = root / uuid.uuid4().hex
-    workspace.mkdir()
-    return workspace
+    return output_files.new_attempt_workspace(output_dir, uuid_module=uuid)
 
 
 def _cleanup_attempt_workspace(workspace: Path) -> None:
-    """Delete only a workspace created for one attempt."""
-    workspace = Path(workspace)
-    if workspace.parent.name != ".attempts":
-        raise ValueError("拒绝清理非任务临时目录")
-    shutil.rmtree(workspace, ignore_errors=True)
-    try:
-        workspace.parent.rmdir()
-    except OSError:
-        pass
+    output_files.cleanup_attempt_workspace(
+        workspace,
+        path_cls=Path,
+        shutil_module=shutil,
+    )
 
 
 def _process_bilibili_attempt(

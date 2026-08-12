@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import downloader
+import output_files
 import download_errors
 import task_control
 import yt_dlp
@@ -80,6 +81,23 @@ class DownloadErrorMessageTests(unittest.TestCase):
 
 
 class DownloadOutputTemplateTests(unittest.TestCase):
+    def test_output_files_templates_match_downloader_exports(self):
+        output_dir = Path("/tmp/output")
+        workspace = output_dir / ".attempts" / "0123456789abcdef"
+
+        self.assertEqual(
+            output_files.output_template(downloader.INSTAGRAM, output_dir, 2),
+            downloader._output_template(downloader.INSTAGRAM, output_dir, 2),
+        )
+        self.assertEqual(
+            output_files.attempt_output_template(
+                downloader.YOUTUBE, output_dir, workspace
+            ),
+            downloader._attempt_output_template(
+                downloader.YOUTUBE, output_dir, workspace
+            ),
+        )
+
     def test_real_attempt_uses_private_unique_working_filename(self):
         workspace = Path("/tmp/output/.attempts/0123456789abcdef0123456789abcdef")
 

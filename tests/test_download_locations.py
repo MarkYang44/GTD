@@ -8,12 +8,24 @@ from unittest.mock import patch
 
 import app as web_app
 import downloader
+import output_files
 import folder_picker
 import main as cli_main
 from task_control import CancellationToken, TaskManager, TaskSeed
 
 
 class DownloadDirectoryTests(unittest.TestCase):
+    def test_output_files_directory_helpers_match_downloader_behavior(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            target = root / "output"
+            self.assertEqual(
+                output_files.ensure_downloads_dir(
+                    "output", project_dir=root, downloads_dir=root / "downloads"
+                ),
+                downloader.ensure_downloads_dir(str(target)),
+            )
+
     def test_blank_value_keeps_default_downloads_directory(self):
         with tempfile.TemporaryDirectory() as temporary:
             default = Path(temporary) / "downloads"

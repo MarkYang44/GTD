@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 import app as web_app
 from bilibili_acceleration import CDN_CANDIDATES_FIELD
 import downloader
+import media_sources
 import main as cli_main
 
 
@@ -17,6 +18,23 @@ def frontend_template_source():
 
 
 class BilibiliUrlDetectionTests(unittest.TestCase):
+    def test_media_sources_exports_match_downloader_source_behavior(self):
+        cases = (
+            ("YouTube", "分享 https://youtu.be/abc123。", downloader.YOUTUBE),
+            ("Instagram", "https://www.instagram.com/reel/abc/", downloader.INSTAGRAM),
+            ("Bilibili", "https://www.bilibili.com/video/BV1xx411c7mD", downloader.BILIBILI),
+        )
+
+        for _name, value, platform in cases:
+            with self.subTest(value=value):
+                self.assertEqual(media_sources.detect_platform(value), platform)
+                self.assertEqual(media_sources.make_task(value), downloader.make_task(value))
+                self.assertEqual(media_sources.normalize_url(value), downloader.normalize_url(value))
+
+        self.assertEqual(media_sources.YOUTUBE, downloader.YOUTUBE)
+        self.assertEqual(media_sources.INSTAGRAM, downloader.INSTAGRAM)
+        self.assertEqual(media_sources.BILIBILI, downloader.BILIBILI)
+
     def test_accepts_single_video_and_short_link_urls(self):
         accepted = [
             "https://www.bilibili.com/video/BV1GJ411x7h7",
