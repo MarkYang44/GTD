@@ -41,12 +41,17 @@
   }
 
   function resetSurface(surface) {
+    const listeners = surfaceListeners.get(surface);
     surface.classList?.remove("motion-surface-active");
     surface.style?.setProperty("--motion-x", "50%");
     surface.style?.setProperty("--motion-y", "50%");
     surface.style?.setProperty("--motion-rx", "0deg");
     surface.style?.setProperty("--motion-ry", "0deg");
-    surface.style?.setProperty("--motion-sheen-opacity", "0");
+    if (listeners?.backgroundImage !== undefined) {
+      surface.style.backgroundImage = listeners.backgroundImage;
+      listeners.backgroundImage = undefined;
+      listeners.baseBackgroundImage = undefined;
+    }
   }
 
   function scheduleFrame() {
@@ -86,7 +91,10 @@
     surface.style.setProperty("--motion-y", `${(y * 100).toFixed(1)}%`);
     surface.style.setProperty("--motion-rx", `${rotateX.toFixed(1)}deg`);
     surface.style.setProperty("--motion-ry", `${rotateY.toFixed(1)}deg`);
-    surface.style.setProperty("--motion-sheen-opacity", "1");
+    const listeners = surfaceListeners.get(surface);
+    if (typeof listeners?.baseBackgroundImage === "string") {
+      surface.style.backgroundImage = `radial-gradient(circle at ${(x * 100).toFixed(1)}% ${(y * 100).toFixed(1)}%, rgba(0, 161, 155, .11), transparent 38%), ${listeners.baseBackgroundImage}`;
+    }
   }
 
   function updateNumbers(timestamp) {
@@ -129,11 +137,14 @@
       const order = Number.isFinite(explicitOrder) ? explicitOrder : groupOrder;
       element.style.setProperty("--motion-order", String(order));
       groupOrders.set(group, groupOrder + 1);
-      if (revealObserver && !element.classList.contains("motion-visible") && !observedReveals.has(element)) {
-        observedReveals.add(element);
-        revealObserver.observe(element);
+      if (!element.classList.contains("motion-visible")) {
+        if (revealObserver && !observedReveals.has(element)) {
+          observedReveals.add(element);
+          revealObserver.observe(element);
+        } else if (!revealObserver) {
+          makeVisible(element);
+        }
       }
-      else makeVisible(element);
     }
   }
 
@@ -143,11 +154,13 @@
       if (surfaceListeners.has(surface) || isTaskItem(surface)) continue;
       const enter = (event) => {
         activeSurface = surface;
+        beginSurfaceSheen(surface);
         pointerEvent = event;
         scheduleFrame();
       };
       const move = (event) => {
         if (activeSurface !== surface) activeSurface = surface;
+        beginSurfaceSheen(surface);
         pointerEvent = event;
         scheduleFrame();
       };
@@ -163,6 +176,15 @@
       surface.addEventListener("pointerleave", leave);
       surfaceListeners.set(surface, { enter, move, leave });
     }
+  }
+
+  function beginSurfaceSheen(surface) {
+    const listeners = surfaceListeners.get(surface);
+    if (!listeners || listeners.backgroundImage !== undefined) return;
+    const computedStyle = window.getComputedStyle?.(surface);
+    if (!computedStyle || typeof computedStyle.backgroundImage !== "string") return;
+    listeners.backgroundImage = surface.style.backgroundImage || "";
+    listeners.baseBackgroundImage = computedStyle.backgroundImage;
   }
 
   function refresh(rootNode = document) {

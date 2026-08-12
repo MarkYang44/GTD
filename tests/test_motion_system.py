@@ -44,8 +44,9 @@ class SharedMotionAssetTests(unittest.TestCase):
         self.assertIn("destroy,", script)
         self.assertIn('new CustomEvent("motion:scroll-frame"', script)
 
-    def test_css_composes_reveal_surface_and_parallax_without_repositioning_content(self):
+    def test_css_composes_transforms_without_claiming_existing_card_pseudo_elements(self):
         css = CSS_PATH.read_text(encoding="utf-8")
+        index_css = Path("static/css/index.css").read_text(encoding="utf-8")
 
         self.assertNotIn("[data-motion-surface] > *", css)
         self.assertRegex(
@@ -56,10 +57,11 @@ class SharedMotionAssetTests(unittest.TestCase):
             css,
             r"\[data-motion-reveal\]\[data-motion-parallax\].*?--motion-parallax-offset",
         )
-        self.assertRegex(
-            css,
-            r"\[data-motion-surface\]::before\s*\{[^}]*z-index:\s*-1",
-        )
+        self.assertIn(".card::before", index_css)
+        self.assertNotIn("[data-motion-surface]::before", css)
+        self.assertNotIn("[data-motion-surface]::after", css)
+        self.assertIn("backgroundImage", JS_PATH.read_text(encoding="utf-8"))
+        self.assertIn("radial-gradient", JS_PATH.read_text(encoding="utf-8"))
         self.assertNotIn("NUMBER_SELECTOR", JS_PATH.read_text(encoding="utf-8"))
 
     def test_runtime_is_static_without_animation_apis_or_for_reduced_motion(self):
@@ -135,6 +137,7 @@ window.MotionSystem.refresh();
 window.MotionSystem.refresh();
 assert.strictEqual(surface.listeners.pointerenter.length, 1);
 assert.strictEqual(observer.observeCount, 1);
+assert(!reveal.classList.contains("motion-visible"));
 window.MotionSystem.setNumber(number, 12);
 for (const callback of [...frames.values()]) callback(0);
 for (const callback of [...frames.values()]) callback(140);
@@ -262,6 +265,7 @@ global.window = {
   innerHeight: 100,
   addEventListener() {},
   removeEventListener() {},
+  getComputedStyle() { return { backgroundImage: "linear-gradient(#111, #222)" }; },
 };
 let nextFrame = 1;
 const queuedFrames = new Map();
@@ -291,6 +295,8 @@ surface.listeners.pointerenter[0]({ clientX: 100, clientY: 0 });
 for (const callback of [...queuedFrames.values()]) callback(600);
 assert.strictEqual(surface.style.values["--motion-rx"], "0.6deg");
 assert.strictEqual(surface.style.values["--motion-ry"], "0.6deg");
+assert(surface.style.backgroundImage.includes("radial-gradient"));
+assert(surface.style.backgroundImage.includes("linear-gradient(#111, #222)"));
 assert.strictEqual(document.lastEvent.type, "motion:scroll-frame");
 assert(Math.abs(Number.parseFloat(parallax.style.values["--motion-parallax-offset"])) <= 6.6);
 window.MotionSystem.destroy();
@@ -298,6 +304,7 @@ assert(!root.classList.contains("motion-ready"));
 assert.strictEqual(surface.listeners.pointerenter.length, 0);
 assert.strictEqual(surface.style.values["--motion-rx"], "0deg");
 assert.strictEqual(parallax.style.values["--motion-parallax-offset"], "0px");
+assert.strictEqual(surface.style.backgroundImage, "");
 '''
         result = subprocess.run(
             ["node", "-e", script], capture_output=True, text=True, check=False

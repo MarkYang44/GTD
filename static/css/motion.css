@@ -35,19 +35,6 @@
   --motion-y: 50%;
   --motion-rx: 0deg;
   --motion-ry: 0deg;
-  position: relative;
-  isolation: isolate;
-}
-
-.motion-fine-pointer [data-motion-surface]::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  opacity: var(--motion-sheen-opacity, 0);
-  background: radial-gradient(circle at var(--motion-x) var(--motion-y), rgba(0, 161, 155, .11), transparent 38%);
-  transition: opacity var(--motion-fast) ease;
 }
 
 .motion-fine-pointer [data-motion-surface].motion-surface-active {
@@ -80,7 +67,4 @@
     transition: none !important;
   }
 
-  [data-motion-surface]::before {
-    display: none !important;
-  }
 }
