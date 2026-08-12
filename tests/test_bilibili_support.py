@@ -867,7 +867,7 @@ class CookieExtensionDocumentationTests(unittest.TestCase):
         cookie_section = readme.split(
             "## 六、需要登录时配置 Cookie",
             maxsplit=1,
-        )[1].split("## 七、浏览器扩展开发路线", maxsplit=1)[0]
+        )[1].split("## 七、常见问题", maxsplit=1)[0]
 
         required = [
             "Get cookies.txt LOCALLY",
