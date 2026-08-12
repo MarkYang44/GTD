@@ -1167,8 +1167,13 @@
   const COLLECTION_PAGE_SIZE = 50;
   const DOWNLOAD_DIRECTORY_HISTORY_KEY = "multiple-video-downloader.download-directory-history.v1";
   const DOWNLOAD_DIRECTORY_HISTORY_LIMIT = 3;
+  const VISIBLE_POLL_INTERVAL_MS = 800;
+  const HIDDEN_POLL_INTERVAL_MS = 3000;
 
   let pollingTimer = null;
+  let pollInFlight = false;
+  let pollingActive = false;
+  let lastTaskRenderSignature = null;
   let currentBatchId = null;
   let isDownloading = false;
   let aria2Available = false;
@@ -1653,25 +1658,60 @@
 
   function startPolling() {
     stopPolling();
-    pollingTimer = setInterval(pollStatus, 800);
+    pollingActive = true;
     pollStatus();
   }
 
   function stopPolling() {
+    pollingActive = false;
     if (pollingTimer) {
-      clearInterval(pollingTimer);
+      clearTimeout(pollingTimer);
       pollingTimer = null;
     }
   }
 
+  function scheduleNextPoll(delay) {
+    if (!pollingActive || !currentBatchId) return;
+    if (pollingTimer) clearTimeout(pollingTimer);
+    pollingTimer = setTimeout(() => {
+      pollingTimer = null;
+      pollStatus();
+    }, delay);
+  }
+
+  function taskRenderSignature(batch) {
+    const tasks = Array.isArray(batch.tasks) ? batch.tasks : [];
+    return JSON.stringify(tasks.map(task => ({
+      id: task.id,
+      status: task.status,
+      progress: task.progress,
+      result: task.result,
+      attempt_count: task.attempt_count,
+      attempts: task.attempts,
+    })));
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    if (!pollInFlight) {
+      scheduleNextPoll(document.hidden ? HIDDEN_POLL_INTERVAL_MS : VISIBLE_POLL_INTERVAL_MS);
+    }
+  });
+
   async function pollStatus() {
-    if (!currentBatchId) return;
+    if (!pollingActive || !currentBatchId || pollInFlight) return;
+    const requestedBatchId = currentBatchId;
+    pollInFlight = true;
     try {
-      const resp = await fetch("/api/batch/" + currentBatchId);
+      const resp = await fetch("/api/batch/" + requestedBatchId);
       if (!resp.ok) return;
       const batch = await resp.json();
+      if (currentBatchId !== requestedBatchId) return;
       updateOperationalMetrics(batch);
-      renderTasks(batch);
+      const renderSignature = taskRenderSignature(batch);
+      if (renderSignature !== lastTaskRenderSignature) {
+        renderTasks(batch);
+        lastTaskRenderSignature = renderSignature;
+      }
 
       taskTitle.textContent = batch.media_type === "audio"
         ? `${audioFormatTitle(batch.audio_format)} 音频下载任务`
@@ -1685,7 +1725,11 @@
         isDownloading = false;
         setControlsDisabled(false);
       }
-    } catch (_) { /* retry on next tick */ }
+    } catch (_) { /* retry on next tick */
+    } finally {
+      pollInFlight = false;
+      scheduleNextPoll(document.hidden ? HIDDEN_POLL_INTERVAL_MS : VISIBLE_POLL_INTERVAL_MS);
+    }
   }
 
   function renderPendingSkeleton(count) {

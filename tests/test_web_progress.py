@@ -9,6 +9,10 @@ import downloader
 from collection_resolver import CollectionEntry, CollectionPreview
 
 
+def frontend_script_source():
+    return Path("templates/index.html").read_text(encoding="utf-8")
+
+
 class WebConfigurationTests(unittest.TestCase):
     def test_web_exposes_multi_resolution_character_favicons(self):
         html = web_app.app.test_client().get("/").get_data(as_text=True)
@@ -123,6 +127,20 @@ class WebConfigurationTests(unittest.TestCase):
 
 
 class WebProgressStateTests(unittest.TestCase):
+    def test_frontend_polling_is_serial_and_visibility_aware(self):
+        source = frontend_script_source()
+
+        self.assertNotIn("setInterval(pollStatus", source)
+        self.assertIn("pollInFlight", source)
+        self.assertIn("document.hidden", source)
+        self.assertIn('document.addEventListener("visibilitychange"', source)
+
+    def test_frontend_skips_unchanged_task_dom_render(self):
+        source = frontend_script_source()
+
+        self.assertIn("lastTaskRenderSignature", source)
+        self.assertIn("if (renderSignature !== lastTaskRenderSignature)", source)
+
     def test_frontend_has_four_audio_formats_and_collection_preview(self):
         html = Path("templates/index.html").read_text(encoding="utf-8")
 
