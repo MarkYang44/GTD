@@ -323,6 +323,10 @@ class AdaptivePolicyTests(unittest.TestCase):
 
 
 class Aria2ModeTests(unittest.TestCase):
+    def setUp(self):
+        acceleration.reset_aria2c_path_cache()
+        self.addCleanup(acceleration.reset_aria2c_path_cache)
+
     def test_detects_aria2c_path(self):
         with tempfile.TemporaryDirectory() as temporary:
             executable = Path(temporary) / "aria2c"
@@ -391,6 +395,47 @@ class Aria2ModeTests(unittest.TestCase):
                 self.assertEqual(which.call_count, 1)
                 acceleration.aria2c_path(refresh=True)
                 self.assertEqual(which.call_count, 2)
+
+    def test_aria2c_caches_none_and_reset_forces_a_rescan(self):
+        with (
+            patch.dict("bilibili_acceleration.os.environ", {}, clear=True),
+            patch.object(acceleration, "PROJECT_ARIA2_DIR", Path("/missing")),
+            patch.object(acceleration.sys, "platform", "linux"),
+            patch("bilibili_acceleration.shutil.which", return_value=None) as which,
+        ):
+            self.assertIsNone(acceleration.aria2c_path())
+            self.assertIsNone(acceleration.aria2c_path())
+            self.assertEqual(which.call_count, 1)
+            acceleration.reset_aria2c_path_cache()
+            self.assertIsNone(acceleration.aria2c_path())
+            self.assertEqual(which.call_count, 2)
+
+    def test_aria2c_concurrent_cache_miss_scans_once(self):
+        start = threading.Barrier(4)
+        results = []
+
+        def slow_which(_name):
+            time.sleep(0.02)
+            return None
+
+        def worker():
+            start.wait()
+            results.append(acceleration.aria2c_path())
+
+        with (
+            patch.dict("bilibili_acceleration.os.environ", {}, clear=True),
+            patch.object(acceleration, "PROJECT_ARIA2_DIR", Path("/missing")),
+            patch.object(acceleration.sys, "platform", "linux"),
+            patch("bilibili_acceleration.shutil.which", side_effect=slow_which) as which,
+        ):
+            threads = [threading.Thread(target=worker) for _ in range(4)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join(timeout=1)
+
+        self.assertEqual(results, [None] * 4)
+        self.assertEqual(which.call_count, 1)
 
     def test_turbo_only_becomes_effective_for_bilibili_with_aria2(self):
         self.assertEqual(

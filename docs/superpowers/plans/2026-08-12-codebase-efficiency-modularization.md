@@ -320,7 +320,7 @@ git commit -m "refactor: split progress and audio helpers"
 - Test: `tests/test_downloader_errors.py`
 
 **Interfaces:**
-- Produces: one `_finalize_download_output(info, filepath, media_type, profile, output_version)` result used by both Bilibili and other platforms.
+- Produces: one `_finalize_download_output(info, filepath, media_type, profile, output_version)` finalization tuple used by both Bilibili and other platforms; both paths then delegate to the existing result builder.
 - Produces: cached `aria2c_path(refresh: bool = False)` and cached Node discovery helper.
 
 - [ ] **Step 1: Write failing parity and cache tests**

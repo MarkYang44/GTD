@@ -3,10 +3,11 @@ import inspect
 import io
 import tempfile
 import threading
+import time
 import unittest
 from dataclasses import FrozenInstanceError
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import downloader
 import audio_output
@@ -694,12 +695,49 @@ class DownloadOutputTemplateTests(unittest.TestCase):
         self.assertEqual(normal_result["output_ext"], "opus")
 
     def test_node_discovery_is_cached_until_explicit_refresh(self):
+        downloader._reset_node_path_cache()
+        self.addCleanup(downloader._reset_node_path_cache)
         with patch("downloader.shutil.which", return_value="/opt/bin/node") as which:
             self.assertEqual(downloader._node_path(refresh=True), "/opt/bin/node")
             self.assertEqual(downloader._node_path(), "/opt/bin/node")
             self.assertEqual(which.call_count, 1)
             self.assertEqual(downloader._node_path(refresh=True), "/opt/bin/node")
             self.assertEqual(which.call_count, 2)
+
+    def test_node_caches_none_and_reset_forces_a_rescan(self):
+        downloader._reset_node_path_cache()
+        self.addCleanup(downloader._reset_node_path_cache)
+        with patch("downloader.shutil.which", return_value=None) as which:
+            self.assertIsNone(downloader._node_path())
+            self.assertIsNone(downloader._node_path())
+            self.assertEqual(which.call_count, 1)
+            downloader._reset_node_path_cache()
+            self.assertIsNone(downloader._node_path())
+            self.assertEqual(which.call_count, 2)
+
+    def test_node_concurrent_cache_miss_scans_once(self):
+        downloader._reset_node_path_cache()
+        self.addCleanup(downloader._reset_node_path_cache)
+        start = threading.Barrier(4)
+        results = []
+
+        def slow_which(_name):
+            time.sleep(0.02)
+            return None
+
+        def worker():
+            start.wait()
+            results.append(downloader._node_path())
+
+        with patch("downloader.shutil.which", side_effect=slow_which) as which:
+            threads = [threading.Thread(target=worker) for _ in range(4)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join(timeout=1)
+
+        self.assertEqual(results, [None] * 4)
+        self.assertEqual(which.call_count, 1)
     def test_instagram_same_title_different_ids_prepare_distinct_paths(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             output_dir = Path(temp_dir)
@@ -764,6 +802,240 @@ class DownloadOutputTemplateTests(unittest.TestCase):
 
             self.assertFalse(first.exists())
             self.assertEqual(second_part.read_bytes(), b"second")
+
+
+class DownloadFinalizationOrchestrationTests(unittest.TestCase):
+    def _normal_result(self, output_dir, media_type):
+        info = {
+            "title": "Song",
+            "acodec": "opus" if media_type == downloader.AUDIO else "aac",
+            "ext": "webm" if media_type == downloader.AUDIO else "mp4",
+            "abr": 160,
+            "fps": 30,
+            "vcodec": "avc1",
+            "filesize": 1024 * 1024,
+        }
+        private_path = output_dir / (
+            "Song [.__mvd_normal].opus"
+            if media_type == downloader.AUDIO
+            else "Song [.__mvd_normal].mp4"
+        )
+        private_path.write_bytes(b"normal")
+
+        class FakeYdl:
+            def __init__(self, _options):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def extract_info(self, _url, download=False):
+                return info
+
+            def process_info(self, _info):
+                return None
+
+            def prepare_filename(self, _info):
+                if media_type == downloader.AUDIO:
+                    return str(private_path.with_suffix(".webm"))
+                return str(private_path)
+
+        with (
+            patch("downloader.yt_dlp.YoutubeDL", FakeYdl),
+            patch("downloader._resolve_output_path", return_value=private_path),
+            patch(
+                "downloader._finalize_download_output",
+                wraps=downloader._finalize_download_output,
+            ) as finalize,
+            patch(
+                "downloader._build_download_result",
+                wraps=downloader._build_download_result,
+            ) as build,
+        ):
+            result = downloader.download_video(
+                "https://youtu.be/example",
+                platform=downloader.YOUTUBE,
+                media_type=media_type,
+                audio_format=downloader.SOURCE,
+                speed_mode=downloader.TURBO,
+                output_version=2,
+                output_dir=output_dir,
+                raise_errors=True,
+            )
+
+        return result, finalize, build
+
+    def _bilibili_result(self, output_dir, media_type):
+        info = {
+            "id": "BV1TEST",
+            "title": "Song",
+            "url": "https://primary.example/media",
+            "acodec": "opus" if media_type == downloader.AUDIO else "aac",
+            "ext": "webm" if media_type == downloader.AUDIO else "mp4",
+            "abr": 160,
+            "fps": 30,
+            "vcodec": "avc1",
+            "filesize": 1024 * 1024,
+        }
+        private_path = output_dir / (
+            "Song [BV1TEST] [.__mvd_bili].opus"
+            if media_type == downloader.AUDIO
+            else "Song [BV1TEST] [.__mvd_bili].mp4"
+        )
+        private_path.write_bytes(b"bilibili")
+        plan = downloader.AccelerationPlan(True, "fast.example", 4 * 1024 * 1024)
+        with (
+            patch("downloader.aria2c_path", return_value="/bin/aria2c"),
+            patch("downloader._extract_bilibili_info", return_value=(Mock(), info)),
+            patch("downloader.build_acceleration_plan", return_value=plan),
+            patch(
+                "downloader._process_bilibili_attempt",
+                return_value=(info, private_path),
+            ),
+            patch(
+                "downloader._finalize_download_output",
+                wraps=downloader._finalize_download_output,
+            ) as finalize,
+            patch(
+                "downloader._build_download_result",
+                wraps=downloader._build_download_result,
+            ) as build,
+        ):
+            result = downloader.download_video(
+                "https://b23.tv/example",
+                platform=downloader.BILIBILI,
+                media_type=media_type,
+                audio_format=downloader.SOURCE,
+                speed_mode=downloader.TURBO,
+                output_version=2,
+                output_dir=output_dir,
+                raise_errors=True,
+            )
+
+        return result, finalize, build
+
+    def test_real_platform_paths_finalize_and_build_matching_audio_and_video_results(self):
+        for media_type in (downloader.AUDIO, downloader.VIDEO):
+            with self.subTest(media_type=media_type), tempfile.TemporaryDirectory() as directory:
+                output_dir = Path(directory)
+                normal, normal_finalize, normal_build = self._normal_result(
+                    output_dir,
+                    media_type,
+                )
+                bilibili, bilibili_finalize, bilibili_build = self._bilibili_result(
+                    output_dir,
+                    media_type,
+                )
+
+            expected_profile = (
+                downloader.AudioOutputProfile(
+                    downloader.SOURCE,
+                    downloader.SOURCE,
+                    False,
+                    "Opus",
+                    160,
+                    "webm",
+                    False,
+                )
+                if media_type == downloader.AUDIO
+                else None
+            )
+            self.assertEqual(
+                normal_finalize.call_args.args[2:],
+                (media_type, expected_profile, 2),
+            )
+            self.assertEqual(
+                bilibili_finalize.call_args.args[2:],
+                (media_type, expected_profile, 2),
+            )
+            self.assertEqual(
+                normal_build.call_args.args[4:8],
+                (
+                    downloader.TURBO,
+                    downloader.STANDARD,
+                    False,
+                    downloader.AccelerationPlan(False, None, 0),
+                ),
+            )
+            self.assertEqual(bilibili_build.call_args.args[4:7], (downloader.TURBO, downloader.TURBO, False))
+            self.assertEqual(normal["output_version_actual"], 2)
+            self.assertEqual(bilibili["output_version_actual"], 2)
+            self.assertEqual(normal.keys(), bilibili.keys())
+            normal_name = (
+                "Song [Source Opus · 160kbps] (2).opus"
+                if media_type == downloader.AUDIO
+                else "Song (2).mp4"
+            )
+            bilibili_name = (
+                "Song [BV1TEST] [Source Opus · 160kbps] (2).opus"
+                if media_type == downloader.AUDIO
+                else "Song [BV1TEST] (2).mp4"
+            )
+            normal_expected = {
+                "platform": "YouTube",
+                "title": "Song",
+                "filepath": str(Path(normal["filepath"]).with_name(normal_name)),
+                "filesize": "0.00 MB",
+                "media_type": media_type,
+                "speed_mode_requested": downloader.TURBO,
+                "speed_mode_used": downloader.STANDARD,
+                "turbo_fallback": False,
+                "cdn_host": "未知",
+                "http_chunk_size": 0,
+                "output_version_actual": 2,
+            }
+            bilibili_expected = {
+                **normal_expected,
+                "platform": "Bilibili",
+                "filepath": str(Path(bilibili["filepath"]).with_name(bilibili_name)),
+                "speed_mode_used": downloader.TURBO,
+                "cdn_host": "fast.example",
+                "http_chunk_size": 4 * 1024 * 1024,
+            }
+            if media_type == downloader.AUDIO:
+                audio_fields = {
+                    "format": "SOURCE OPUS",
+                    "acodec": "Opus",
+                    "audio_format_requested": downloader.SOURCE,
+                    "audio_format_used": downloader.SOURCE,
+                    "audio_format_fallback": False,
+                    "output_ext": "opus",
+                    "cover_embedded": True,
+                    "source_acodec": "Opus",
+                    "source_abr_kbps": 160,
+                }
+                normal_expected.update(audio_fields)
+                bilibili_expected.update(audio_fields)
+            else:
+                video_fields = {
+                    "resolution": "未知",
+                    "fps": 30,
+                    "vcodec": "avc1",
+                    "acodec": "aac",
+                }
+                normal_expected.update(video_fields)
+                bilibili_expected.update(video_fields)
+            self.assertEqual(normal, normal_expected)
+            self.assertEqual(bilibili, bilibili_expected)
+            self.assertEqual(
+                Path(normal["filepath"]).name,
+                Path(bilibili["filepath"]).name.replace(" [BV1TEST]", ""),
+            )
+            for key in set(normal) - {
+                "platform", "filepath", "speed_mode_used", "cdn_host", "http_chunk_size",
+            }:
+                with self.subTest(media_type=media_type, key=key):
+                    self.assertEqual(normal[key], bilibili[key])
+            self.assertEqual(normal["speed_mode_requested"], downloader.TURBO)
+            self.assertEqual(normal["speed_mode_used"], downloader.STANDARD)
+            self.assertEqual(normal["cdn_host"], "未知")
+            self.assertEqual(normal["http_chunk_size"], 0)
+            self.assertEqual(bilibili["speed_mode_used"], downloader.TURBO)
+            self.assertEqual(bilibili["cdn_host"], "fast.example")
+            self.assertEqual(bilibili["http_chunk_size"], 4 * 1024 * 1024)
 
 
 class DownloadAudioOptionsTests(unittest.TestCase):
