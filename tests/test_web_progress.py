@@ -13,6 +13,13 @@ def frontend_script_source():
     return Path("templates/index.html").read_text(encoding="utf-8")
 
 
+def task_render_signature_source():
+    source = frontend_script_source()
+    return source.split("function taskRenderSignature(batch) {", 1)[1].split(
+        "\n  }\n\n  document.addEventListener", 1
+    )[0]
+
+
 class WebConfigurationTests(unittest.TestCase):
     def test_web_exposes_multi_resolution_character_favicons(self):
         html = web_app.app.test_client().get("/").get_data(as_text=True)
@@ -140,6 +147,21 @@ class WebProgressStateTests(unittest.TestCase):
 
         self.assertIn("lastTaskRenderSignature", source)
         self.assertIn("if (renderSignature !== lastTaskRenderSignature)", source)
+
+    def test_frontend_task_render_signature_includes_dynamic_card_fields(self):
+        signature = task_render_signature_source()
+
+        for field in (
+            "url: task.url",
+            "postprocessing: task.postprocessing",
+            "speed_mode_used: task.speed_mode_used",
+            "turbo_fallback: task.turbo_fallback",
+            "error: task.error",
+            "can_cancel: task.can_cancel",
+            "can_retry: task.can_retry",
+            "can_redownload: task.can_redownload",
+        ):
+            self.assertIn(field, signature)
 
     def test_frontend_has_four_audio_formats_and_collection_preview(self):
         html = Path("templates/index.html").read_text(encoding="utf-8")

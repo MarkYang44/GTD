@@ -1683,11 +1683,19 @@
     const tasks = Array.isArray(batch.tasks) ? batch.tasks : [];
     return JSON.stringify(tasks.map(task => ({
       id: task.id,
+      url: task.url,
       status: task.status,
       progress: task.progress,
       result: task.result,
+      postprocessing: task.postprocessing,
+      speed_mode_used: task.speed_mode_used,
+      turbo_fallback: task.turbo_fallback,
+      error: task.error,
       attempt_count: task.attempt_count,
       attempts: task.attempts,
+      can_cancel: task.can_cancel,
+      can_retry: task.can_retry,
+      can_redownload: task.can_redownload,
     })));
   }
 
