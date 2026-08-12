@@ -283,7 +283,11 @@
   function setOperationalMetrics(active, queue) {
     [[activeMetric, active], [queueMetric, queue]].forEach(([element, value]) => {
       const nextValue = String(value).padStart(2, "0");
-      if (metricTargets.get(element) === nextValue || element.textContent === nextValue) return;
+      const requestedTarget = metricTargets.get(element);
+      if (
+        requestedTarget === nextValue
+        || (requestedTarget === undefined && element.textContent === nextValue)
+      ) return;
       if (typeof window.MotionSystem?.setNumber === "function") {
         window.MotionSystem?.setNumber(element, nextValue);
       } else {

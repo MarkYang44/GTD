@@ -545,6 +545,8 @@ const source = fs.readFileSync("static/js/index.js", "utf8");
 new Function(`${source}\nwindow.__setOperationalMetrics = setOperationalMetrics;`)();
 
 const active = elements.get("metric-active");
+window.__setOperationalMetrics(0, 0);
+assert.strictEqual(active.classList.addCounts["metric-flash"], undefined);
 assert.doesNotThrow(() => window.__setOperationalMetrics(2, 0));
 assert.strictEqual(active.textContent, "02");
 assert.strictEqual(active.classList.addCounts["metric-flash"], 1);
@@ -557,6 +559,11 @@ const flashesAfterChange = active.classList.addCounts["metric-flash"];
 window.__setOperationalMetrics(3, 4);
 assert.strictEqual(calls.length, callsAfterChange);
 assert.strictEqual(active.classList.addCounts["metric-flash"], flashesAfterChange);
+window.__setOperationalMetrics(2, 4);
+assert.deepStrictEqual(
+  calls.filter(([element]) => element === active).map(([, value]) => value),
+  ["03", "02"],
+);
 '''
         result = subprocess.run(
             ["node", "-e", script], capture_output=True, text=True, check=False
