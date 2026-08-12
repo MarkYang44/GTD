@@ -8,18 +8,41 @@ main.py（命令行）和 app.py（Web 服务）均通过导入本模块复用�
 
 import copy
 import os
-import re
 import shutil
 import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Callable, Optional
 
 import yt_dlp
 
+from audio_output import (
+    AudioOutputProfile,
+    audio_format_name as _audio_format_name,
+    audio_output_profile as _audio_output_profile,
+    audio_postprocessors as _audio_postprocessors,
+    audio_quality_label as _audio_quality_label,
+    display_audio_codec as _display_audio_codec,
+    ensure_source_copy_supported as _ensure_source_copy_supported,
+    profile_for_output_path as _profile_for_output_path,
+    selected_audio_info as _selected_audio_info,
+)
+from download_progress import (
+    ANSI_ESCAPE_RE,
+    extract_progress_snapshot as _extract_progress_snapshot,
+    format_download_speed as _format_download_speed,
+    format_eta as _format_eta,
+    format_size_bytes as _format_size_bytes,
+    make_cancel_hook as _make_cancel_hook,
+    make_postprocessor_status_hook as _make_postprocessor_status_hook,
+    make_progress_hook as _make_progress_hook,
+    postprocessing_preparation as _postprocessing_preparation,
+    postprocessor_stage as _postprocessor_stage,
+    progress_total_size as _progress_total_size,
+    strip_ansi as _strip_ansi,
+)
 import media_sources
 import output_files
 from download_errors import (
@@ -69,7 +92,6 @@ AUDIO_FORMATS = {MP3, FLAC, SOURCE, WAV}
 PLATFORM_NAMES = media_sources.PLATFORM_NAMES
 MAX_PARALLEL_DOWNLOADS = 3
 MAX_PARALLEL_BILIBILI_DOWNLOADS = 2
-ANSI_ESCAPE_RE = re.compile(r"\x1b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 SHARE_URL_RE = media_sources.SHARE_URL_RE
 TRAILING_URL_PUNCTUATION = media_sources.TRAILING_URL_PUNCTUATION
 ATTEMPT_OUTPUT_MARKER_RE = output_files.ATTEMPT_OUTPUT_MARKER_RE
@@ -82,17 +104,6 @@ YtdlpProgressCallback = Callable[[str, dict[str, object]], None] | None
 # ProgressCallback(task_index, event, data)
 #   event: 'started' | 'progress' | 'completed' | 'failed'
 #   data:  dict — 具体字段视 event 而定
-
-
-@dataclass(frozen=True)
-class AudioOutputProfile:
-    requested: str
-    used: str
-    fallback: bool
-    source_acodec: str | None
-    source_abr_kbps: int | None
-    output_ext: str
-    cover_embedded: bool
 
 
 class _QuietYtdlpLogger:
@@ -193,287 +204,6 @@ def _find_cookie_file(platform: str) -> Optional[Path]:
 
 def platform_http_headers(platform: str) -> dict[str, str]:
     return media_sources.platform_http_headers(platform)
-
-
-# ---------------------------------------------------------------------------
-# 进度回调
-# ---------------------------------------------------------------------------
-def _strip_ansi(value: object) -> str:
-    """删除显示文本中的终端控制序列。"""
-    return ANSI_ESCAPE_RE.sub("", str(value or "")).strip()
-
-
-def _format_download_speed(speed: object) -> tuple[float | None, str]:
-    """将 yt-dlp 的 bytes/s 速度转换为 MB/s 文本。"""
-    try:
-        speed_value = float(speed)
-    except (TypeError, ValueError):
-        return None, "计算中"
-
-    if speed_value <= 0:
-        return None, "计算中"
-
-    speed_mbps = round(speed_value / (1024 * 1024), 2)
-    return speed_mbps, f"{speed_mbps:.2f} MB/s"
-
-
-def _format_eta(eta: object) -> str:
-    """将 yt-dlp 的秒数 ETA 转成 MM:SS 或 HH:MM:SS。"""
-    try:
-        seconds = int(float(eta))
-    except (TypeError, ValueError):
-        return "计算中"
-
-    if seconds < 0:
-        return "计算中"
-
-    hours, remainder = divmod(seconds, 3600)
-    minutes, seconds = divmod(remainder, 60)
-    if hours:
-        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-    return f"{minutes:02d}:{seconds:02d}"
-
-
-def _format_size_bytes(value: object) -> str:
-    try:
-        size = float(value)
-    except (TypeError, ValueError):
-        return ""
-    if size <= 0:
-        return ""
-    units = ("B", "KiB", "MiB", "GiB", "TiB")
-    unit_index = 0
-    while size >= 1024 and unit_index < len(units) - 1:
-        size /= 1024
-        unit_index += 1
-    precision = 0 if unit_index == 0 else 2
-    return f"{size:.{precision}f} {units[unit_index]}"
-
-
-def _progress_total_size(data: dict) -> tuple[int | None, bool]:
-    """Return selected transfer size and whether it is only an estimate."""
-    info = data.get("info_dict")
-    if isinstance(info, dict):
-        requested = info.get("requested_formats")
-        if isinstance(requested, list) and requested:
-            total = 0
-            estimated = False
-            for fmt in requested:
-                if not isinstance(fmt, dict):
-                    total = 0
-                    break
-                size = fmt.get("filesize")
-                if not isinstance(size, (int, float)) or size <= 0:
-                    size = fmt.get("filesize_approx")
-                    estimated = True
-                if not isinstance(size, (int, float)) or size <= 0:
-                    total = 0
-                    break
-                total += int(size)
-            if total > 0:
-                return total, estimated
-
-    exact = data.get("total_bytes")
-    if isinstance(exact, (int, float)) and exact > 0:
-        return int(exact), False
-    estimate = data.get("total_bytes_estimate")
-    if isinstance(estimate, (int, float)) and estimate > 0:
-        return int(estimate), True
-
-    if isinstance(info, dict):
-        exact = info.get("filesize")
-        if isinstance(exact, (int, float)) and exact > 0:
-            return int(exact), False
-        estimate = info.get("filesize_approx")
-        if isinstance(estimate, (int, float)) and estimate > 0:
-            return int(estimate), True
-    return None, False
-
-
-def _extract_progress_snapshot(data: dict) -> dict[str, object]:
-    """提取前端任务卡需要展示的下载进度字段。"""
-    speed_mbps, speed_text = _format_download_speed(data.get("speed"))
-    percent_text = _strip_ansi(data.get("_percent_str")) or "计算中"
-    total_size_bytes, total_size_is_estimate = _progress_total_size(data)
-
-    return {
-        "percent_text": percent_text,
-        "speed_mbps": speed_mbps,
-        "speed_text": speed_text,
-        "eta_text": _format_eta(data.get("eta")),
-        "total_size_bytes": total_size_bytes,
-        "total_size_text": _format_size_bytes(total_size_bytes),
-        "total_size_is_estimate": total_size_is_estimate,
-    }
-
-
-def _make_progress_hook(
-    index: int,
-    total: int,
-    progress_callback: YtdlpProgressCallback = None,
-    cancel_token: CancellationToken | None = None,
-    media_type: str = VIDEO,
-    audio_format: str = MP3,
-):
-    """创建带任务序号的 yt-dlp 进度回调（命令行模式）。"""
-
-    def _progress_hook(data: dict) -> None:
-        if cancel_token:
-            cancel_token.raise_if_cancelled()
-        status = data.get("status")
-        if status == "downloading":
-            snapshot = _extract_progress_snapshot(data)
-            if progress_callback:
-                progress_callback("progress", snapshot)
-
-            print(
-                f"  [{index}/{total}] ⏳ 下载中... {snapshot['percent_text']}  "
-                f"速度: {snapshot['speed_text']}  剩余时间: {snapshot['eta_text']}"
-                + (
-                    f"  {'预计总大小' if snapshot['total_size_is_estimate'] else '总大小'}: "
-                    f"{snapshot['total_size_text']}"
-                    if snapshot["total_size_text"]
-                    else "  总大小: 计算中"
-                )
-            )
-        elif status == "finished":
-            payload = _postprocessing_preparation(media_type, audio_format)
-            if progress_callback:
-                progress_callback("postprocessing", payload)
-            print(
-                f"\n  [{index}/{total}] ✅ 数据下载完成。"
-                f"{payload['stage_text']}"
-            )
-            print(f"  [{index}/{total}] ℹ️  {payload['detail_text']}")
-
-    return _progress_hook
-
-
-def _make_cancel_hook(cancel_token: CancellationToken):
-    def _cancel_hook(data: dict) -> None:
-        if data.get("status") != "finished":
-            cancel_token.raise_if_cancelled()
-
-    return _cancel_hook
-
-
-def _postprocessing_preparation(
-    media_type: str,
-    audio_format: str,
-) -> dict[str, object]:
-    if media_type != AUDIO:
-        return {
-            "stage": "preparing",
-            "stage_text": "正在准备合并音视频并整理最终文件。",
-            "detail_text": "高分辨率或长视频可能需要一些时间，界面保持此状态属正常现象。",
-        }
-    if audio_format == MP3:
-        return {
-            "stage": "preparing",
-            "stage_text": "正在准备将完整音轨转码为 MP3 V0。",
-            "detail_text": "随后还会写入元数据与封面；长音频可能需要数十秒至数分钟。",
-        }
-    if audio_format == WAV:
-        stage_text = "正在准备将完整音轨解码为 WAV。"
-    elif audio_format == FLAC:
-        stage_text = "正在准备提取 FLAC 音轨。"
-    else:
-        stage_text = "正在准备整理原始音轨。"
-    return {
-        "stage": "preparing",
-        "stage_text": stage_text,
-        "detail_text": "随后还会写入元数据与封面；长音频或大文件可能需要一些时间。",
-    }
-
-
-def _postprocessor_stage(
-    postprocessor: object,
-    media_type: str,
-    audio_format: str,
-) -> tuple[str, str, str]:
-    name = str(postprocessor or "")
-    normalized = name.casefold()
-    if "extractaudio" in normalized:
-        if audio_format == MP3:
-            return (
-                "transcoding_audio",
-                "正在将完整音轨转码为 MP3 V0…",
-                "长音频需要完整解码并重新编码，可能持续数十秒至数分钟。",
-            )
-        if audio_format == WAV:
-            return (
-                "decoding_audio",
-                "正在将完整音轨解码为 WAV…",
-                "长音频需要完整解码，期间没有下载进度属于正常现象。",
-            )
-        return (
-            "extracting_audio",
-            "正在提取并整理音轨…",
-            "大文件需要读取并写入完整音轨，请耐心等待。",
-        )
-    if "embedthumbnail" in normalized:
-        return (
-            "embedding_thumbnail",
-            "正在嵌入封面…",
-            "程序正在把封面写入最终媒体文件。",
-        )
-    if "metadata" in normalized:
-        return (
-            "writing_metadata",
-            "正在写入媒体信息…",
-            "程序正在保存标题、作者和其他媒体标签。",
-        )
-    if "merger" in normalized:
-        return (
-            "merging_streams",
-            "正在合并视频与音频…",
-            "高分辨率或长视频需要读取并写入完整媒体流。",
-        )
-    if "remux" in normalized:
-        return (
-            "remuxing_video",
-            "正在整理视频封装…",
-            "程序正在生成兼容性更好的最终视频文件。",
-        )
-    if "movefiles" in normalized:
-        return (
-            "finalizing",
-            "正在整理最终文件…",
-            "处理即将完成，程序正在确认文件名与保存位置。",
-        )
-    return (
-        "postprocessing",
-        "正在处理媒体文件…",
-        "程序仍在正常工作，请保持窗口打开。",
-    )
-
-
-def _make_postprocessor_status_hook(
-    index: int,
-    total: int,
-    progress_callback: YtdlpProgressCallback = None,
-    media_type: str = VIDEO,
-    audio_format: str = MP3,
-):
-    def _status_hook(data: dict) -> None:
-        if data.get("status") != "started":
-            return
-        stage, stage_text, detail_text = _postprocessor_stage(
-            data.get("postprocessor"),
-            media_type,
-            audio_format,
-        )
-        payload = {
-            "stage": stage,
-            "stage_text": stage_text,
-            "detail_text": detail_text,
-        }
-        if progress_callback:
-            progress_callback("postprocessing", payload)
-        print(f"  [{index}/{total}] ⚙️  {stage_text}")
-        print(f"  [{index}/{total}] ℹ️  {detail_text}")
-
-    return _status_hook
 
 
 def _validate_output_version(output_version: int) -> None:
@@ -653,196 +383,6 @@ def _build_ydl_options(
     options["postprocessor_hooks"] = postprocessor_hooks
 
     return options
-
-
-# ---------------------------------------------------------------------------
-# 音频质量与文件路径
-# ---------------------------------------------------------------------------
-def _selected_audio_info(info: dict) -> dict:
-    requested = info.get("requested_formats")
-    if isinstance(requested, list):
-        for candidate in requested:
-            if (
-                isinstance(candidate, dict)
-                and candidate.get("acodec") not in {None, "none"}
-            ):
-                return candidate
-    return info
-
-
-def _display_audio_codec(value: object) -> str | None:
-    codec = str(value or "").lower()
-    if codec.startswith("flac"):
-        return "FLAC"
-    if codec.startswith(("aac", "mp4a")):
-        return "AAC"
-    if "opus" in codec:
-        return "Opus"
-    if codec.startswith("mp3"):
-        return "MP3"
-    return codec.upper() or None
-
-
-def _audio_output_profile(info: dict, requested: str) -> AudioOutputProfile:
-    if requested not in AUDIO_FORMATS:
-        raise ValueError(f"不支持的音频格式: {requested}")
-    selected = _selected_audio_info(info)
-    source_acodec = _display_audio_codec(selected.get("acodec"))
-    raw_bitrate = selected.get("abr") or selected.get("tbr")
-    source_abr_kbps = (
-        round(raw_bitrate)
-        if isinstance(raw_bitrate, (int, float)) and raw_bitrate > 0
-        else None
-    )
-    source_ext = str(selected.get("ext") or "").lower()
-    if requested == FLAC:
-        used = FLAC if source_acodec == "FLAC" else MP3
-        output_ext = FLAC if used == FLAC else MP3
-    elif requested == SOURCE:
-        used = SOURCE
-        output_ext = source_ext or "mka"
-    elif requested == WAV:
-        used = WAV
-        output_ext = WAV
-    else:
-        used = MP3
-        output_ext = MP3
-    cover_embedded = output_ext in {
-        "flac",
-        "m4a",
-        "mp3",
-        "mp4",
-        "ogg",
-        "opus",
-    }
-    return AudioOutputProfile(
-        requested=requested,
-        used=used,
-        fallback=requested == FLAC and used == MP3,
-        source_acodec=source_acodec,
-        source_abr_kbps=source_abr_kbps,
-        output_ext=output_ext,
-        cover_embedded=cover_embedded,
-    )
-
-
-def _audio_quality_label(profile: AudioOutputProfile) -> str:
-    if profile.used == FLAC:
-        parts = ["FLAC Lossless"]
-    elif profile.used == SOURCE:
-        parts = [
-            f"Source {profile.source_acodec or profile.output_ext.upper()}"
-        ]
-    elif profile.used == WAV:
-        parts = ["WAV PCM"]
-    else:
-        parts = ["MP3 V0"]
-    if profile.used == FLAC:
-        if profile.source_abr_kbps:
-            parts.append(f"{profile.source_abr_kbps}kbps")
-    elif profile.used == SOURCE:
-        if profile.source_abr_kbps:
-            parts.append(f"{profile.source_abr_kbps}kbps")
-    elif profile.source_acodec:
-        source = f"源{profile.source_acodec}"
-        if profile.source_abr_kbps:
-            source += f" {profile.source_abr_kbps}kbps"
-        parts.append(source)
-    return " · ".join(parts)
-
-
-def _audio_postprocessors(
-    profile: AudioOutputProfile,
-) -> list[dict[str, object]]:
-    preferred_codec = {
-        MP3: MP3,
-        FLAC: FLAC,
-        SOURCE: "best",
-        WAV: WAV,
-    }[profile.used]
-    extractor: dict[str, object] = {
-        "key": "FFmpegExtractAudio",
-        "preferredcodec": preferred_codec,
-    }
-    if profile.used == MP3:
-        extractor["preferredquality"] = "0"
-    postprocessors: list[dict[str, object]] = [
-        extractor,
-        {
-            "key": "FFmpegMetadata",
-            "add_metadata": True,
-            "add_chapters": False,
-            "add_infojson": False,
-        },
-    ]
-    if profile.cover_embedded:
-        postprocessors.append(
-            {
-                "key": "EmbedThumbnail",
-                "already_have_thumbnail": False,
-            }
-        )
-    return postprocessors
-
-
-def _audio_format_name(profile: AudioOutputProfile) -> str:
-    if profile.used == FLAC:
-        return "FLAC"
-    if profile.used == SOURCE:
-        return f"SOURCE {profile.output_ext.upper()}"
-    if profile.used == WAV:
-        return "WAV PCM"
-    return "MP3 V0"
-
-
-def _profile_for_output_path(
-    profile: AudioOutputProfile,
-    filepath: Path,
-) -> AudioOutputProfile:
-    """Report the container that yt-dlp/FFmpeg actually produced."""
-    if profile.used != SOURCE:
-        return profile
-    actual_ext = filepath.suffix.lstrip(".").lower() or profile.output_ext
-    return replace(
-        profile,
-        output_ext=actual_ext,
-        cover_embedded=actual_ext in {
-            "flac",
-            "m4a",
-            "mp3",
-            "mp4",
-            "ogg",
-            "opus",
-        },
-    )
-
-
-def _ensure_source_copy_supported(
-    info: dict,
-    profile: AudioOutputProfile,
-) -> None:
-    """Reject source outputs that yt-dlp would silently transcode to MP3."""
-    if profile.used != SOURCE:
-        return
-    selected = _selected_audio_info(info)
-    codec = str(selected.get("acodec") or "").lower()
-    supported = (
-        "aac",
-        "alac",
-        "flac",
-        "mp3",
-        "mp4a",
-        "opus",
-        "vorbis",
-    )
-    if not codec.startswith(supported):
-        raise DownloadFailure(
-            classify_download_error(
-                ValueError(
-                    f"requested format cannot be copied without transcoding: {codec or 'unknown'}"
-                )
-            )
-        )
 
 
 def _rename_audio_output(

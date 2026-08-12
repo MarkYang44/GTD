@@ -7,6 +7,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 import downloader
+import audio_output
+import download_progress
 import output_files
 import download_errors
 import task_control
@@ -14,6 +16,71 @@ import yt_dlp
 
 
 class DownloadErrorMessageTests(unittest.TestCase):
+    def test_audio_output_module_profiles_match_downloader_compatibility_helpers(self):
+        samples = [
+            ({"acodec": "flac", "ext": "flac", "abr": 1521.267}, downloader.MP3),
+            ({"acodec": "flac", "ext": "flac", "abr": 1521.267}, downloader.FLAC),
+            ({"acodec": "opus", "ext": "webm", "abr": 160}, downloader.SOURCE),
+            ({"acodec": "mp4a.40.2", "ext": "m4a", "abr": 128}, downloader.WAV),
+        ]
+
+        for info, requested in samples:
+            with self.subTest(requested=requested):
+                expected = downloader._audio_output_profile(info, requested)
+                actual = audio_output.audio_output_profile(info, requested)
+                self.assertEqual(actual, expected)
+                self.assertEqual(
+                    audio_output.audio_quality_label(actual),
+                    downloader._audio_quality_label(expected),
+                )
+                self.assertEqual(
+                    audio_output.audio_postprocessors(actual),
+                    downloader._audio_postprocessors(expected),
+                )
+
+    def test_audio_output_module_source_validation_and_final_path_profile_match_downloader(self):
+        source_info = {"acodec": "opus", "ext": "webm", "abr": 160}
+        profile = audio_output.audio_output_profile(source_info, downloader.SOURCE)
+
+        self.assertEqual(
+            audio_output.selected_audio_info(
+                {"requested_formats": [{"acodec": "none"}, source_info]}
+            ),
+            source_info,
+        )
+        self.assertIsNone(audio_output.ensure_source_copy_supported(source_info, profile))
+        self.assertEqual(
+            audio_output.profile_for_output_path(profile, Path("Song.opus")),
+            downloader._profile_for_output_path(
+                downloader._audio_output_profile(source_info, downloader.SOURCE),
+                Path("Song.opus"),
+            ),
+        )
+
+    def test_download_progress_module_matches_ansi_size_eta_and_postprocessor_contracts(self):
+        payload = {
+            "_percent_str": "\x1b[0;94m12.3%\x1b[0m",
+            "speed": 2.5 * 1024 * 1024,
+            "eta": 65,
+            "total_bytes_estimate": 750 * 1024 * 1024,
+        }
+
+        self.assertEqual(
+            download_progress.extract_progress_snapshot(payload),
+            downloader._extract_progress_snapshot(payload),
+        )
+        self.assertEqual(
+            download_progress.postprocessing_preparation(downloader.AUDIO, downloader.MP3),
+            downloader._postprocessing_preparation(downloader.AUDIO, downloader.MP3),
+        )
+        self.assertEqual(
+            download_progress.postprocessor_stage(
+                "ExtractAudio", downloader.AUDIO, downloader.MP3
+            ),
+            downloader._postprocessor_stage(
+                "ExtractAudio", downloader.AUDIO, downloader.MP3
+            ),
+        )
     def test_attempt_workspace_is_forwarded_to_ytdlp_temp_paths(self):
         workspace = Path("/tmp/private-attempt")
 
