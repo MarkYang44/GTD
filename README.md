@@ -38,8 +38,12 @@ Multiple_Video_Downloader/
 ├── download_errors.py           # 结构化错误码与用户建议
 ├── download_logging.py          # 脱敏 JSONL 轮转日志
 ├── folder_picker.py             # Windows / macOS 原生文件夹选择器
+├── guide_renderer.py            # 项目内网页说明 Markdown 安全渲染器
+├── docs/
+│   └── WEB_GUIDE.md             # 仅保留网页使用相关内容的说明文档
 ├── templates/
-│   └── index.html               # Web 前端页面
+│   ├── index.html               # Web 主界面
+│   └── guide.html               # Web 使用说明页面
 ├── requirements.txt             # Python 依赖
 ├── README.md
 ├── cookies.txt                  # 可选：通用 Cookie
@@ -351,6 +355,8 @@ python app.py
 ### 浏览器中访问
 
 打开浏览器，访问 **http://127.0.0.1:8233**
+
+主页面右上角的 **“使用说明”** 可打开 `/guide`，查看专门面向网页操作整理的精简文档。
 
 ### 网页操作流程
 

@@ -5,6 +5,7 @@ Multiple_Video_Downloader — Web 界面入口。
 启动本地 Flask 服务，通过浏览器访问网页界面进行批量下载操作。
 """
 
+from pathlib import Path
 from urllib.parse import urlparse
 
 from flask import Flask, jsonify, render_template, request
@@ -38,12 +39,14 @@ from folder_picker import (
     folder_picker_available,
     prepare_folder_picker,
 )
+from guide_renderer import render_markdown_file
 from task_control import TaskManager, TaskSeed
 
 app = Flask(__name__)
 WEB_HOST = "127.0.0.1"
 WEB_PORT = 8233
 MAX_STORED_BATCHES = 100
+WEB_GUIDE_PATH = Path(__file__).resolve().parent / "docs" / "WEB_GUIDE.md"
 
 preview_store = PreviewStore(ttl_seconds=1800)
 task_manager = TaskManager(
@@ -60,6 +63,15 @@ task_manager = TaskManager(
 def index():
     """主页面。"""
     return render_template("index.html")
+
+
+@app.route("/guide")
+def guide():
+    """Render the Web-only usage guide from the curated Markdown source."""
+    return render_template(
+        "guide.html",
+        guide_content=render_markdown_file(WEB_GUIDE_PATH),
+    )
 
 
 @app.route("/favicon.ico")

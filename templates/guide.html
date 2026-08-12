@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0f172a">
+<link rel="icon" href="{{ url_for('static', filename='icons/favicon.ico', v='20260811') }}" sizes="any">
+<link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='icons/favicon-16x16.png', v='20260811') }}">
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/favicon-32x32.png', v='20260811') }}">
+<link rel="icon" type="image/png" sizes="48x48" href="{{ url_for('static', filename='icons/favicon-48x48.png', v='20260811') }}">
+<link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png', v='20260811') }}">
+<link rel="manifest" href="{{ url_for('static', filename='site.webmanifest', v='20260811') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,400&amp;display=swap" rel="stylesheet">
+<title>使用说明 - Multiple_Video_Downloader</title>
+<style>
+  @font-face {
+    font-family: "Palatino UI Italic";
+    src: local("Palatino Italic"), local("Palatino-Italic");
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+  }
+
+  :root {
+    --background: #0f172a;
+    --background-deep: #0b1222;
+    --surface: #111827;
+    --surface-hover: #162033;
+    --primary: #009b95;
+    --accent: #00a19b;
+    --foreground: #f8fafc;
+    --muted: #94a3b8;
+    --muted-strong: #cbd5e1;
+    --border: rgba(148, 163, 184, .16);
+    --border-strong: rgba(0, 161, 155, .38);
+    --success: #36c9a5;
+    --ui-font: "Palatino UI Italic", Palatino, "Book Antiqua", Georgia,
+               -apple-system, BlinkMacSystemFont, "Noto Sans SC", serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 92px; }
+  body {
+    min-width: 320px;
+    min-height: 100vh;
+    overflow-x: hidden;
+    color: var(--foreground);
+    background:
+      radial-gradient(circle at 18% 9%, rgba(0, 161, 155, .12), transparent 30rem),
+      linear-gradient(180deg, var(--background-deep) 0%, var(--background) 38%, #0d1628 100%);
+    font-family: var(--ui-font);
+    line-height: 1.65;
+  }
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    pointer-events: none;
+    background-image:
+      linear-gradient(rgba(148, 163, 184, .035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148, 163, 184, .035) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: linear-gradient(to bottom, #000 0%, transparent 80%);
+  }
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    opacity: .025;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.92' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.7'/%3E%3C/svg%3E");
+  }
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  .scroll-progress {
+    position: fixed;
+    inset: 0 auto auto 0;
+    z-index: 300;
+    width: 100%;
+    height: 2px;
+    pointer-events: none;
+    transform: scaleX(0);
+    transform-origin: left center;
+    background: linear-gradient(90deg, var(--primary), #44d7c9);
+    box-shadow: 0 0 14px rgba(0, 161, 155, .7);
+  }
+  .pointer-light {
+    position: fixed;
+    z-index: 0;
+    width: 460px;
+    height: 460px;
+    border-radius: 50%;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate3d(-50%, -50%, 0);
+    background: radial-gradient(circle, rgba(0, 161, 155, .09), transparent 68%);
+    transition: opacity .35s ease;
+  }
+  .has-fine-pointer .pointer-light { opacity: 1; }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    height: 68px;
+    border-bottom: 1px solid transparent;
+    background: rgba(11, 18, 34, 0);
+    transition: background .25s ease, border-color .25s ease, box-shadow .25s ease;
+  }
+  .topbar.is-scrolled {
+    border-color: var(--border);
+    background: rgba(11, 18, 34, .88);
+    box-shadow: 0 12px 28px rgba(2, 6, 23, .2);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+  }
+  .topbar-inner {
+    width: min(1180px, calc(100% - 40px));
+    height: 100%;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .brand {
+    color: var(--foreground);
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: 17px;
+    font-weight: 400;
+    font-style: italic;
+    line-height: 1;
+    letter-spacing: -.01em;
+    white-space: nowrap;
+  }
+  .topbar-actions { display: flex; align-items: center; gap: 16px; }
+  .topbar-link {
+    display: inline-flex;
+    min-height: 34px;
+    padding: 0 13px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    color: var(--muted-strong);
+    background: rgba(15, 23, 42, .18);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-decoration: none;
+    transition: color .18s ease, border-color .18s ease, background-color .18s ease, box-shadow .18s ease;
+  }
+  .topbar-link:hover {
+    color: var(--foreground);
+    border-color: var(--border-strong);
+    background: rgba(0, 155, 149, .08);
+    box-shadow: 0 0 16px rgba(0, 161, 155, .08);
+  }
+  .service-status {
+    display: grid;
+    width: 36px;
+    height: 36px;
+    padding: 3px;
+    place-items: center;
+    transition: background-color .18s ease, box-shadow .18s ease;
+  }
+  .service-avatar { display: block; width: 30px; height: 30px; object-fit: contain; }
+
+  .guide-main {
+    position: relative;
+    z-index: 1;
+    width: min(1180px, calc(100% - 40px));
+    margin: 0 auto;
+    padding: 64px 0 88px;
+  }
+  .guide-heading {
+    display: flex;
+    margin-bottom: 30px;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+  }
+  .guide-kicker {
+    margin-bottom: 12px;
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+  }
+  .guide-heading h1 {
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: clamp(50px, 7vw, 84px);
+    font-style: italic;
+    font-weight: 400;
+    line-height: .92;
+    letter-spacing: -.04em;
+  }
+  .guide-intro {
+    flex: 0 0 auto;
+    width: max-content;
+    max-width: none;
+    color: var(--muted);
+    font-size: 14px;
+    text-align: right;
+    white-space: nowrap;
+  }
+  .guide-layout {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    border: 1px solid var(--border);
+    background: rgba(17, 24, 39, .52);
+    box-shadow: 0 24px 70px rgba(2, 6, 23, .16);
+  }
+  .guide-toc {
+    position: relative;
+    border-right: 1px solid var(--border);
+    background: rgba(11, 18, 34, .34);
+  }
+  .guide-toc-inner {
+    position: sticky;
+    top: 92px;
+    padding: 34px 26px;
+  }
+  .guide-toc-label {
+    display: block;
+    margin-bottom: 18px;
+    color: var(--accent);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+  }
+  .guide-toc-list { display: grid; gap: 2px; list-style: none; }
+  .guide-toc-list a {
+    display: block;
+    padding: 7px 10px;
+    border-left: 1px solid transparent;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.45;
+    text-decoration: none;
+    transition: color .18s ease, border-color .18s ease, background-color .18s ease;
+  }
+  .guide-toc-list a:hover,
+  .guide-toc-list a.is-current {
+    color: var(--foreground);
+    border-left-color: var(--accent);
+    background: linear-gradient(90deg, rgba(0, 161, 155, .09), transparent);
+  }
+  .guide-document { min-width: 0; padding: 48px clamp(28px, 6vw, 72px) 64px; }
+  .markdown-source-label {
+    display: flex;
+    margin-bottom: 36px;
+    align-items: center;
+    gap: 13px;
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+  .markdown-source-label::before { content: ""; width: 34px; height: 1px; background: var(--accent); }
+
+  .guide-markdown { min-width: 0; color: var(--muted-strong); font-size: 15px; }
+  .guide-markdown > h1 {
+    margin-bottom: 24px;
+    color: var(--foreground);
+    font-size: clamp(32px, 5vw, 48px);
+    font-weight: 500;
+    line-height: 1.12;
+    letter-spacing: -.025em;
+  }
+  .guide-markdown h2 {
+    margin: 56px 0 20px;
+    padding: 0 0 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--foreground);
+    font-size: 23px;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+  .guide-markdown h2::before {
+    content: "";
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    margin: 0 13px 3px 0;
+    border: 1px solid var(--accent);
+    transform: rotate(45deg);
+  }
+  .guide-markdown h3 { margin: 34px 0 14px; color: var(--foreground); font-size: 18px; }
+  .guide-markdown p { margin: 0 0 18px; }
+  .guide-markdown ul,
+  .guide-markdown ol { display: grid; gap: 10px; margin: 0 0 22px 21px; }
+  .guide-markdown li { padding-left: 4px; }
+  .guide-markdown li::marker { color: var(--accent); font-weight: 700; }
+  .guide-markdown strong { color: var(--foreground); font-weight: 700; }
+  .guide-markdown a { color: #44d7c9; text-underline-offset: 3px; overflow-wrap: anywhere; }
+  .guide-markdown code {
+    padding: 2px 6px;
+    border: 1px solid rgba(0, 161, 155, .18);
+    color: #75e2d8;
+    background: rgba(0, 161, 155, .07);
+    font-family: Consolas, "SFMono-Regular", monospace;
+    font-size: .88em;
+  }
+  .guide-markdown pre {
+    max-width: 100%;
+    margin: 0 0 24px;
+    padding: 18px 20px;
+    overflow: auto;
+    border: 1px solid var(--border);
+    background: rgba(7, 13, 25, .72);
+  }
+  .guide-markdown pre code { padding: 0; border: 0; color: var(--muted-strong); background: transparent; }
+  .guide-markdown blockquote {
+    margin: 24px 0;
+    padding: 15px 18px;
+    border-left: 2px solid var(--accent);
+    color: var(--muted-strong);
+    background: linear-gradient(90deg, rgba(0, 161, 155, .09), rgba(0, 161, 155, .015));
+  }
+  .guide-markdown hr { height: 1px; margin: 46px 0; border: 0; background: var(--border); }
+  .guide-table-wrap { max-width: 100%; margin: 22px 0 30px; overflow-x: auto; }
+  .guide-markdown table { width: 100%; min-width: 580px; border-collapse: collapse; font-size: 13px; }
+  .guide-markdown th,
+  .guide-markdown td { padding: 13px 14px; border: 1px solid var(--border); text-align: left; vertical-align: top; }
+  .guide-markdown th { color: var(--foreground); background: rgba(0, 161, 155, .08); font-size: 11px; letter-spacing: .06em; }
+  .guide-markdown tr:nth-child(even) td { background: rgba(148, 163, 184, .025); }
+
+  .footer {
+    position: relative;
+    z-index: 1;
+    width: min(1180px, calc(100% - 40px));
+    margin: 0 auto;
+    padding: 25px 0 30px;
+    display: grid;
+    gap: 7px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 11px;
+    text-align: center;
+  }
+  .footer-line { display: block; }
+  .footer-line-en { color: rgba(148, 163, 184, .78); }
+
+  @media (hover: hover) and (pointer: fine) {
+    .service-status:hover {
+      background-color: rgba(0, 155, 149, .055);
+      box-shadow: inset 0 0 0 1px var(--border-strong), 0 0 16px rgba(0, 161, 155, .12);
+    }
+  }
+  @media (max-width: 1180px) {
+    .guide-heading { align-items: flex-start; flex-direction: column; }
+    .guide-intro { width: auto; max-width: 100%; text-align: left; white-space: normal; }
+  }
+  @media (max-width: 900px) {
+    .guide-layout { grid-template-columns: 1fr; }
+    .guide-toc { border-right: 0; border-bottom: 1px solid var(--border); }
+    .guide-toc-inner { position: static; padding: 22px 26px; }
+    .guide-toc-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px 12px; }
+  }
+  @media (max-width: 560px) {
+    .topbar { height: 60px; }
+    .topbar-inner, .guide-main, .footer { width: min(100% - 28px, 1180px); }
+    .brand { font-size: 15px; }
+    .topbar-actions { gap: 8px; }
+    .topbar-link { min-height: 31px; padding: 0 10px; font-size: 11px; }
+    .service-status { width: 32px; height: 32px; padding: 2px; }
+    .service-avatar { width: 28px; height: 28px; }
+    .guide-main { padding: 42px 0 58px; }
+    .guide-heading h1 { font-size: 48px; }
+    .guide-toc-inner { padding: 20px; }
+    .guide-toc-list { grid-template-columns: 1fr; }
+    .guide-document { padding: 30px 20px 42px; }
+    .guide-markdown { font-size: 14px; }
+    .guide-markdown h2 { margin-top: 44px; font-size: 20px; }
+    .guide-markdown table { min-width: 520px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { transition-duration: .01ms !important; }
+    .pointer-light { display: none; }
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .topbar.is-scrolled { background: var(--background-deep); }
+  }
+</style>
+</head>
+<body>
+<div class="scroll-progress" id="scroll-progress" aria-hidden="true"></div>
+<div class="pointer-light" id="pointer-light" aria-hidden="true"></div>
+
+<header class="topbar" id="topbar">
+  <div class="topbar-inner">
+    <div class="brand">Designed by Mark Yang</div>
+    <div class="topbar-actions">
+      <a class="topbar-link" href="{{ url_for('index') }}">返回下载</a>
+      <div class="service-status" role="img" aria-label="Multiple Video Downloader">
+        <img
+          class="service-avatar"
+          src="{{ url_for('static', filename='icons/favicon-32x32.png', v='20260811') }}"
+          srcset="{{ url_for('static', filename='icons/favicon-32x32.png', v='20260811') }} 1x, {{ url_for('static', filename='icons/favicon-64x64.png', v='20260811') }} 2x, {{ url_for('static', filename='icons/character-icon-128x128.png', v='20260811') }} 3x"
+          width="30"
+          height="30"
+          alt=""
+          aria-hidden="true"
+          decoding="async"
+        >
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="guide-main">
+  <header class="guide-heading">
+    <div>
+      <p class="guide-kicker">03 / DOCUMENTATION</p>
+      <h1>Read. Inspect. Execute.</h1>
+    </div>
+    <p class="guide-intro">项目功能介绍，格式与位置选择、任务提交、查看进度，以及常见问题处理</p>
+  </header>
+
+  <div class="guide-layout">
+    <nav class="guide-toc" aria-label="使用说明目录">
+      <div class="guide-toc-inner">
+        <span class="guide-toc-label">Contents / 目录</span>
+        <ol class="guide-toc-list" id="guide-toc-list"></ol>
+      </div>
+    </nav>
+    <section class="guide-document" aria-label="网页使用说明正文">
+      <div class="markdown-source-label">Rendered from docs/WEB_GUIDE.md</div>
+      <article class="guide-markdown" id="guide-markdown">{{ guide_content }}</article>
+    </section>
+  </div>
+</main>
+
+<footer class="footer">
+  <span class="footer-line">请仅下载自己拥有权利、获得授权或平台允许下载的视频或音频。 -- Kozeki Ui</span>
+  <span class="footer-line footer-line-en" lang="en">Please only download videos or audio that you own, are authorized to use, or the platform permits you to download. -- Kozeki Ui</span>
+</footer>
+
+<script>
+  (() => {
+    const root = document.documentElement;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const finePointer = window.matchMedia("(pointer: fine)").matches;
+    const progress = document.getElementById("scroll-progress");
+    const topbar = document.getElementById("topbar");
+    const pointerLight = document.getElementById("pointer-light");
+    const tocList = document.getElementById("guide-toc-list");
+    const headings = Array.from(document.querySelectorAll("#guide-markdown h2"));
+    let scrollFrame = null;
+    let pointerFrame = null;
+    let pointerX = 0;
+    let pointerY = 0;
+
+    headings.forEach(heading => {
+      const item = document.createElement("li");
+      const link = document.createElement("a");
+      link.href = `#${heading.id}`;
+      link.textContent = heading.textContent;
+      item.appendChild(link);
+      tocList.appendChild(item);
+    });
+
+    const tocLinks = Array.from(tocList.querySelectorAll("a"));
+    const updateScrollState = () => {
+      const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+      const ratio = scrollable > 0 ? Math.min(window.scrollY / scrollable, 1) : 0;
+      progress.style.transform = `scaleX(${ratio})`;
+      topbar.classList.toggle("is-scrolled", window.scrollY > 12);
+
+      let currentId = "";
+      headings.forEach(heading => {
+        if (heading.getBoundingClientRect().top <= 130) currentId = heading.id;
+      });
+      tocLinks.forEach(link => link.classList.toggle("is-current", link.hash === `#${currentId}`));
+      scrollFrame = null;
+    };
+    const scheduleScrollUpdate = () => {
+      if (scrollFrame === null) scrollFrame = requestAnimationFrame(updateScrollState);
+    };
+    window.addEventListener("scroll", scheduleScrollUpdate, { passive: true });
+    window.addEventListener("resize", scheduleScrollUpdate, { passive: true });
+    scheduleScrollUpdate();
+
+    if (finePointer && !reducedMotion) {
+      root.classList.add("has-fine-pointer");
+      window.addEventListener("pointermove", event => {
+        pointerX = event.clientX;
+        pointerY = event.clientY;
+        if (pointerFrame !== null) return;
+        pointerFrame = requestAnimationFrame(() => {
+          pointerLight.style.transform = `translate3d(${pointerX - 230}px, ${pointerY - 230}px, 0)`;
+          pointerFrame = null;
+        });
+      }, { passive: true });
+    }
+  })();
+</script>
+</body>
+</html>

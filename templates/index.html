@@ -81,7 +81,7 @@
   }
 
   button, textarea { font: inherit; }
-  button:focus-visible, textarea:focus-visible {
+  button:focus-visible, textarea:focus-visible, .topbar-link:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 3px;
   }
@@ -157,6 +157,32 @@
     line-height: 1;
     letter-spacing: -.01em;
     white-space: nowrap;
+  }
+  .topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .topbar-link {
+    display: inline-flex;
+    min-height: 34px;
+    padding: 0 13px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    color: var(--muted-strong);
+    background: rgba(15, 23, 42, .18);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-decoration: none;
+    transition: color .18s ease, border-color .18s ease, background-color .18s ease, box-shadow .18s ease;
+  }
+  .topbar-link:hover {
+    color: var(--foreground);
+    border-color: var(--border-strong);
+    background: rgba(0, 155, 149, .08);
+    box-shadow: 0 0 16px rgba(0, 161, 155, .08);
   }
   .service-status {
     display: grid;
@@ -836,6 +862,8 @@
     .topbar { height: 60px; }
     .topbar-inner, .main, .footer { width: min(100% - 28px, 1180px); }
     .brand { font-size: 15px; }
+    .topbar-actions { gap: 8px; }
+    .topbar-link { min-height: 31px; padding: 0 10px; font-size: 11px; }
     .service-status { width: 32px; height: 32px; padding: 2px; }
     .service-avatar { width: 28px; height: 28px; }
     .main { padding-bottom: 58px; }
@@ -886,18 +914,21 @@
 <header class="topbar" id="topbar">
   <div class="topbar-inner">
     <div class="brand">Designed by Mark Yang</div>
-    <div class="service-status" role="status" aria-label="服务已就绪">
-      <img
-        class="service-avatar"
-        src="{{ url_for('static', filename='icons/favicon-32x32.png', v='20260811') }}"
-        srcset="{{ url_for('static', filename='icons/favicon-32x32.png', v='20260811') }} 1x, {{ url_for('static', filename='icons/favicon-64x64.png', v='20260811') }} 2x, {{ url_for('static', filename='icons/character-icon-128x128.png', v='20260811') }} 3x"
-        width="30"
-        height="30"
-        alt=""
-        aria-hidden="true"
-        decoding="async"
-      >
-      <span class="visually-hidden">服务已就绪</span>
+    <div class="topbar-actions">
+      <a class="topbar-link" href="{{ url_for('guide') }}">使用说明</a>
+      <div class="service-status" role="status" aria-label="服务已就绪">
+        <img
+          class="service-avatar"
+          src="{{ url_for('static', filename='icons/favicon-32x32.png', v='20260811') }}"
+          srcset="{{ url_for('static', filename='icons/favicon-32x32.png', v='20260811') }} 1x, {{ url_for('static', filename='icons/favicon-64x64.png', v='20260811') }} 2x, {{ url_for('static', filename='icons/character-icon-128x128.png', v='20260811') }} 3x"
+          width="30"
+          height="30"
+          alt=""
+          aria-hidden="true"
+          decoding="async"
+        >
+        <span class="visually-hidden">服务已就绪</span>
+      </div>
     </div>
   </div>
 </header>
