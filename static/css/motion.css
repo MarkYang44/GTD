@@ -6,20 +6,23 @@
 }
 
 [data-motion-reveal] {
+  --motion-reveal-offset: 0px;
   opacity: 1;
   transform: none;
   filter: none;
 }
 
 .motion-ready.motion-enabled [data-motion-reveal]:not(.motion-visible) {
+  --motion-reveal-offset: 16px;
   opacity: 0;
-  transform: translate3d(0, 16px, 0);
+  transform: translate3d(0, var(--motion-reveal-offset), 0);
   filter: blur(6px);
 }
 
 .motion-ready.motion-enabled [data-motion-reveal].motion-visible {
+  --motion-reveal-offset: 0px;
   opacity: 1;
-  transform: translate3d(0, 0, 0);
+  transform: translate3d(0, var(--motion-reveal-offset), 0);
   filter: blur(0);
   transition: opacity var(--motion-enter) var(--motion-ease),
               transform var(--motion-enter) var(--motion-ease),
@@ -36,16 +39,11 @@
   isolation: isolate;
 }
 
-[data-motion-surface] > * {
-  position: relative;
-  z-index: 1;
-}
-
 .motion-fine-pointer [data-motion-surface]::before {
   content: "";
   position: absolute;
   inset: 0;
-  z-index: 0;
+  z-index: -1;
   pointer-events: none;
   opacity: var(--motion-sheen-opacity, 0);
   background: radial-gradient(circle at var(--motion-x) var(--motion-y), rgba(0, 161, 155, .11), transparent 38%);
@@ -53,12 +51,20 @@
 }
 
 .motion-fine-pointer [data-motion-surface].motion-surface-active {
-  transform: perspective(1200px) rotateX(var(--motion-rx)) rotateY(var(--motion-ry));
+  transform: translate3d(0, var(--motion-parallax-offset, 0px), 0) perspective(1200px) rotateX(var(--motion-rx)) rotateY(var(--motion-ry));
 }
 
 [data-motion-parallax] {
   transform: translate3d(0, var(--motion-parallax-offset, 0px), 0);
 }
+
+[data-motion-number] {
+  font-variant-numeric: tabular-nums;
+}
+
+.motion-ready.motion-enabled [data-motion-reveal][data-motion-parallax] { transform: translate3d(0, calc(var(--motion-reveal-offset, 0px) + var(--motion-parallax-offset, 0px)), 0); }
+
+.motion-ready.motion-enabled [data-motion-reveal][data-motion-surface] { transform: translate3d(0, calc(var(--motion-reveal-offset, 0px) + var(--motion-parallax-offset, 0px)), 0) perspective(1200px) rotateX(var(--motion-rx)) rotateY(var(--motion-ry)); }
 
 @media (hover: hover) and (pointer: fine) {
   .motion-fine-pointer [data-motion-surface] {

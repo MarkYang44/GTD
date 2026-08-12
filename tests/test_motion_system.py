@@ -44,6 +44,168 @@ class SharedMotionAssetTests(unittest.TestCase):
         self.assertIn("destroy,", script)
         self.assertIn('new CustomEvent("motion:scroll-frame"', script)
 
+    def test_css_composes_reveal_surface_and_parallax_without_repositioning_content(self):
+        css = CSS_PATH.read_text(encoding="utf-8")
+
+        self.assertNotIn("[data-motion-surface] > *", css)
+        self.assertRegex(
+            css,
+            r"\[data-motion-reveal\]\[data-motion-surface\].*?perspective\(1200px\)",
+        )
+        self.assertRegex(
+            css,
+            r"\[data-motion-reveal\]\[data-motion-parallax\].*?--motion-parallax-offset",
+        )
+        self.assertRegex(
+            css,
+            r"\[data-motion-surface\]::before\s*\{[^}]*z-index:\s*-1",
+        )
+        self.assertNotIn("NUMBER_SELECTOR", JS_PATH.read_text(encoding="utf-8"))
+
+    def test_runtime_is_static_without_animation_apis_or_for_reduced_motion(self):
+        script = r'''
+const assert = require("assert");
+const fs = require("fs");
+const source = fs.readFileSync("static/js/motion.js", "utf8");
+
+function classList() {
+  const values = new Set();
+  return { add(...names) { names.forEach((name) => values.add(name)); }, remove(...names) { names.forEach((name) => values.delete(name)); }, contains(name) { return values.has(name); } };
+}
+function boot({ reduced, requestAnimationFrame, observer }) {
+  const reveal = { classList: classList(), style: { setProperty() {} }, getAttribute() { return null; } };
+  const root = { classList: classList(), querySelectorAll(selector) { return selector === "[data-motion-reveal]" ? [reveal] : []; } };
+  global.document = { documentElement: root, hidden: false, body: { scrollHeight: 100 }, querySelectorAll: root.querySelectorAll.bind(root), querySelector() { return null; }, addEventListener() {}, removeEventListener() {}, dispatchEvent() {} };
+  global.window = { matchMedia(query) { return { matches: query.includes("reduced") ? reduced : false }; }, addEventListener() {}, removeEventListener() {}, innerHeight: 100, scrollY: 0 };
+  global.requestAnimationFrame = requestAnimationFrame;
+  global.cancelAnimationFrame = () => {};
+  global.IntersectionObserver = observer;
+  global.CustomEvent = class { constructor(type, init) { this.type = type; this.detail = init.detail; } };
+  new Function(source)();
+  return { root, reveal, api: window.MotionSystem };
+}
+
+const noApis = boot({ reduced: false, requestAnimationFrame: undefined, observer: undefined });
+assert.doesNotThrow(() => noApis.api.refresh());
+assert(noApis.reveal.classList.contains("motion-visible"));
+assert(!noApis.root.classList.contains("motion-enabled"));
+
+let scheduled = 0;
+const reduced = boot({ reduced: true, requestAnimationFrame() { scheduled += 1; return 1; }, observer: class {} });
+assert.doesNotThrow(() => reduced.api.refresh());
+const number = { textContent: "00" };
+reduced.api.setNumber(number, 7);
+assert.strictEqual(number.textContent, "7");
+assert.strictEqual(scheduled, 0);
+assert(reduced.root.classList.contains("motion-reduced"));
+'''
+        result = subprocess.run(
+            ["node", "-e", script], capture_output=True, text=True, check=False
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_runtime_replaces_active_number_and_deduplicates_refresh(self):
+        script = r'''
+const assert = require("assert");
+const fs = require("fs");
+class ClassList { constructor() { this.values = new Set(); } add(...names) { names.forEach((name) => this.values.add(name)); } remove(...names) { names.forEach((name) => this.values.delete(name)); } contains(name) { return this.values.has(name); } }
+class Element {
+  constructor(attributes = {}) { this.attributes = attributes; this.classList = new ClassList(); this.style = { setProperty() {} }; this.textContent = "0"; this.listeners = {}; }
+  getAttribute(name) { return this.attributes[name] ?? null; }
+  addEventListener(name, listener) { (this.listeners[name] ||= []).push(listener); }
+  removeEventListener(name, listener) { this.listeners[name] = (this.listeners[name] || []).filter((item) => item !== listener); }
+  getBoundingClientRect() { return { left: 0, top: 0, width: 100, height: 100 }; }
+}
+const reveal = new Element({ "data-motion-reveal": "" });
+const number = new Element({ "data-motion-number": "" });
+const surface = new Element({ "data-motion-surface": "" });
+const root = { classList: new ClassList(), querySelectorAll(selector) { return selector === "[data-motion-reveal]" ? [reveal] : selector === "[data-motion-surface]" ? [surface] : []; } };
+const documentListeners = {};
+global.document = { documentElement: root, hidden: false, body: { scrollHeight: 100 }, querySelectorAll: root.querySelectorAll.bind(root), querySelector() { return null; }, addEventListener(name, listener) { (documentListeners[name] ||= []).push(listener); }, removeEventListener() {}, dispatchEvent() {} };
+global.window = { matchMedia(query) { return { matches: query.includes("pointer: fine") }; }, addEventListener() {}, removeEventListener() {}, innerHeight: 100, scrollY: 0 };
+let nextId = 1;
+const frames = new Map();
+global.requestAnimationFrame = (callback) => { const id = nextId++; frames.set(id, callback); return id; };
+global.cancelAnimationFrame = (id) => frames.delete(id);
+let observer;
+global.IntersectionObserver = class { constructor(callback) { this.callback = callback; this.observeCount = 0; observer = this; } observe() { this.observeCount += 1; } unobserve() {} disconnect() {} };
+global.CustomEvent = class { constructor(type, init) { this.type = type; this.detail = init.detail; } };
+new Function(fs.readFileSync("static/js/motion.js", "utf8"))();
+window.MotionSystem.refresh();
+window.MotionSystem.refresh();
+assert.strictEqual(surface.listeners.pointerenter.length, 1);
+assert.strictEqual(observer.observeCount, 1);
+window.MotionSystem.setNumber(number, 12);
+for (const callback of [...frames.values()]) callback(0);
+for (const callback of [...frames.values()]) callback(140);
+assert.strictEqual(number.textContent, "6");
+window.MotionSystem.setNumber(number, 3);
+for (const callback of [...frames.values()]) callback(280);
+assert.strictEqual(number.textContent, "6");
+for (const callback of [...frames.values()]) callback(560);
+assert.strictEqual(number.textContent, "3");
+window.MotionSystem.setNumber(number, null);
+assert.strictEqual(number.textContent, "null");
+window.MotionSystem.setNumber(number, true);
+assert.strictEqual(number.textContent, "true");
+'''
+        result = subprocess.run(
+            ["node", "-e", script], capture_output=True, text=True, check=False
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_runtime_visibility_and_asynchronous_errors_fail_open(self):
+        script = r'''
+const assert = require("assert");
+const fs = require("fs");
+class ClassList { constructor() { this.values = new Set(); } add(...names) { names.forEach((name) => this.values.add(name)); } remove(...names) { names.forEach((name) => this.values.delete(name)); } contains(name) { return this.values.has(name); } }
+class Element { constructor(attributes = {}) { this.attributes = attributes; this.classList = new ClassList(); this.style = { values: {}, setProperty(name, value) { this.values[name] = value; } }; this.listeners = {}; } getAttribute(name) { return this.attributes[name] ?? null; } addEventListener(name, listener) { (this.listeners[name] ||= []).push(listener); } removeEventListener(name, listener) { this.listeners[name] = (this.listeners[name] || []).filter((item) => item !== listener); } getBoundingClientRect() { return { left: 0, top: 0, width: 100, height: 100 }; } }
+const reveal = new Element({ "data-motion-reveal": "" });
+const surface = new Element({ "data-motion-surface": "" });
+const root = { classList: new ClassList(), querySelectorAll(selector) { return selector === "[data-motion-reveal]" ? [reveal] : selector === "[data-motion-surface]" ? [surface] : []; } };
+const listeners = {};
+global.document = { documentElement: root, hidden: false, body: { scrollHeight: 100 }, querySelectorAll: root.querySelectorAll.bind(root), querySelector() { return null; }, addEventListener(name, listener) { (listeners[name] ||= []).push(listener); }, removeEventListener(name, listener) { listeners[name] = (listeners[name] || []).filter((item) => item !== listener); }, dispatchEvent() { throw new Error("frame failure"); } };
+global.window = { matchMedia(query) { return { matches: query.includes("pointer: fine") }; }, addEventListener() {}, removeEventListener() {}, innerHeight: 100, scrollY: 0 };
+const frames = new Map(); let nextId = 1;
+global.requestAnimationFrame = (callback) => { const id = nextId++; frames.set(id, callback); return id; };
+global.cancelAnimationFrame = (id) => frames.delete(id);
+let observer;
+global.IntersectionObserver = class { constructor(callback) { this.callback = callback; this.disconnected = false; observer = this; } observe() {} unobserve() {} disconnect() { this.disconnected = true; } };
+global.CustomEvent = class { constructor(type, init) { this.type = type; this.detail = init.detail; } };
+new Function(fs.readFileSync("static/js/motion.js", "utf8"))();
+surface.listeners.pointerenter[0]({ clientX: 100, clientY: 0 });
+document.hidden = true;
+listeners.visibilitychange[0]();
+assert.strictEqual(surface.style.values["--motion-rx"], "0deg");
+assert.strictEqual(frames.size, 0);
+document.hidden = false;
+listeners.visibilitychange[0]();
+for (const callback of [...frames.values()]) assert.doesNotThrow(() => callback(1));
+assert(!root.classList.contains("motion-ready"));
+assert(reveal.classList.contains("motion-visible"));
+assert.strictEqual(surface.listeners.pointerenter.length, 0);
+assert(observer.disconnected);
+
+const observerReveal = new Element({ "data-motion-reveal": "" });
+const observerRoot = { classList: new ClassList(), querySelectorAll(selector) { return selector === "[data-motion-reveal]" ? [observerReveal] : []; } };
+const observerListeners = {};
+global.document = { documentElement: observerRoot, hidden: false, body: { scrollHeight: 100 }, querySelectorAll: observerRoot.querySelectorAll.bind(observerRoot), querySelector() { return null; }, addEventListener(name, listener) { (observerListeners[name] ||= []).push(listener); }, removeEventListener() {}, dispatchEvent() {} };
+global.window = { matchMedia(query) { return { matches: query.includes("pointer: fine") }; }, addEventListener() {}, removeEventListener() {}, innerHeight: 100, scrollY: 0 };
+global.requestAnimationFrame = () => 1;
+global.cancelAnimationFrame = () => {};
+let failingObserver;
+global.IntersectionObserver = class { constructor(callback) { this.callback = callback; this.disconnected = false; failingObserver = this; } observe() {} unobserve() {} disconnect() { this.disconnected = true; } };
+new Function(fs.readFileSync("static/js/motion.js", "utf8"))();
+assert.doesNotThrow(() => failingObserver.callback([{ isIntersecting: true, target: null }]));
+assert(!observerRoot.classList.contains("motion-ready"));
+assert(observerReveal.classList.contains("motion-visible"));
+assert(failingObserver.disconnected);
+'''
+        result = subprocess.run(
+            ["node", "-e", script], capture_output=True, text=True, check=False
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_runtime_handles_numbers_lifecycle_and_surface_cleanup(self):
         script = r'''
 const assert = require("assert");

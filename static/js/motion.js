@@ -7,7 +7,6 @@
   const REVEAL_SELECTOR = "[data-motion-reveal]";
   const SURFACE_SELECTOR = "[data-motion-surface]";
   const PARALLAX_SELECTOR = "[data-motion-parallax]";
-  const NUMBER_SELECTOR = "[data-motion-number]";
   const MAX_PARALLAX = 12;
   const MAX_TILT = 0.6;
   const NUMBER_DURATION = 280;
@@ -17,8 +16,10 @@
   let pointerEvent = null;
   let revealObserver = null;
   let destroyed = false;
+  let enabled = false;
   const surfaceListeners = new Map();
   const numberAnimations = new Map();
+  const observedReveals = new Set();
 
   function select(rootNode, selector) {
     if (!rootNode || !rootNode.querySelectorAll) return [];
@@ -49,7 +50,7 @@
   }
 
   function scheduleFrame() {
-    if (document.hidden || frameId !== null) return;
+    if (!enabled || document.hidden || frameId !== null || typeof requestAnimationFrame !== "function") return;
     frameId = requestAnimationFrame(runFrame);
   }
 
@@ -105,13 +106,17 @@
 
   function runFrame(timestamp) {
     frameId = null;
-    if (document.hidden || destroyed) return;
-    if (scrollDirty) updateScrollState();
-    if (activeSurface && pointerEvent) updateSurface(activeSurface, pointerEvent);
-    const hasPendingNumbers = updateNumbers(timestamp);
-    scrollDirty = false;
-    pointerEvent = null;
-    if (hasPendingNumbers) scheduleFrame();
+    if (document.hidden || destroyed || !enabled) return;
+    try {
+      if (scrollDirty) updateScrollState();
+      if (activeSurface && pointerEvent) updateSurface(activeSurface, pointerEvent);
+      const hasPendingNumbers = updateNumbers(timestamp);
+      scrollDirty = false;
+      pointerEvent = null;
+      if (hasPendingNumbers) scheduleFrame();
+    } catch (error) {
+      failOpen();
+    }
   }
 
   function observeReveals(rootNode) {
@@ -124,7 +129,10 @@
       const order = Number.isFinite(explicitOrder) ? explicitOrder : groupOrder;
       element.style.setProperty("--motion-order", String(order));
       groupOrders.set(group, groupOrder + 1);
-      if (revealObserver && !element.classList.contains("motion-visible")) revealObserver.observe(element);
+      if (revealObserver && !element.classList.contains("motion-visible") && !observedReveals.has(element)) {
+        observedReveals.add(element);
+        revealObserver.observe(element);
+      }
       else makeVisible(element);
     }
   }
@@ -159,6 +167,10 @@
 
   function refresh(rootNode = document) {
     if (destroyed) return;
+    if (!enabled) {
+      for (const element of select(rootNode, REVEAL_SELECTOR)) makeVisible(element);
+      return;
+    }
     observeReveals(rootNode);
     addSurfaceListeners(rootNode);
     scrollDirty = true;
@@ -168,8 +180,12 @@
   function setNumber(element, value) {
     if (!element) return;
     numberAnimations.delete(element);
-    const numericValue = typeof value === "number" ? value : Number(value);
-    if (reduced || !Number.isInteger(numericValue) || String(value).trim() === "") {
+    const numericValue = typeof value === "number"
+      ? value
+      : typeof value === "string" && /^-?\d+$/.test(value.trim())
+        ? Number(value)
+        : Number.NaN;
+    if (!enabled || reduced || !Number.isInteger(numericValue)) {
       element.textContent = String(value);
       return;
     }
@@ -184,7 +200,7 @@
   }
 
   function cancelFrame() {
-    if (frameId !== null) cancelAnimationFrame(frameId);
+    if (frameId !== null && typeof cancelAnimationFrame === "function") cancelAnimationFrame(frameId);
     frameId = null;
   }
 
@@ -216,15 +232,13 @@
     scheduleFrame();
   }
 
-  function destroy() {
-    if (destroyed) return;
-    destroyed = true;
-    cancelFrame();
-    revealObserver?.disconnect();
-    revealObserver = null;
-    window.removeEventListener("scroll", onScroll);
-    window.removeEventListener("resize", onScroll);
-    document.removeEventListener("visibilitychange", onVisibilityChange);
+  function removeGlobalListeners() {
+    window.removeEventListener?.("scroll", onScroll);
+    window.removeEventListener?.("resize", onScroll);
+    document.removeEventListener?.("visibilitychange", onVisibilityChange);
+  }
+
+  function removeSurfaceListeners() {
     for (const [surface, listeners] of surfaceListeners) {
       surface.removeEventListener("pointerenter", listeners.enter);
       surface.removeEventListener("pointermove", listeners.move);
@@ -232,16 +246,37 @@
       resetSurface(surface);
     }
     surfaceListeners.clear();
+  }
+
+  function disconnectRevealObserver() {
+    revealObserver?.disconnect();
+    revealObserver = null;
+    observedReveals.clear();
+  }
+
+  function destroy() {
+    if (destroyed) return;
+    destroyed = true;
+    enabled = false;
+    cancelFrame();
+    disconnectRevealObserver();
+    removeGlobalListeners();
+    removeSurfaceListeners();
     numberAnimations.clear();
     resetParallax();
     root.classList.remove("motion-ready", "motion-enabled", "motion-fine-pointer", "motion-reduced");
   }
 
   function failOpen() {
+    destroyed = true;
+    enabled = false;
     cancelFrame();
     resetAllSurfaces();
     resetParallax();
-    revealObserver?.disconnect();
+    disconnectRevealObserver();
+    removeGlobalListeners();
+    removeSurfaceListeners();
+    numberAnimations.clear();
     for (const element of select(document, REVEAL_SELECTOR)) makeVisible(element);
     root.classList.remove("motion-ready", "motion-enabled", "motion-fine-pointer", "motion-reduced");
   }
@@ -256,12 +291,18 @@
       for (const element of select(document, REVEAL_SELECTOR)) makeVisible(element);
     } else if (typeof IntersectionObserver === "function" && typeof requestAnimationFrame === "function") {
       revealObserver = new IntersectionObserver((entries) => {
-        for (const entry of entries) {
-          if (!entry.isIntersecting) continue;
-          makeVisible(entry.target);
-          revealObserver.unobserve(entry.target);
+        try {
+          for (const entry of entries) {
+            if (!entry.isIntersecting) continue;
+            makeVisible(entry.target);
+            observedReveals.delete(entry.target);
+            revealObserver.unobserve(entry.target);
+          }
+        } catch (error) {
+          failOpen();
         }
       }, { threshold: 0.12 });
+      enabled = true;
       root.classList.add("motion-ready");
       root.classList.add("motion-enabled");
       if (finePointer) root.classList.add("motion-fine-pointer");
