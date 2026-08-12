@@ -53,17 +53,25 @@ class WebConfigurationTests(unittest.TestCase):
         script_urls = re.findall(
             r'<script defer src="([^"]+)"></script>', html
         )
-        self.assertEqual(stylesheet_urls, ["/static/css/index.css"])
-        self.assertEqual(script_urls, ["/static/js/index.js"])
+        self.assertEqual(
+            stylesheet_urls,
+            ["/static/css/index.css", "/static/css/motion.css"],
+        )
+        self.assertEqual(
+            script_urls,
+            ["/static/js/motion.js", "/static/js/index.js"],
+        )
 
-        stylesheet = client.get(stylesheet_urls[0])
-        script = client.get(script_urls[0])
-        self.addCleanup(stylesheet.close)
-        self.addCleanup(script.close)
-        self.assertEqual(stylesheet.status_code, 200)
-        self.assertEqual(stylesheet.mimetype, "text/css")
-        self.assertEqual(script.status_code, 200)
-        self.assertEqual(script.mimetype, "text/javascript")
+        for stylesheet_url in stylesheet_urls:
+            stylesheet = client.get(stylesheet_url)
+            self.addCleanup(stylesheet.close)
+            self.assertEqual(stylesheet.status_code, 200)
+            self.assertEqual(stylesheet.mimetype, "text/css")
+        for script_url in script_urls:
+            script = client.get(script_url)
+            self.addCleanup(script.close)
+            self.assertEqual(script.status_code, 200)
+            self.assertEqual(script.mimetype, "text/javascript")
 
     def test_frontend_exports_all_static_and_dynamic_inline_handlers(self):
         template = frontend_template_source()
@@ -466,6 +474,33 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn("margin-right: -.08em", metric_value_rule)
         self.assertIn("font-variant-numeric: tabular-nums", metric_value_rule)
 
+    def test_homepage_opts_only_stable_surfaces_into_shared_motion(self):
+        template = frontend_template_source()
+
+        self.assertIn('id="hero-title" data-motion-reveal', template)
+        self.assertIn('id="metric-active" data-motion-number', template)
+        self.assertIn('id="metric-queue" data-motion-number', template)
+        self.assertIn('id="metric-limit" data-motion-number', template)
+        for surface_id in (
+            "video-download-card",
+            "audio-download-card",
+            "collectionPreview",
+            "task-card",
+        ):
+            self.assertRegex(template, rf'id="{surface_id}"[^>]*data-motion-surface')
+        self.assertNotRegex(
+            template,
+            r'class="[^"]*task-item[^"]*"[^>]*data-motion-reveal',
+        )
+
+    def test_homepage_delegates_shared_motion_to_motion_system(self):
+        source = frontend_script_source()
+
+        self.assertNotIn("function initializeExperience", source)
+        self.assertNotIn("new IntersectionObserver", source)
+        self.assertNotIn('matchMedia("(pointer: fine)")', source)
+        self.assertIn("window.MotionSystem?.setNumber(element, nextValue)", source)
+
     def test_frontend_computes_active_and_queued_task_counts(self):
         html = frontend_surface_source()
 
@@ -475,14 +510,17 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn('task.status === "queued"', html)
         self.assertIn('padStart(2, "0")', html)
 
-    def test_frontend_has_progressive_motion_and_reduced_motion_fallback(self):
+    def test_frontend_uses_shared_progressive_motion_and_reduced_motion_fallback(self):
         html = frontend_surface_source()
 
         self.assertIn('id="scroll-progress"', html)
-        self.assertIn('id="pointer-light"', html)
-        self.assertIn("data-reveal", html)
-        self.assertIn("IntersectionObserver", html)
-        self.assertIn("requestAnimationFrame", html)
+        self.assertNotIn('id="pointer-light"', html)
+        self.assertIn("data-motion-reveal", html)
+        self.assertIn('href="{{ url_for(\'static\', filename=\'css/motion.css\') }}"', html)
+        self.assertIn('src="{{ url_for(\'static\', filename=\'js/motion.js\') }}"', html)
+        self.assertNotIn("data-reveal", html)
+        self.assertNotIn("IntersectionObserver", frontend_script_source())
+        self.assertNotIn("requestAnimationFrame", frontend_script_source())
         self.assertIn("prefers-reduced-motion: reduce", html)
 
     def test_frontend_has_approved_page_structure_without_service_label(self):

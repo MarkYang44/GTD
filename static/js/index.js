@@ -283,7 +283,8 @@
     [[activeMetric, active], [queueMetric, queue]].forEach(([element, value]) => {
       const nextValue = String(value).padStart(2, "0");
       if (element.textContent === nextValue) return;
-      element.textContent = nextValue;
+      window.MotionSystem?.setNumber(element, nextValue);
+      if (!window.MotionSystem?.setNumber) element.textContent = nextValue;
       element.classList.remove("metric-flash");
       void element.offsetWidth;
       element.classList.add("metric-flash");
@@ -815,62 +816,6 @@
     return div.innerHTML;
   }
 
-  function initializeExperience() {
-    const root = document.documentElement;
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const finePointer = window.matchMedia("(pointer: fine)").matches;
-    const progress = document.getElementById("scroll-progress");
-    const pointerLight = document.getElementById("pointer-light");
-    const topbar = document.getElementById("topbar");
-    let scrollFrame = null;
-    let pointerFrame = null;
-    let pointerX = 0;
-    let pointerY = 0;
-
-    const updateScrollState = () => {
-      const scrollable = document.documentElement.scrollHeight - window.innerHeight;
-      const ratio = scrollable > 0 ? Math.min(window.scrollY / scrollable, 1) : 0;
-      progress.style.transform = `scaleX(${ratio})`;
-      topbar.classList.toggle("is-scrolled", window.scrollY > 12);
-      scrollFrame = null;
-    };
-    const scheduleScrollUpdate = () => {
-      if (scrollFrame === null) scrollFrame = requestAnimationFrame(updateScrollState);
-    };
-    window.addEventListener("scroll", scheduleScrollUpdate, { passive: true });
-    window.addEventListener("resize", scheduleScrollUpdate, { passive: true });
-    scheduleScrollUpdate();
-
-    const revealElements = Array.from(document.querySelectorAll("[data-reveal]"));
-    if (!reducedMotion && "IntersectionObserver" in window) {
-      root.classList.add("motion-ready");
-      const observer = new IntersectionObserver(entries => {
-        entries.forEach(entry => {
-          if (!entry.isIntersecting) return;
-          entry.target.classList.add("is-visible");
-          observer.unobserve(entry.target);
-        });
-      }, { threshold: .12 });
-      revealElements.forEach(element => observer.observe(element));
-    } else {
-      revealElements.forEach(element => element.classList.add("is-visible"));
-    }
-
-    if (finePointer && !reducedMotion) {
-      root.classList.add("has-fine-pointer");
-      window.addEventListener("pointermove", event => {
-        pointerX = event.clientX;
-        pointerY = event.clientY;
-        if (pointerFrame !== null) return;
-        pointerFrame = requestAnimationFrame(() => {
-          pointerLight.style.left = pointerX + "px";
-          pointerLight.style.top = pointerY + "px";
-          pointerFrame = null;
-        });
-      }, { passive: true });
-    }
-  }
-
   Object.assign(window, {
     cancelCollectionPreview,
     chooseDownloadDirectory,
@@ -884,11 +829,5 @@
     toggleDownloadDirectoryHistory,
     updateCollectionSelection,
   });
-  try {
-    initializeExperience();
-  } catch (_) {
-    document.documentElement.classList.remove("motion-ready", "has-fine-pointer");
-    document.querySelectorAll("[data-reveal]").forEach(element => element.classList.add("is-visible"));
-  }
   initializeDownloadDirectoryHistory();
   loadCapabilities();

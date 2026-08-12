@@ -15,10 +15,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,400&amp;display=swap" rel="stylesheet">
 <title>Multiple_Video_Downloader - Designed by Mark Yang</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/motion.css') }}">
 </head>
 <body>
 <div class="scroll-progress" id="scroll-progress" aria-hidden="true"></div>
-<div class="pointer-light" id="pointer-light" aria-hidden="true"></div>
 
 <header class="topbar" id="topbar">
   <div class="topbar-inner">
@@ -45,30 +45,30 @@
 <main class="main">
   <section class="hero" aria-labelledby="hero-title">
     <div class="hero-copy">
-      <div class="hero-kicker" data-reveal>YOUTUBE + INSTAGRAM + BILIBILI</div>
-      <h1 id="hero-title" data-reveal>Capture. Convert. Keep.</h1>
-      <p class="hero-description" data-reveal>
+      <div class="hero-kicker" data-motion-reveal data-motion-group="hero" data-motion-order="0">YOUTUBE + INSTAGRAM + BILIBILI</div>
+      <h1 id="hero-title" data-motion-reveal data-motion-group="hero" data-motion-order="1">Capture. Convert. Keep.</h1>
+      <p class="hero-description" data-motion-reveal data-motion-group="hero" data-motion-order="2">
         <strong>最高画质视频，或最高音质音频下载。</strong><br>
         粘贴链接，其余交给下载队列。
       </p>
     </div>
-    <div class="hero-orbit" aria-hidden="true"><span class="orbit-node"></span></div>
+    <div class="hero-orbit-depth" data-motion-parallax="0.55" aria-hidden="true"><div class="hero-orbit"><span class="orbit-node"></span></div></div>
   </section>
 
-  <section class="metrics-band" data-reveal aria-label="运行指标">
-    <div class="metric"><span class="metric-label">ACTIVE</span><strong class="metric-value" id="metric-active">00</strong></div>
-    <div class="metric"><span class="metric-label">QUEUE</span><strong class="metric-value" id="metric-queue">00</strong></div>
-    <div class="metric"><span class="metric-label">LIMIT</span><strong class="metric-value" id="metric-limit">03</strong></div>
+  <section class="metrics-band" data-motion-reveal data-motion-group="metrics" data-motion-order="0" aria-label="运行指标">
+    <div class="metric"><span class="metric-label">ACTIVE</span><strong class="metric-value" id="metric-active" data-motion-number>00</strong></div>
+    <div class="metric"><span class="metric-label">QUEUE</span><strong class="metric-value" id="metric-queue" data-motion-number>00</strong></div>
+    <div class="metric"><span class="metric-label">LIMIT</span><strong class="metric-value" id="metric-limit" data-motion-number>03</strong></div>
   </section>
 
-  <section data-reveal aria-labelledby="download-workspace-title">
-    <div class="section-heading">
+  <section data-motion-reveal data-motion-group="workspace" data-motion-order="0" aria-labelledby="download-workspace-title">
+    <div class="section-heading" data-motion-reveal data-motion-group="workspace" data-motion-order="1">
       <div><span class="section-index">01 / DOWNLOAD</span><h2 id="download-workspace-title">选择你的输出</h2></div>
       <p class="section-note">视频与音频使用独立入口，共享最多 3 个并发任务的下载队列。</p>
     </div>
 
     <div class="download-grid">
-      <section class="card" id="video-download-card">
+      <section class="card" id="video-download-card" data-motion-reveal data-motion-group="workspace" data-motion-order="2" data-motion-surface>
         <div class="download-card-header">
           <span class="card-index">01 / VIDEO</span>
           <div class="card-title-row">
@@ -108,7 +108,7 @@
         </div>
       </section>
 
-      <section class="card audio-card" id="audio-download-card">
+      <section class="card audio-card" id="audio-download-card" data-motion-reveal data-motion-group="workspace" data-motion-order="3" data-motion-surface>
         <div class="download-card-header">
           <span class="card-index">02 / AUDIO</span>
           <div class="card-title-row">
@@ -167,7 +167,7 @@
       </section>
     </div>
 
-    <section class="collection-preview" id="collectionPreview" aria-labelledby="collectionPreviewTitle" hidden>
+    <section class="collection-preview" id="collectionPreview" data-motion-surface aria-labelledby="collectionPreviewTitle" hidden>
       <div class="collection-preview-header">
         <div>
           <span class="section-index">01 / PREVIEW</span>
@@ -190,7 +190,7 @@
     </section>
   </section>
 
-  <section class="task-panel" id="task-card" data-reveal aria-labelledby="task-title">
+  <section class="task-panel" id="task-card" data-motion-reveal data-motion-group="tasks" data-motion-order="0" data-motion-surface aria-labelledby="task-title">
     <div class="task-header">
       <div class="task-heading-group"><span class="section-index">02 / OPERATIONS</span><span class="task-title" id="task-title">下载任务</span></div>
       <div class="task-header-actions">
@@ -222,6 +222,7 @@
   <span class="footer-line footer-line-en" lang="en">Please only download videos or audio that you own, are authorized to use, or the platform permits you to download. -- Kozeki Ui</span>
 </footer>
 
+<script defer src="{{ url_for('static', filename='js/motion.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/index.js') }}"></script>
 </body>
 </html>
