@@ -149,27 +149,14 @@
     justify-content: space-between;
   }
   .brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-family: var(--ui-font);
-    font-size: 12px;
+    color: var(--foreground);
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: 17px;
     font-weight: 400;
-    letter-spacing: .04em;
-  }
-  .brand-mark {
-    display: grid;
-    width: auto;
-    min-width: 30px;
-    height: 30px;
-    padding: 0 8px;
-    place-items: center;
-    border: 1px solid var(--border-strong);
-    color: var(--accent);
-    background: rgba(0, 155, 149, .08);
-    font-family: var(--ui-font);
-    font-weight: 400;
-    letter-spacing: 0;
+    font-style: italic;
+    line-height: 1;
+    letter-spacing: -.01em;
+    white-space: nowrap;
   }
   .service-status {
     display: grid;
@@ -291,7 +278,9 @@
     font-size: 40px;
     font-weight: 500;
     line-height: 1;
-    letter-spacing: -.06em;
+    letter-spacing: .08em;
+    margin-right: -.08em;
+    font-variant-numeric: tabular-nums;
     transition: color .18s ease, text-shadow .18s ease;
   }
   .metric-value.metric-flash {
@@ -846,7 +835,7 @@
   @media (max-width: 560px) {
     .topbar { height: 60px; }
     .topbar-inner, .main, .footer { width: min(100% - 28px, 1180px); }
-    .brand { font-size: 10px; }
+    .brand { font-size: 15px; }
     .service-status { width: 32px; height: 32px; padding: 2px; }
     .service-avatar { width: 28px; height: 28px; }
     .main { padding-bottom: 58px; }
@@ -896,7 +885,7 @@
 
 <header class="topbar" id="topbar">
   <div class="topbar-inner">
-    <div class="brand"><span class="brand-mark">Mark Yang</span><span>/ DOWNLOADER</span></div>
+    <div class="brand">Designed by Mark Yang</div>
     <div class="service-status" role="status" aria-label="服务已就绪">
       <img
         class="service-avatar"

@@ -325,6 +325,12 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertRegex(html, r'id="metric-active"[^>]*>00<')
         self.assertRegex(html, r'id="metric-queue"[^>]*>00<')
         self.assertRegex(html, r'id="metric-limit"[^>]*>03<')
+        metric_value_match = re.search(r"\.metric-value\s*\{([^}]*)\}", html)
+        self.assertIsNotNone(metric_value_match)
+        metric_value_rule = metric_value_match.group(1)
+        self.assertIn("letter-spacing: .08em", metric_value_rule)
+        self.assertIn("margin-right: -.08em", metric_value_rule)
+        self.assertIn("font-variant-numeric: tabular-nums", metric_value_rule)
 
     def test_frontend_computes_active_and_queued_task_counts(self):
         html = Path("templates/index.html").read_text(encoding="utf-8")
@@ -363,9 +369,10 @@ class WebProgressStateTests(unittest.TestCase):
             html,
         )
         self.assertIn(
-            '<span class="brand-mark">Mark Yang</span><span>/ DOWNLOADER</span>',
+            '<div class="brand">Designed by Mark Yang</div>',
             html,
         )
+        self.assertNotIn("/ DOWNLOADER", html)
         self.assertIn(
             "<strong>最高画质视频，或最高音质音频下载。</strong><br>",
             html,
@@ -399,7 +406,6 @@ class WebProgressStateTests(unittest.TestCase):
         html = Path("templates/index.html").read_text(encoding="utf-8")
         body_match = re.search(r"\n  body\s*\{([^}]*)\}", html)
         brand_match = re.search(r"\.brand\s*\{([^}]*)\}", html)
-        brand_mark_match = re.search(r"\.brand-mark\s*\{([^}]*)\}", html)
         hero_title_match = re.search(r"\.hero h1\s*\{([^}]*)\}", html)
         shared_label_match = re.search(
             r"\.hero-kicker,\s*\.section-index,\s*\.card-index,\s*"
@@ -409,13 +415,11 @@ class WebProgressStateTests(unittest.TestCase):
 
         self.assertIsNotNone(body_match)
         self.assertIsNotNone(brand_match)
-        self.assertIsNotNone(brand_mark_match)
         self.assertIsNotNone(hero_title_match)
         self.assertIsNotNone(shared_label_match)
 
         body_rule = body_match.group(1)
         brand_rule = brand_match.group(1)
-        brand_mark_rule = brand_mark_match.group(1)
         hero_title_rule = hero_title_match.group(1)
         shared_label_rule = shared_label_match.group(1)
 
@@ -425,8 +429,14 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn('local("Palatino-Italic")', html)
         self.assertIn('--ui-font: "Palatino UI Italic", Palatino,', html)
         self.assertIn("font-family: var(--ui-font);", body_rule)
-        self.assertIn("font-family: var(--ui-font);", brand_rule)
-        self.assertIn("font-family: var(--ui-font);", brand_mark_rule)
+        self.assertIn(
+            'font-family: "Cormorant Garamond", Georgia, serif;',
+            brand_rule,
+        )
+        self.assertIn("font-style: italic;", brand_rule)
+        self.assertIn("font-weight: 400;", brand_rule)
+        self.assertIn("font-size: 17px;", brand_rule)
+        self.assertIn(".brand { font-size: 15px; }", html)
         self.assertIn(
             'font-family: "Cormorant Garamond", Georgia, serif;',
             hero_title_rule,
