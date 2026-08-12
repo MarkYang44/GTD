@@ -100,9 +100,18 @@ class TaskManager:
             raise ValueError("一次最多创建 100 个下载任务")
         if not all(isinstance(entry, TaskSeed) for entry in entries):
             raise ValueError("下载任务格式无效")
-        from downloader import _prepare_output_dir
+        from downloader import (
+            _PreparedOutputDir,
+            _prepare_output_dir,
+            _prepared_output_dir,
+        )
 
-        prepared_output_dir = _prepare_output_dir(download_dir)
+        prepared_output_dir = (
+            download_dir
+            if isinstance(download_dir, _PreparedOutputDir)
+            else _prepare_output_dir(download_dir)
+        )
+        _prepared_output_dir(prepared_output_dir)
         resolved_download_dir = str(prepared_output_dir)
 
         with self._lock:
@@ -469,8 +478,7 @@ class TaskManager:
                     current["postprocessing"] = deepcopy(data)
 
         try:
-            runner, output_dir = self._runner_and_output_dir(task)
-            result = runner(
+            result = self._runner(
                 url,
                 platform=runner_fields["platform"],
                 progress_callback=relay,
@@ -479,7 +487,7 @@ class TaskManager:
                 speed_mode=runner_fields["speed_mode"],
                 cancel_token=token,
                 output_version=runner_fields["output_version"],
-                output_dir=output_dir,
+                output_dir=task["_prepared_output_dir"],
                 raise_errors=True,
             )
             if result is None:
@@ -611,17 +619,6 @@ class TaskManager:
             self._clear_progress_fields(task)
             log_download_event(self._logger, status, **event_fields)
             self._prune_locked()
-
-    def _runner_and_output_dir(
-        self,
-        task: dict[str, object],
-    ) -> tuple[Callable[..., dict[str, object] | None], object]:
-        """Select the private prepared-directory runner for downloader calls."""
-        from downloader import download_video, _download_video_with_prepared_dir
-
-        if self._runner is download_video:
-            return _download_video_with_prepared_dir, task["_prepared_output_dir"]
-        return self._runner, task["download_dir"]
 
     def _public_batch(self, batch: dict[str, object]) -> dict[str, object]:
         tasks = [self._public_task(task) for task in batch["tasks"]]

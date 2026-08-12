@@ -10,7 +10,7 @@ import app as web_app
 import downloader
 import folder_picker
 import main as cli_main
-from task_control import TaskManager, TaskSeed
+from task_control import CancellationToken, TaskManager, TaskSeed
 
 
 class DownloadDirectoryTests(unittest.TestCase):
@@ -109,6 +109,26 @@ class DownloadDirectoryTests(unittest.TestCase):
                 "https://b23.tv/example",
                 output_dir_validated=True,
             )
+
+    def test_direct_download_validates_input_before_directory_io(self):
+        token = CancellationToken()
+        token.cancel()
+        cases = (
+            ("unsupported URL", {"url": "not-a-url"}, None),
+            ("invalid media type", {"url": "https://youtu.be/x", "media_type": "text"}, ValueError),
+            ("cancelled", {"url": "https://youtu.be/x", "cancel_token": token}, Exception),
+        )
+
+        for name, kwargs, expected_error in cases:
+            with self.subTest(name=name), patch(
+                "downloader.ensure_downloads_dir",
+            ) as ensure:
+                if expected_error is None:
+                    self.assertIsNone(downloader.download_video(**kwargs))
+                else:
+                    with self.assertRaises(expected_error):
+                        downloader.download_video(**kwargs)
+                ensure.assert_not_called()
 
     def test_batch_and_runner_keep_selected_directory(self):
         calls = []
@@ -212,6 +232,15 @@ class DownloadLocationSurfaceTests(unittest.TestCase):
     def test_web_download_resolves_and_forwards_custom_directory(self):
         with tempfile.TemporaryDirectory() as temporary:
             target = Path(temporary) / "web-output"
+            probe_count = 0
+            original_open = Path.open
+
+            def count_probes(path, *args, **kwargs):
+                nonlocal probe_count
+                if path.name.startswith(".__mvd_write_test_"):
+                    probe_count += 1
+                return original_open(path, *args, **kwargs)
+
             with patch.object(web_app.task_manager, "create_batch") as create:
                 resolved = str(target.resolve())
                 create.return_value = {
@@ -219,17 +248,36 @@ class DownloadLocationSurfaceTests(unittest.TestCase):
                     "total": 1,
                     "download_dir": resolved,
                 }
+                with patch.object(Path, "open", new=count_probes):
+                    response = self.client.post(
+                        "/api/download",
+                        json={
+                            "urls": ["https://youtu.be/example"],
+                            "download_dir": str(target),
+                        },
+                    )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(str(create.call_args.args[4]), resolved)
+        self.assertEqual(response.get_json()["download_dir"], resolved)
+        self.assertEqual(probe_count, 1)
+
+    def test_web_invalid_directory_precedes_unsupported_url(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            invalid = Path(temporary) / "not-a-directory"
+            invalid.write_text("data", encoding="utf-8")
+            with patch.object(web_app.task_manager, "create_batch") as create:
                 response = self.client.post(
                     "/api/download",
                     json={
-                        "urls": ["https://youtu.be/example"],
-                        "download_dir": str(target),
+                        "urls": ["https://example.com/unsupported"],
+                        "download_dir": str(invalid),
                     },
                 )
 
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(create.call_args.args[4], str(target))
-        self.assertEqual(response.get_json()["download_dir"], resolved)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()["error_code"], "INVALID_DOWNLOAD_DIR")
+        create.assert_not_called()
 
     def test_web_picker_endpoint_returns_verified_directory(self):
         with tempfile.TemporaryDirectory() as temporary:

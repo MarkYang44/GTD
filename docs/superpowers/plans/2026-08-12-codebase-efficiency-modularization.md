@@ -81,8 +81,8 @@ git commit -m "perf: serialize web task polling"
 - Test: `tests/test_task_control.py`
 
 **Interfaces:**
-- Produces: `download_video(..., output_dir_validated: bool = False)` internal optimization flag.
-- Consumes: TaskManager always passes a path already validated by Flask or CLI.
+- Produces: private `_PreparedOutputDir` capabilities created only after full directory validation.
+- Consumes: `download_video()` accepts a valid internal capability through `output_dir`; all raw external paths use full validation after URL, option, and cancellation checks.
 
 - [ ] **Step 1: Write failing tests for probe count and public safety**
 
@@ -90,7 +90,7 @@ Add a probe spy around `Path.open`/the generated write-test path to show:
 
 ```python
 def test_batch_reuses_one_validated_download_directory(self):
-    # validate once, then run multiple tasks with output_dir_validated=True
+    # validate once, then run multiple tasks with one internal capability
     self.assertEqual(probe_count, 1)
 
 def test_direct_download_still_validates_download_directory(self):
@@ -98,17 +98,17 @@ def test_direct_download_still_validates_download_directory(self):
     self.assertEqual(probe_count, 1)
 ```
 
-Add a TaskManager runner test asserting `output_dir_validated=True` is forwarded.
+Add a TaskManager runner test asserting the resolved path is retained while the private capability stays internal.
 
 - [ ] **Step 2: Run focused tests and verify RED**
 
 Run: `venv/bin/python -m unittest tests.test_download_locations tests.test_task_control -q`
 
-Expected: new assertions fail because every task calls the full directory validator and the runner receives no flag.
+Expected: new assertions fail because every task calls the full directory validator and no prepared capability exists.
 
 - [ ] **Step 3: Add the trusted internal path**
 
-Keep `ensure_downloads_dir()` unchanged for external calls. Add a small `_prepared_output_dir(path, validated)` helper: if validated, convert to absolute `Path` and confirm it remains a directory without creating a probe; otherwise call `ensure_downloads_dir()`. Forward the flag only from TaskManager and `download_tasks`, never from Web request data.
+Keep `ensure_downloads_dir()` unchanged for raw external paths. Add a private `_PreparedOutputDir` capability plus preparation and resolution helpers. `download_tasks()` and TaskManager retain one prepared capability per batch; the Web route creates one after request validation and passes it directly to TaskManager. Request JSON never supplies a capability.
 
 - [ ] **Step 4: Run focused tests**
 

@@ -30,6 +30,7 @@ from downloader import (
     check_ffmpeg,
     download_video,
     ensure_downloads_dir,
+    _prepare_output_dir,
     make_task,
     normalize_url,
 )
@@ -204,6 +205,15 @@ def api_download():
         return _invalid_request("不支持的音频格式")
     if download_dir is not None and not isinstance(download_dir, str):
         return _invalid_request("download_dir 必须是路径字符串")
+    try:
+        prepared_download_dir = _prepare_output_dir(download_dir)
+    except ValueError as error:
+        return _api_error(
+            "INVALID_DOWNLOAD_DIR",
+            str(error),
+            "请输入一个可创建且可写的文件夹，留空则使用默认 downloads",
+            400,
+        )
     has_urls = "urls" in body
     has_preview = "preview_id" in body or "selected_entry_ids" in body
     if has_urls == has_preview:
@@ -301,7 +311,7 @@ def api_download():
             media_type,
             audio_format,
             speed_mode,
-            download_dir,
+            prepared_download_dir,
         )
     except ValueError as error:
         return _api_error(

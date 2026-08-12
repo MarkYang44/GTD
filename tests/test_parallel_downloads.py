@@ -1,8 +1,10 @@
 import contextlib
 import io
+import tempfile
 import threading
 import time
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import downloader
@@ -10,6 +12,33 @@ from download_errors import DownloadCancelled, DownloadErrorInfo, DownloadFailur
 
 
 class ParallelDownloadTests(unittest.TestCase):
+    def test_batch_uses_public_download_video_mock_with_one_directory_probe(self):
+        tasks = [
+            (downloader.YOUTUBE, "https://youtu.be/first"),
+            (downloader.YOUTUBE, "https://youtu.be/second"),
+        ]
+        with tempfile.TemporaryDirectory() as temporary:
+            probe_count = 0
+            original_open = Path.open
+
+            def count_probes(path, *args, **kwargs):
+                nonlocal probe_count
+                if path.name.startswith(".__mvd_write_test_"):
+                    probe_count += 1
+                return original_open(path, *args, **kwargs)
+
+            with (
+                patch.object(Path, "open", new=count_probes),
+                patch(
+                    "downloader.download_video",
+                    side_effect=lambda url, **kwargs: {"title": url},
+                ) as mocked,
+            ):
+                downloader.download_tasks(tasks, output_dir=temporary)
+
+        self.assertEqual(mocked.call_count, 2)
+        self.assertEqual(probe_count, 1)
+
     def test_bilibili_runs_at_most_two_tasks_concurrently(self):
         tasks = [
             (downloader.BILIBILI, f"https://b23.tv/video-{index}")
@@ -29,7 +58,7 @@ class ParallelDownloadTests(unittest.TestCase):
                 active -= 1
             return {"title": url}
 
-        with patch("downloader._download_video_with_prepared_dir", side_effect=fake_download):
+        with patch("downloader.download_video", side_effect=fake_download):
             results = downloader.download_tasks(tasks)
 
         self.assertEqual(maximum_active, 2)
@@ -66,7 +95,7 @@ class ParallelDownloadTests(unittest.TestCase):
                     active_bilibili -= 1
             return {"title": url}
 
-        with patch("downloader._download_video_with_prepared_dir", side_effect=fake_download):
+        with patch("downloader.download_video", side_effect=fake_download):
             downloader.download_tasks(tasks)
 
         self.assertEqual(maximum_active, 3)
@@ -98,7 +127,7 @@ class ParallelDownloadTests(unittest.TestCase):
             release_downloads.wait(timeout=1)
             return {"title": url}
 
-        with patch("downloader._download_video_with_prepared_dir", side_effect=fake_download):
+        with patch("downloader.download_video", side_effect=fake_download):
             batch_thread = threading.Thread(
                 target=downloader.download_tasks,
                 args=(tasks, callback),
@@ -136,7 +165,7 @@ class ParallelDownloadTests(unittest.TestCase):
                 active -= 1
             return {"title": url}
 
-        with patch("downloader._download_video_with_prepared_dir", side_effect=fake_download):
+        with patch("downloader.download_video", side_effect=fake_download):
             results = downloader.download_tasks(tasks)
 
         self.assertEqual(maximum_active, 3)
@@ -161,7 +190,7 @@ class ParallelDownloadTests(unittest.TestCase):
             progress_callback("progress", {"percent_text": url})
             return {"title": url}
 
-        with patch("downloader._download_video_with_prepared_dir", side_effect=fake_download):
+        with patch("downloader.download_video", side_effect=fake_download):
             downloader.download_tasks(tasks, progress_callback=callback)
 
         for index, (_, url) in enumerate(tasks):
@@ -189,7 +218,7 @@ class ParallelDownloadTests(unittest.TestCase):
                 raise RuntimeError("boom")
             return {"title": url}
 
-        with patch("downloader._download_video_with_prepared_dir", side_effect=fake_download):
+        with patch("downloader.download_video", side_effect=fake_download):
             with contextlib.redirect_stdout(io.StringIO()):
                 results = downloader.download_tasks(
                     tasks,
@@ -214,7 +243,7 @@ class ParallelDownloadTests(unittest.TestCase):
             )
         )
 
-        with patch("downloader._download_video_with_prepared_dir", side_effect=failure):
+        with patch("downloader.download_video", side_effect=failure):
             downloader.download_tasks(
                 [(downloader.YOUTUBE, "https://youtu.be/fail")],
                 progress_callback=lambda index, event, data: events.append(
@@ -231,7 +260,7 @@ class ParallelDownloadTests(unittest.TestCase):
         events = []
 
         with patch(
-            "downloader._download_video_with_prepared_dir",
+            "downloader.download_video",
             side_effect=DownloadCancelled(),
         ):
             downloader.download_tasks(
@@ -257,7 +286,7 @@ class ParallelDownloadTests(unittest.TestCase):
                 "audio_format": kwargs["audio_format"],
             }
 
-        with patch("downloader._download_video_with_prepared_dir", side_effect=fake_download) as mocked:
+        with patch("downloader.download_video", side_effect=fake_download) as mocked:
             results = downloader.download_tasks(
                 tasks,
                 media_type=downloader.AUDIO,
@@ -290,7 +319,7 @@ class ParallelDownloadTests(unittest.TestCase):
         ]
 
         with patch(
-            "downloader._download_video_with_prepared_dir",
+            "downloader.download_video",
             side_effect=lambda url, **kwargs: {
                 "title": url,
                 "speed_mode_requested": kwargs["speed_mode"],

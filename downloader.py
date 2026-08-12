@@ -156,18 +156,15 @@ def ensure_downloads_dir(download_dir: str | Path | None = None) -> Path:
 _PREPARED_OUTPUT_DIR_CAPABILITY = object()
 
 
-@dataclass(frozen=True)
-class _PreparedOutputDir(os.PathLike[str]):
+class _PreparedOutputDir(str):
     """A private capability created only after full directory validation."""
 
-    path: Path
-    capability: object
+    def __new__(cls, path: Path, capability: object):
+        prepared = super().__new__(cls, str(path))
+        prepared.path = path
+        prepared.capability = capability
+        return prepared
 
-    def __fspath__(self) -> str:
-        return str(self.path)
-
-    def __str__(self) -> str:
-        return str(self.path)
 
 
 def _prepare_output_dir(download_dir: str | Path | None) -> _PreparedOutputDir:
@@ -1663,6 +1660,25 @@ def download_video(
     output_dir: str | Path | None = None,
 ) -> Optional[DownloadResult]:
     """自动识别平台并使用 yt-dlp 下载单个视频。"""
+    platform = platform or detect_platform(url)
+    if platform is None:
+        print(f"\n❌ 无法识别视频平台: {url}")
+        return None
+    if not isinstance(media_type, str) or media_type not in MEDIA_TYPES:
+        raise ValueError(f"不支持的下载类型: {media_type}")
+    if not isinstance(speed_mode, str) or speed_mode not in SPEED_MODES:
+        raise ValueError(f"不支持的速度模式: {speed_mode}")
+    if not isinstance(audio_format, str) or audio_format not in AUDIO_FORMATS:
+        raise ValueError(f"不支持的音频格式: {audio_format}")
+    _validate_output_version(output_version)
+    if cancel_token:
+        cancel_token.raise_if_cancelled()
+
+    prepared_dir = (
+        _prepared_output_dir(output_dir)
+        if isinstance(output_dir, _PreparedOutputDir)
+        else ensure_downloads_dir(output_dir)
+    )
     return _download_video(
         url,
         index=index,
@@ -1675,21 +1691,7 @@ def download_video(
         cancel_token=cancel_token,
         output_version=output_version,
         raise_errors=raise_errors,
-        output_dir=ensure_downloads_dir(output_dir),
-    )
-
-
-def _download_video_with_prepared_dir(
-    url: str,
-    *,
-    output_dir: _PreparedOutputDir,
-    **kwargs,
-) -> Optional[DownloadResult]:
-    """Private batch-only entry point for a directory capability."""
-    return _download_video(
-        url,
-        output_dir=_prepared_output_dir(output_dir),
-        **kwargs,
+        output_dir=prepared_dir,
     )
 
 
@@ -2009,7 +2011,7 @@ def download_tasks(
                 attempt_number=1,
             )
             try:
-                result = _download_video_with_prepared_dir(
+                result = download_video(
                     url,
                     index=task_index + 1,
                     total=total,

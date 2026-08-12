@@ -30,7 +30,7 @@ class TaskManagerTests(unittest.TestCase):
         self.assertTrue(manager.wait_for_idle())
         manager.shutdown()
 
-        self.assertTrue(Path(calls[0]["output_dir"]).is_absolute())
+        self.assertEqual(calls[0]["output_dir"], str(Path("/tmp").resolve()))
         self.assertNotIn("output_dir_validated", calls[0])
 
     def test_default_download_directory_is_validated_once_per_batch(self):
