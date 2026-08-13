@@ -80,8 +80,8 @@ class SharedMotionAssetTests(unittest.TestCase):
         self.assertIn(".card::before", index_css)
         self.assertNotIn("[data-motion-surface]::before", css)
         self.assertNotIn("[data-motion-surface]::after", css)
-        self.assertIn("backgroundImage", JS_PATH.read_text(encoding="utf-8"))
-        self.assertIn("radial-gradient", JS_PATH.read_text(encoding="utf-8"))
+        self.assertNotRegex(JS_PATH.read_text(encoding="utf-8"), r"\.style\.backgroundImage\s*=")
+        self.assertIn("radial-gradient", css)
         self.assertNotIn("NUMBER_SELECTOR", JS_PATH.read_text(encoding="utf-8"))
 
     def test_layered_sheen_is_opt_in_and_ordinary_surfaces_keep_background_fallback(self):
@@ -102,7 +102,7 @@ const assert = require("assert");
 const fs = require("fs");
 class ClassList { constructor() { this.values = new Set(); } add(...names) { names.forEach((name) => this.values.add(name)); } remove(...names) { names.forEach((name) => this.values.delete(name)); } contains(name) { return this.values.has(name); } }
 class Element {
-  constructor({ sheen = false, background = "" } = {}) { this.classList = new ClassList(); this.listeners = {}; this.sheen = sheen; this.style = { backgroundImage: background, values: {}, setProperty(name, value) { this.values[name] = value; } }; }
+  constructor({ sheen = false, background = "" } = {}) { this.classList = new ClassList(); this.listeners = {}; this.sheen = sheen; this.style = { values: {}, setProperty(name, value) { this.values[name] = value; }, removeProperty(name) { delete this.values[name]; }, getPropertyValue(name) { return this.values[name] || ""; } }; this.background = background; }
   getAttribute() { return null; }
   querySelector(selector) { return selector === "[data-motion-sheen]" && this.sheen ? {} : null; }
   addEventListener(name, listener) { (this.listeners[name] ||= []).push(listener); }
@@ -126,23 +126,127 @@ runFrames(0);
 layered.listeners.pointerenter[0]({ clientX: 75, clientY: 25 });
 runFrames(1);
 assert(layered.classList.contains("motion-surface-active"));
-assert.strictEqual(layered.style.backgroundImage, "layered-inline");
+assert.strictEqual(layered.style.values["--motion-base-background"], undefined);
 layered.listeners.pointerleave[0]();
 assert(!layered.classList.contains("motion-surface-active"));
 assert.strictEqual(layered.style.values["--motion-rx"], "0deg");
 ordinary.listeners.pointerenter[0]({ clientX: 75, clientY: 25 });
 runFrames(2);
-assert(ordinary.style.backgroundImage.includes("radial-gradient"));
+assert(ordinary.classList.contains("motion-surface-fallback"));
+assert.strictEqual(ordinary.style.values["--motion-base-background"], "ordinary-computed");
+assert(Object.keys(ordinary.style.values).every((name) => name.startsWith("--motion-")));
 ordinary.listeners.pointerleave[0]();
-assert.strictEqual(ordinary.style.backgroundImage, "ordinary-inline");
+assert.strictEqual(ordinary.style.values["--motion-base-background"], undefined);
 window.MotionSystem.destroy();
 assert(!layered.classList.contains("motion-surface-active"));
-assert.strictEqual(layered.style.backgroundImage, "layered-inline");
 '''
         result = subprocess.run(
             ["node", "-e", script], capture_output=True, text=True, check=False
         )
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_static_scroll_contract_survives_reduced_motion_and_missing_animation_apis(self):
+        script = r'''
+const assert = require("assert");
+const fs = require("fs");
+const source = fs.readFileSync("static/js/motion.js", "utf8");
+
+function classList() { const values = new Set(); return { add(...names) { names.forEach((name) => values.add(name)); }, remove(...names) { names.forEach((name) => values.delete(name)); }, toggle(name, force) { if (force) values.add(name); else values.delete(name); }, contains(name) { return values.has(name); } }; }
+function element() { return { classList: classList(), style: { values: {}, setProperty(name, value) { this.values[name] = value; } }, getAttribute() { return "0.5"; } }; }
+function boot({ reduced, requestAnimationFrame, observer }) {
+  const root = { classList: classList(), querySelectorAll() { return []; } };
+  const topbar = element(); const progress = element(); const windowListeners = {}; const documentListeners = {}; const events = [];
+  global.document = { documentElement: root, hidden: false, body: { scrollHeight: 1100 }, querySelectorAll() { return []; }, querySelector(selector) { return selector === "#topbar" ? topbar : selector === "#scroll-progress" ? progress : null; }, addEventListener(name, listener) { (documentListeners[name] ||= []).push(listener); }, removeEventListener() {}, dispatchEvent(event) { events.push(event); } };
+  global.window = { matchMedia(query) { return { matches: query.includes("reduced") ? reduced : false }; }, scrollY: 13, innerHeight: 100, addEventListener(name, listener) { (windowListeners[name] ||= []).push(listener); }, removeEventListener() {} };
+  global.requestAnimationFrame = requestAnimationFrame; global.cancelAnimationFrame = () => {}; global.IntersectionObserver = observer; global.CustomEvent = class { constructor(type, init) { this.type = type; this.detail = init.detail; } };
+  new Function(source)();
+  return { root, topbar, progress, windowListeners, events };
+}
+
+const reduced = boot({ reduced: true, requestAnimationFrame: undefined, observer: undefined });
+assert(reduced.topbar.classList.contains("is-scrolled"));
+assert.strictEqual(reduced.progress.style.values["--motion-scroll-progress"], "0.013");
+assert.strictEqual(reduced.events.at(-1).type, "motion:scroll-frame");
+reduced.windowListeners.scroll[0]();
+assert.strictEqual(reduced.events.length, 2);
+assert(!reduced.root.classList.contains("motion-enabled"));
+
+let frame;
+const degraded = boot({ reduced: false, requestAnimationFrame(callback) { frame = callback; return 1; }, observer: undefined });
+assert(!degraded.root.classList.contains("motion-enabled"));
+assert.strictEqual(typeof frame, "function");
+frame(1);
+assert(degraded.topbar.classList.contains("is-scrolled"));
+assert.strictEqual(degraded.events.at(-1).type, "motion:scroll-frame");
+'''
+        result = subprocess.run(
+            ["node", "-e", script], capture_output=True, text=True, check=False
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_interrupted_number_animations_commit_their_latest_formatted_target(self):
+        script = r'''
+const assert = require("assert");
+const fs = require("fs");
+class ClassList { add() {} remove() {} contains() { return false; } }
+class Element { constructor() { this.classList = new ClassList(); this.style = { setProperty() {} }; this.textContent = "00"; } getAttribute() { return null; } }
+const root = { classList: new ClassList(), querySelectorAll() { return []; } };
+const documentListeners = {}; const frames = new Map(); let nextId = 1;
+global.document = { documentElement: root, hidden: false, body: { scrollHeight: 100 }, querySelectorAll() { return []; }, querySelector() { return null; }, addEventListener(name, listener) { (documentListeners[name] ||= []).push(listener); }, removeEventListener() {}, dispatchEvent() {} };
+global.window = { matchMedia(query) { return { matches: query.includes("pointer: fine") }; }, innerHeight: 100, scrollY: 0, addEventListener() {}, removeEventListener() {} };
+global.requestAnimationFrame = (callback) => { const id = nextId++; frames.set(id, callback); return id; }; global.cancelAnimationFrame = (id) => frames.delete(id); global.IntersectionObserver = class { constructor() {} observe() {} disconnect() {} }; global.CustomEvent = class { constructor(type, init) { this.type = type; this.detail = init.detail; } };
+new Function(fs.readFileSync("static/js/motion.js", "utf8"))();
+function run(timestamp) { for (const [id, callback] of [...frames]) { frames.delete(id); callback(timestamp); } }
+const number = new Element();
+window.MotionSystem.setNumber(number, "07"); run(0); run(140); assert.notStrictEqual(number.textContent, "07");
+document.hidden = true; documentListeners.visibilitychange[0](); assert.strictEqual(number.textContent, "07");
+document.hidden = false; documentListeners.visibilitychange[0]();
+window.MotionSystem.setNumber(number, "03"); run(200); window.MotionSystem.destroy(); assert.strictEqual(number.textContent, "03");
+
+const failingNumber = new Element();
+const root2 = { classList: new ClassList(), querySelectorAll() { return []; } }; const frames2 = new Map(); let id2 = 1;
+global.document = { documentElement: root2, hidden: false, body: { scrollHeight: 100 }, querySelectorAll() { return []; }, querySelector() { return null; }, addEventListener() {}, removeEventListener() {}, dispatchEvent() { throw new Error("fail after target queued"); } };
+global.window = { matchMedia(query) { return { matches: query.includes("pointer: fine") }; }, innerHeight: 100, scrollY: 0, addEventListener() {}, removeEventListener() {} };
+global.requestAnimationFrame = (callback) => { const id = id2++; frames2.set(id, callback); return id; }; global.cancelAnimationFrame = (id) => frames2.delete(id); global.IntersectionObserver = class { constructor() {} observe() {} disconnect() {} };
+new Function(fs.readFileSync("static/js/motion.js", "utf8"))();
+for (const [id, callback] of [...frames2]) { frames2.delete(id); callback(0); }
+window.MotionSystem.setNumber(failingNumber, "09");
+for (const [id, callback] of [...frames2]) { frames2.delete(id); callback(1); }
+assert.strictEqual(failingNumber.textContent, "09");
+'''
+        result = subprocess.run(
+            ["node", "-e", script], capture_output=True, text=True, check=False
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_css_gives_completed_surfaces_and_parallax_short_unstaggered_transitions(self):
+        css = CSS_PATH.read_text(encoding="utf-8")
+        for selector in (
+            r"\.motion-ready\.motion-enabled\s+\[data-motion-reveal\]\[data-motion-surface\]\.motion-visible",
+            r"\.motion-ready\.motion-enabled\s+\[data-motion-reveal\]\[data-motion-parallax\]\.motion-visible",
+        ):
+            match = re.search(selector + r"\s*\{([^}]*)\}", css)
+            self.assertIsNotNone(match, selector)
+            self.assertIn("var(--motion-fast)", match.group(1))
+            self.assertIn("transition-delay: 0ms", match.group(1))
+
+        homepage = web_app.app.test_client().get("/").get_data(as_text=True)
+        kozeki = web_app.app.test_client().get("/kozekilmu").get_data(as_text=True)
+        self.assertRegex(homepage, r'data-motion-reveal[^>]*data-motion-surface')
+        self.assertRegex(homepage, r'data-motion-parallax="0\.55"')
+        self.assertRegex(kozeki, r'data-motion-reveal[^>]*data-motion-surface')
+        self.assertRegex(kozeki, r'data-motion-reveal[^>]*data-motion-parallax')
+
+    def test_every_motion_topbar_transitions_its_webkit_and_standard_backdrop_filters(self):
+        for source in (
+            Path("static/css/index.css").read_text(encoding="utf-8"),
+            Path("templates/guide.html").read_text(encoding="utf-8"),
+            Path("templates/kozekilmu.html").read_text(encoding="utf-8"),
+        ):
+            topbar = re.search(r"\.topbar\s*\{([^}]*)\}", source)
+            self.assertIsNotNone(topbar)
+            self.assertRegex(topbar.group(1), r"-webkit-backdrop-filter\s+\.25s\s+ease")
+            self.assertRegex(topbar.group(1), r"(?<!-)backdrop-filter\s+\.25s\s+ease")
 
     def test_runtime_is_static_without_animation_apis_or_for_reduced_motion(self):
         script = r'''
@@ -178,7 +282,7 @@ assert.doesNotThrow(() => reduced.api.refresh());
 const number = { textContent: "00" };
 reduced.api.setNumber(number, 7);
 assert.strictEqual(number.textContent, "7");
-assert.strictEqual(scheduled, 0);
+assert.strictEqual(scheduled, 1);
 assert(reduced.root.classList.contains("motion-reduced"));
 '''
         result = subprocess.run(
@@ -389,7 +493,7 @@ class Element {
   constructor(attributes = {}) {
     this.attributes = attributes;
     this.classList = new ClassList();
-    this.style = { values: {}, setProperty(name, value) { this.values[name] = value; } };
+    this.style = { values: {}, setProperty(name, value) { this.values[name] = value; }, removeProperty(name) { delete this.values[name]; }, getPropertyValue(name) { return this.values[name] || ""; } };
     this.textContent = "00";
     this.listeners = {};
   }
@@ -459,8 +563,8 @@ surface.listeners.pointerenter[0]({ clientX: 100, clientY: 0 });
 for (const callback of [...queuedFrames.values()]) callback(600);
 assert.strictEqual(surface.style.values["--motion-rx"], "0.6deg");
 assert.strictEqual(surface.style.values["--motion-ry"], "0.6deg");
-assert(surface.style.backgroundImage.includes("radial-gradient"));
-assert(surface.style.backgroundImage.includes("linear-gradient(#111, #222)"));
+assert(surface.classList.contains("motion-surface-fallback"));
+assert.strictEqual(surface.style.values["--motion-base-background"], "linear-gradient(#111, #222)");
 assert.strictEqual(document.lastEvent.type, "motion:scroll-frame");
 assert(Math.abs(Number.parseFloat(parallax.style.values["--motion-parallax-offset"])) <= 6.6);
 window.MotionSystem.destroy();
@@ -468,7 +572,7 @@ assert(!root.classList.contains("motion-ready"));
 assert.strictEqual(surface.listeners.pointerenter.length, 0);
 assert.strictEqual(surface.style.values["--motion-rx"], "0deg");
 assert.strictEqual(parallax.style.values["--motion-parallax-offset"], "0px");
-assert.strictEqual(surface.style.backgroundImage, "");
+assert.strictEqual(surface.style.values["--motion-base-background"], undefined);
 '''
         result = subprocess.run(
             ["node", "-e", script], capture_output=True, text=True, check=False

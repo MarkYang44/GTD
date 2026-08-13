@@ -43,19 +43,28 @@
   function resetSurface(surface) {
     const listeners = surfaceListeners.get(surface);
     surface.classList?.remove("motion-surface-active");
+    surface.classList?.remove("motion-surface-fallback");
     surface.style?.setProperty("--motion-x", "50%");
     surface.style?.setProperty("--motion-y", "50%");
     surface.style?.setProperty("--motion-rx", "0deg");
     surface.style?.setProperty("--motion-ry", "0deg");
-    if (listeners?.backgroundImage !== undefined) {
-      surface.style.backgroundImage = listeners.backgroundImage;
-      listeners.backgroundImage = undefined;
-      listeners.baseBackgroundImage = undefined;
+    if (listeners?.baseBackgroundCaptured) {
+      if (listeners.baseBackgroundValue) {
+        surface.style?.setProperty("--motion-base-background", listeners.baseBackgroundValue);
+      } else {
+        surface.style?.removeProperty?.("--motion-base-background");
+      }
+      listeners.baseBackgroundCaptured = false;
+      listeners.baseBackgroundValue = "";
     }
   }
 
   function scheduleFrame() {
-    if (!enabled || document.hidden || frameId !== null || typeof requestAnimationFrame !== "function") return;
+    if (destroyed || document.hidden || frameId !== null) return;
+    if (typeof requestAnimationFrame !== "function") {
+      runFrame(0);
+      return;
+    }
     frameId = requestAnimationFrame(runFrame);
   }
 
@@ -65,10 +74,12 @@
     const scrollRange = Math.max(0, documentHeight - window.innerHeight);
     const progress = scrollRange ? clamp(scrollY / scrollRange, 0, 1) : 0;
 
-    for (const element of select(document, PARALLAX_SELECTOR)) {
-      const strength = clamp(Number.parseFloat(element.getAttribute("data-motion-parallax")) || 0, 0, 1);
-      const offset = (progress * 2 - 1) * strength * MAX_PARALLAX;
-      element.style.setProperty("--motion-parallax-offset", `${offset.toFixed(2)}px`);
+    if (enabled) {
+      for (const element of select(document, PARALLAX_SELECTOR)) {
+        const strength = clamp(Number.parseFloat(element.getAttribute("data-motion-parallax")) || 0, 0, 1);
+        const offset = (progress * 2 - 1) * strength * MAX_PARALLAX;
+        element.style.setProperty("--motion-parallax-offset", `${offset.toFixed(2)}px`);
+      }
     }
 
     const progressElement = document.querySelector?.("#scroll-progress");
@@ -87,15 +98,10 @@
     const rotateX = clamp((0.5 - y) * 2 * MAX_TILT, -MAX_TILT, MAX_TILT);
     const rotateY = clamp((x - 0.5) * 2 * MAX_TILT, -MAX_TILT, MAX_TILT);
 
-    surface.classList.add("motion-surface-active");
     surface.style.setProperty("--motion-x", `${(x * 100).toFixed(1)}%`);
     surface.style.setProperty("--motion-y", `${(y * 100).toFixed(1)}%`);
     surface.style.setProperty("--motion-rx", `${rotateX.toFixed(1)}deg`);
     surface.style.setProperty("--motion-ry", `${rotateY.toFixed(1)}deg`);
-    const listeners = surfaceListeners.get(surface);
-    if (typeof listeners?.baseBackgroundImage === "string") {
-      surface.style.backgroundImage = `radial-gradient(circle at ${(x * 100).toFixed(1)}% ${(y * 100).toFixed(1)}%, rgba(0, 161, 155, .11), transparent 38%), ${listeners.baseBackgroundImage}`;
-    }
   }
 
   function updateNumbers(timestamp) {
@@ -118,11 +124,11 @@
 
   function runFrame(timestamp) {
     frameId = null;
-    if (document.hidden || destroyed || !enabled) return;
+    if (document.hidden || destroyed) return;
     try {
       if (scrollDirty) updateScrollState();
-      if (activeSurface && pointerEvent) updateSurface(activeSurface, pointerEvent);
-      const hasPendingNumbers = updateNumbers(timestamp);
+      if (enabled && activeSurface && pointerEvent) updateSurface(activeSurface, pointerEvent);
+      const hasPendingNumbers = enabled && updateNumbers(timestamp);
       scrollDirty = false;
       pointerEvent = null;
       if (hasPendingNumbers) scheduleFrame();
@@ -158,13 +164,13 @@
       if (surfaceListeners.has(surface) || isTaskItem(surface)) continue;
       const enter = (event) => {
         activeSurface = surface;
-        beginSurfaceSheen(surface);
+        prepareSurface(surface);
         pointerEvent = event;
         scheduleFrame();
       };
       const move = (event) => {
         if (activeSurface !== surface) activeSurface = surface;
-        beginSurfaceSheen(surface);
+        prepareSurface(surface);
         pointerEvent = event;
         scheduleFrame();
       };
@@ -182,24 +188,27 @@
     }
   }
 
-  function beginSurfaceSheen(surface) {
+  function prepareSurface(surface) {
     const listeners = surfaceListeners.get(surface);
-    if (!listeners || listeners.backgroundImage !== undefined) return;
-    if (surface.querySelector?.("[data-motion-sheen]")) return;
+    if (!listeners) return;
+    surface.classList?.add("motion-surface-active");
+    if (surface.querySelector?.("[data-motion-sheen]") || listeners.baseBackgroundCaptured) return;
     const computedStyle = window.getComputedStyle?.(surface);
     if (!computedStyle || typeof computedStyle.backgroundImage !== "string") return;
-    listeners.backgroundImage = surface.style.backgroundImage || "";
-    listeners.baseBackgroundImage = computedStyle.backgroundImage;
+    listeners.baseBackgroundCaptured = true;
+    listeners.baseBackgroundValue = surface.style?.getPropertyValue?.("--motion-base-background") || "";
+    surface.style?.setProperty("--motion-base-background", computedStyle.backgroundImage);
+    surface.classList?.add("motion-surface-fallback");
   }
 
   function refresh(rootNode = document) {
     if (destroyed) return;
     if (!enabled) {
       for (const element of select(rootNode, REVEAL_SELECTOR)) makeVisible(element);
-      return;
+    } else {
+      observeReveals(rootNode);
+      addSurfaceListeners(rootNode);
     }
-    observeReveals(rootNode);
-    addSurfaceListeners(rootNode);
     scrollDirty = true;
     scheduleFrame();
   }
@@ -245,6 +254,13 @@
     frameId = null;
   }
 
+  function completeNumberAnimations() {
+    for (const [element, animation] of numberAnimations) {
+      element.textContent = formatNumber(animation.target, animation.minimumDigits);
+    }
+    numberAnimations.clear();
+  }
+
   function resetAllSurfaces() {
     activeSurface = null;
     pointerEvent = null;
@@ -266,7 +282,7 @@
     if (document.hidden) {
       cancelFrame();
       resetAllSurfaces();
-      numberAnimations.clear();
+      completeNumberAnimations();
       return;
     }
     scrollDirty = true;
@@ -303,7 +319,7 @@
     disconnectRevealObserver();
     removeGlobalListeners();
     removeSurfaceListeners();
-    numberAnimations.clear();
+    completeNumberAnimations();
     resetParallax();
     root.classList.remove("motion-ready", "motion-enabled", "motion-fine-pointer", "motion-reduced");
   }
@@ -317,7 +333,7 @@
     disconnectRevealObserver();
     removeGlobalListeners();
     removeSurfaceListeners();
-    numberAnimations.clear();
+    completeNumberAnimations();
     for (const element of select(document, REVEAL_SELECTOR)) makeVisible(element);
     root.classList.remove("motion-ready", "motion-enabled", "motion-fine-pointer", "motion-reduced");
   }
@@ -347,13 +363,13 @@
       root.classList.add("motion-ready");
       root.classList.add("motion-enabled");
       if (finePointer) root.classList.add("motion-fine-pointer");
-      window.addEventListener("scroll", onScroll, { passive: true });
-      window.addEventListener("resize", onScroll, { passive: true });
-      document.addEventListener("visibilitychange", onVisibilityChange);
-      refresh();
     } else {
       for (const element of select(document, REVEAL_SELECTOR)) makeVisible(element);
     }
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll, { passive: true });
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    refresh();
   } catch (error) {
     failOpen();
   }

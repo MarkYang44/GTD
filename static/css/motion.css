@@ -67,6 +67,24 @@
 
 .motion-ready.motion-enabled [data-motion-reveal][data-motion-surface] { transform: translate3d(0, calc(var(--motion-reveal-offset, 0px) + var(--motion-parallax-offset, 0px)), 0) perspective(1200px) rotateX(var(--motion-rx)) rotateY(var(--motion-ry)); }
 
+.motion-ready.motion-enabled [data-motion-reveal][data-motion-surface].motion-visible {
+  transition: opacity var(--motion-fast) var(--motion-ease),
+              transform var(--motion-fast) var(--motion-ease),
+              filter var(--motion-fast) var(--motion-ease);
+  transition-delay: 0ms;
+}
+
+.motion-ready.motion-enabled [data-motion-reveal][data-motion-parallax].motion-visible {
+  transition: opacity var(--motion-fast) var(--motion-ease),
+              transform var(--motion-fast) var(--motion-ease),
+              filter var(--motion-fast) var(--motion-ease);
+  transition-delay: 0ms;
+}
+
+.motion-fine-pointer [data-motion-surface].motion-surface-fallback.motion-surface-active {
+  background-image: radial-gradient(circle at var(--motion-x) var(--motion-y), rgba(0, 161, 155, .11), transparent 38%), var(--motion-base-background);
+}
+
 @media (hover: hover) and (pointer: fine) {
   .motion-fine-pointer [data-motion-surface] {
     transition: transform var(--motion-fast) var(--motion-ease);
