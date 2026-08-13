@@ -86,6 +86,18 @@ class KozekiLmuEasterEggTests(unittest.TestCase):
         self.assertIn("row-gap: clamp(28px, 2.4vw, 38px)", html)
         self.assertIn("column-gap: 20px; row-gap: 20px", html)
 
+    def test_hidden_page_uses_shared_motion_without_duplicate_runtime(self):
+        html = self.client.get("/kozekilmu").get_data(as_text=True)
+
+        self.assertIn('href="/static/css/motion.css"', html)
+        self.assertIn('<script defer src="/static/js/motion.js"></script>', html)
+        self.assertIn('class="hero"', html)
+        self.assertIn('data-motion-group="kozeki-hero"', html)
+        self.assertRegex(html, r'class="video-card"[^>]*data-motion-surface')
+        self.assertGreaterEqual(html.count("data-motion-surface"), 6)
+        self.assertNotIn("const pointerLight", html)
+        self.assertNotIn("requestAnimationFrame(updateScrollState)", html)
+
 
 if __name__ == "__main__":
     unittest.main()

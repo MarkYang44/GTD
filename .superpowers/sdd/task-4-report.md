@@ -1,36 +1,25 @@
-# Task 4 Report: Extract Homepage CSS and JavaScript
+# Task 4 Report: Kozeki Ui Hidden-Page Motion
 
-## RED
+## Commit
 
-- Added an asset-boundary regression test before moving code. It requires external CSS and deferred JS assets, rejects inline style/script blocks, and verifies every inline event handler is exported with `Object.assign(window, ...)`.
-- The requested `venv/bin/python` is absent in this linked worktree. The shared project interpreter is `../../venv/bin/python`.
-- RED with that interpreter: the new stylesheet assertion failed because `static/css/index.css` did not exist. Existing JavaScript-source checks also reported the expected missing `static/js/index.js` file.
+`560ad15d2208b387122f5da75b3d5de53982266e` — `feat: apply shared motion to hidden page`
 
-## GREEN
+## Delivered
 
-- Moved the homepage stylesheet to `static/css/index.css` without changing its rules.
-- Moved the homepage script to `static/js/index.js`, loaded with `defer`, and explicitly exported all handlers used by static or rendered inline event attributes.
-- The script had no Jinja-only values, so no data attribute bridge was required.
-- Updated frontend test helpers to aggregate template, CSS, and JavaScript sources. Two other web-surface tests now read the relevant static asset instead of assuming CSS and JavaScript remain embedded in the HTTP response.
+- Loaded the shared motion stylesheet after the hidden page's inline styles and the deferred shared runtime before `</body>`.
+- Added staged reveals for the hero, race data, video heading/card, gallery heading, and gallery shots.
+- Applied the six approved motion surfaces: the main video card and five gallery shots.
+- Added low-strength parallax to the hero stamp and new video/gallery media wrappers, keeping existing image hover transforms on the images themselves.
+- Removed the full inline pointer/scroll runtime and its page-specific pointer light; the shared runtime now owns progress, topbar state, pointer surfaces, lifecycle, and scheduling.
+- Preserved clipping, dimensions, gallery lazy loading, captions, the Bilibili link and play affordance, and the responsive grid. Reduced-motion rules do not hide media or the play affordance.
 
-## Verification
+## TDD and Verification
 
-- `node --check static/js/index.js`
-- `../../venv/bin/python -m unittest tests.test_web_progress tests.test_bilibili_support -q` — 93 tests passed.
-- `../../venv/bin/python -m unittest discover -s tests -q` — 264 tests passed, 2 Windows-only tests skipped.
-- `../../venv/bin/python -m compileall -q app.py downloader.py main.py tests`
-- `git diff --check`
-- Compared the extracted stylesheet against the original template byte-for-byte; compared the script after removing only the required `Object.assign(window, ...)` block.
+- RED: the added hidden-page/shared-delivery tests failed because `/kozekilmu` did not yet include the shared CSS or JavaScript.
+- GREEN: `node --check static/js/motion.js` completed successfully.
+- GREEN: `../../venv/bin/python -m unittest tests.test_kozekilmu tests.test_motion_system tests.test_web_guide -q` completed with `Ran 22 tests` and `OK`.
+- Structural verification confirmed exactly six `data-motion-surface` markers, wrapper-only image parallax, no hidden-page scheduling IIFE, and retained lazy-loading markers.
 
-## Self-review
+## Environment Note
 
-- No service was started or modified, and no download content was touched.
-- Serial visibility-aware polling, task render signatures, requests, and adaptive/turbo behavior were mechanically preserved.
-- The template contains only external asset tags for the former large CSS and JavaScript blocks.
-
-## Review Follow-up
-
-- Added a Flask-client delivery test that parses the rendered homepage, requires exactly `/static/css/index.css` and `/static/js/index.js`, then fetches both URLs and verifies HTTP 200 with `text/css` and `text/javascript` MIME types.
-- Strengthened the inline-handler test to scan both the template and `static/js/index.js` generated HTML. It now checks the dynamic `updateCollectionSelection` and `operateTask` handlers and compares the full handler union against the parsed `Object.assign(window, {...})` export set.
-- This was a characterization-test follow-up: the correct production behavior already existed, so the tests passed without a production change.
-- Follow-up verification: focused Web/Bilibili suite passed 94 tests; full discovery passed 265 tests with 2 Windows-only skips; Node syntax, compileall, and diff checks passed.
+The linked worktree has no local `venv/bin/python`; verification used the project's existing root virtual environment. No service configuration or port `8233` files were changed.

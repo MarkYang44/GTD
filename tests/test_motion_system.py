@@ -10,13 +10,15 @@ JS_PATH = Path("static/js/motion.js")
 
 
 class SharedMotionAssetTests(unittest.TestCase):
-    def test_guide_serves_shared_motion_assets_with_browser_mime_types(self):
+    def test_pages_serve_shared_motion_assets_with_browser_mime_types(self):
         client = web_app.app.test_client()
-        guide = client.get("/guide")
 
-        self.assertEqual(guide.status_code, 200)
-        self.assertIn('href="/static/css/motion.css"', guide.get_data(as_text=True))
-        self.assertIn('<script defer src="/static/js/motion.js"></script>', guide.get_data(as_text=True))
+        for path in ("/guide", "/kozekilmu"):
+            page = client.get(path)
+            self.assertEqual(page.status_code, 200)
+            html = page.get_data(as_text=True)
+            self.assertIn('href="/static/css/motion.css"', html)
+            self.assertIn('<script defer src="/static/js/motion.js"></script>', html)
 
         stylesheet = client.get("/static/css/motion.css")
         script = client.get("/static/js/motion.js")
