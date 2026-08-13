@@ -196,12 +196,16 @@ class WebConfigurationTests(unittest.TestCase):
         self.assertNotIn("Ytb/Ins/Bili Downloader", source)
         self.assertNotIn("Ytb/Ins/Bili Downloader", readme)
 
-    def test_default_web_port_and_readme_are_8233(self):
+    def test_default_web_listener_supports_lan_access_on_8233(self):
         readme = Path("README.md").read_text(encoding="utf-8")
+        source = Path("app.py").read_text(encoding="utf-8")
 
-        self.assertEqual(web_app.WEB_HOST, "127.0.0.1")
+        self.assertEqual(web_app.WEB_HOST, "0.0.0.0")
         self.assertEqual(web_app.WEB_PORT, 8233)
         self.assertIn("http://127.0.0.1:8233", readme)
+        self.assertIn("http://<本机局域网 IP>:8233", readme)
+        self.assertIn("局域网访问", source)
+        self.assertIn("不要将 8233 端口映射到公网", readme)
         self.assertNotIn("http://127.0.0.1:5000", readme)
 
     def test_web_uses_one_bounded_process_task_manager(self):

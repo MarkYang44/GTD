@@ -44,7 +44,7 @@ from guide_renderer import render_markdown_file
 from task_control import TaskManager, TaskSeed
 
 app = Flask(__name__)
-WEB_HOST = "127.0.0.1"
+WEB_HOST = "0.0.0.0"
 WEB_PORT = 8233
 MAX_STORED_BATCHES = 100
 WEB_GUIDE_PATH = Path(__file__).resolve().parent / "docs" / "WEB_GUIDE.md"
@@ -409,7 +409,8 @@ if __name__ == "__main__":
     print("=" * 56)
     print("  🎬 Multiple_Video_Downloader — Web 模式")
     print("=" * 56)
-    print(f"  浏览器访问:  http://{WEB_HOST}:{WEB_PORT}")
+    print(f"  本机访问:    http://127.0.0.1:{WEB_PORT}")
+    print(f"  局域网访问:  http://<本机局域网 IP>:{WEB_PORT}")
     print(f"  默认下载目录: {DOWNLOADS_DIR.resolve()}")
     print("  按 Ctrl+C 停止服务")
     print("=" * 56)
