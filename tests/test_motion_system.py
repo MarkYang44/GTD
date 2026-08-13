@@ -219,11 +219,18 @@ assert.strictEqual(failingNumber.textContent, "09");
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_css_gives_completed_surfaces_and_parallax_short_unstaggered_transitions(self):
+    def test_css_gives_settled_surfaces_and_parallax_short_unstaggered_transitions(self):
         css = CSS_PATH.read_text(encoding="utf-8")
+        entering = re.search(
+            r"\.motion-ready\.motion-enabled\s+\[data-motion-reveal\]\.motion-visible\s*\{([^}]*)\}",
+            css,
+        )
+        self.assertIsNotNone(entering)
+        self.assertIn("var(--motion-enter)", entering.group(1))
+        self.assertIn("var(--motion-stagger)", entering.group(1))
         for selector in (
-            r"\.motion-ready\.motion-enabled\s+\[data-motion-reveal\]\[data-motion-surface\]\.motion-visible",
-            r"\.motion-ready\.motion-enabled\s+\[data-motion-reveal\]\[data-motion-parallax\]\.motion-visible",
+            r"\.motion-ready\.motion-enabled\s+\[data-motion-reveal\]\[data-motion-surface\]\.motion-settled",
+            r"\.motion-ready\.motion-enabled\s+\[data-motion-reveal\]\[data-motion-parallax\]\.motion-settled",
         ):
             match = re.search(selector + r"\s*\{([^}]*)\}", css)
             self.assertIsNotNone(match, selector)
@@ -236,6 +243,79 @@ assert.strictEqual(failingNumber.textContent, "09");
         self.assertRegex(homepage, r'data-motion-parallax="0\.55"')
         self.assertRegex(kozeki, r'data-motion-reveal[^>]*data-motion-surface')
         self.assertRegex(kozeki, r'data-motion-reveal[^>]*data-motion-parallax')
+
+    def test_runtime_marks_reveals_settled_only_after_their_transition_and_cleans_listeners(self):
+        script = r'''
+const assert = require("assert");
+const fs = require("fs");
+class ClassList { constructor() { this.values = new Set(); } add(...names) { names.forEach((name) => this.values.add(name)); } remove(...names) { names.forEach((name) => this.values.delete(name)); } contains(name) { return this.values.has(name); } }
+class Element {
+  constructor(attributes = {}) { this.attributes = attributes; this.classList = new ClassList(); this.style = { setProperty() {} }; this.listeners = {}; }
+  getAttribute(name) { return this.attributes[name] ?? null; }
+  addEventListener(name, listener) { (this.listeners[name] ||= []).push(listener); }
+  removeEventListener(name, listener) { this.listeners[name] = (this.listeners[name] || []).filter((item) => item !== listener); }
+  emit(name, event) { for (const listener of [...(this.listeners[name] || [])]) listener(event); }
+}
+const reveal = new Element({ "data-motion-reveal": "", "data-motion-surface": "", "data-motion-parallax": "0.5" });
+const pending = new Element({ "data-motion-reveal": "" });
+let elements = [reveal];
+const root = { classList: new ClassList(), querySelectorAll(selector) { return selector === "[data-motion-reveal]" ? elements : []; } };
+const frames = new Map(); let nextFrame = 1; let observer;
+global.document = { documentElement: root, hidden: false, body: { scrollHeight: 100 }, querySelectorAll: root.querySelectorAll.bind(root), querySelector() { return null; }, addEventListener() {}, removeEventListener() {}, dispatchEvent() {} };
+global.window = { matchMedia(query) { return { matches: query.includes("pointer: fine") }; }, innerHeight: 100, scrollY: 0, addEventListener() {}, removeEventListener() {}, getComputedStyle() { return { transitionDuration: "680ms, 680ms, 680ms", transitionDelay: "70ms, 70ms, 70ms", backgroundImage: "none" }; } };
+global.requestAnimationFrame = (callback) => { const id = nextFrame++; frames.set(id, callback); return id; }; global.cancelAnimationFrame = (id) => frames.delete(id); global.CustomEvent = class { constructor(type, init) { this.type = type; this.detail = init.detail; } };
+global.IntersectionObserver = class { constructor(callback) { this.callback = callback; this.observed = []; observer = this; } observe(element) { this.observed.push(element); } unobserve(element) { this.observed = this.observed.filter((item) => item !== element); } disconnect() { this.disconnected = true; } };
+new Function(fs.readFileSync("static/js/motion.js", "utf8"))();
+assert.strictEqual(observer.observed.filter((item) => item === reveal).length, 1);
+observer.callback([{ isIntersecting: true, target: reveal }]);
+assert(reveal.classList.contains("motion-visible"));
+assert(!reveal.classList.contains("motion-settled"));
+assert.strictEqual(reveal.listeners.transitionend.length, 1);
+window.MotionSystem.refresh();
+assert.strictEqual(reveal.listeners.transitionend.length, 1);
+reveal.emit("transitionend", { target: reveal, propertyName: "filter" });
+assert(!reveal.classList.contains("motion-settled"));
+assert.strictEqual(reveal.listeners.transitionend.length, 1);
+reveal.emit("transitionend", { target: {}, propertyName: "opacity" });
+assert(!reveal.classList.contains("motion-settled"));
+reveal.emit("transitionend", { target: reveal, propertyName: "opacity" });
+assert(reveal.classList.contains("motion-settled"));
+assert.strictEqual(reveal.listeners.transitionend.length, 0);
+window.MotionSystem.refresh();
+assert.strictEqual(reveal.listeners.transitionend.length, 0);
+
+elements = [reveal, pending];
+window.MotionSystem.refresh();
+observer.callback([{ isIntersecting: true, target: pending }]);
+assert.strictEqual(pending.listeners.transitionend.length, 1);
+window.MotionSystem.destroy();
+assert.strictEqual(pending.listeners.transitionend.length, 0);
+
+const instantReveal = new Element({ "data-motion-reveal": "" });
+const instantRoot = { classList: new ClassList(), querySelectorAll(selector) { return selector === "[data-motion-reveal]" ? [instantReveal] : []; } };
+let instantObserver;
+global.document = { documentElement: instantRoot, hidden: false, body: { scrollHeight: 100 }, querySelectorAll: instantRoot.querySelectorAll.bind(instantRoot), querySelector() { return null; }, addEventListener() {}, removeEventListener() {}, dispatchEvent() {} };
+global.window = { matchMedia(query) { return { matches: query.includes("pointer: fine") }; }, innerHeight: 100, scrollY: 0, addEventListener() {}, removeEventListener() {}, getComputedStyle() { return { transitionDuration: "0s", transitionDelay: "0s", backgroundImage: "none" }; } };
+global.requestAnimationFrame = () => 1; global.IntersectionObserver = class { constructor(callback) { this.callback = callback; instantObserver = this; } observe() {} unobserve() {} disconnect() {} };
+new Function(fs.readFileSync("static/js/motion.js", "utf8"))();
+instantObserver.callback([{ isIntersecting: true, target: instantReveal }]);
+assert(instantReveal.classList.contains("motion-visible"));
+assert(instantReveal.classList.contains("motion-settled"));
+assert.strictEqual(instantReveal.listeners.transitionend, undefined);
+
+const reducedReveal = new Element({ "data-motion-reveal": "" });
+const reducedRoot = { classList: new ClassList(), querySelectorAll(selector) { return selector === "[data-motion-reveal]" ? [reducedReveal] : []; } };
+global.document = { documentElement: reducedRoot, hidden: false, body: { scrollHeight: 100 }, querySelectorAll: reducedRoot.querySelectorAll.bind(reducedRoot), querySelector() { return null; }, addEventListener() {}, removeEventListener() {}, dispatchEvent() {} };
+global.window = { matchMedia(query) { return { matches: query.includes("reduced") }; }, innerHeight: 100, scrollY: 0, addEventListener() {}, removeEventListener() {} };
+global.requestAnimationFrame = undefined; global.IntersectionObserver = undefined;
+new Function(fs.readFileSync("static/js/motion.js", "utf8"))();
+assert(reducedReveal.classList.contains("motion-visible"));
+assert(reducedReveal.classList.contains("motion-settled"));
+'''
+        result = subprocess.run(
+            ["node", "-e", script], capture_output=True, text=True, check=False
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_every_motion_topbar_transitions_its_webkit_and_standard_backdrop_filters(self):
         for source in (
@@ -274,6 +354,7 @@ function boot({ reduced, requestAnimationFrame, observer }) {
 const noApis = boot({ reduced: false, requestAnimationFrame: undefined, observer: undefined });
 assert.doesNotThrow(() => noApis.api.refresh());
 assert(noApis.reveal.classList.contains("motion-visible"));
+assert(noApis.reveal.classList.contains("motion-settled"));
 assert(!noApis.root.classList.contains("motion-enabled"));
 
 let scheduled = 0;
@@ -284,6 +365,7 @@ reduced.api.setNumber(number, 7);
 assert.strictEqual(number.textContent, "7");
 assert.strictEqual(scheduled, 1);
 assert(reduced.root.classList.contains("motion-reduced"));
+assert(reduced.reveal.classList.contains("motion-settled"));
 '''
         result = subprocess.run(
             ["node", "-e", script], capture_output=True, text=True, check=False
@@ -454,6 +536,7 @@ listeners.visibilitychange[0]();
 for (const callback of [...frames.values()]) assert.doesNotThrow(() => callback(1));
 assert(!root.classList.contains("motion-ready"));
 assert(reveal.classList.contains("motion-visible"));
+assert(reveal.classList.contains("motion-settled"));
 assert.strictEqual(surface.listeners.pointerenter.length, 0);
 assert(observer.disconnected);
 
@@ -470,6 +553,7 @@ new Function(fs.readFileSync("static/js/motion.js", "utf8"))();
 assert.doesNotThrow(() => failingObserver.callback([{ isIntersecting: true, target: null }]));
 assert(!observerRoot.classList.contains("motion-ready"));
 assert(observerReveal.classList.contains("motion-visible"));
+assert(observerReveal.classList.contains("motion-settled"));
 assert(failingObserver.disconnected);
 '''
         result = subprocess.run(

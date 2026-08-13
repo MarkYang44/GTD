@@ -67,14 +67,14 @@
 
 .motion-ready.motion-enabled [data-motion-reveal][data-motion-surface] { transform: translate3d(0, calc(var(--motion-reveal-offset, 0px) + var(--motion-parallax-offset, 0px)), 0) perspective(1200px) rotateX(var(--motion-rx)) rotateY(var(--motion-ry)); }
 
-.motion-ready.motion-enabled [data-motion-reveal][data-motion-surface].motion-visible {
+.motion-ready.motion-enabled [data-motion-reveal][data-motion-surface].motion-settled {
   transition: opacity var(--motion-fast) var(--motion-ease),
               transform var(--motion-fast) var(--motion-ease),
               filter var(--motion-fast) var(--motion-ease);
   transition-delay: 0ms;
 }
 
-.motion-ready.motion-enabled [data-motion-reveal][data-motion-parallax].motion-visible {
+.motion-ready.motion-enabled [data-motion-reveal][data-motion-parallax].motion-settled {
   transition: opacity var(--motion-fast) var(--motion-ease),
               transform var(--motion-fast) var(--motion-ease),
               filter var(--motion-fast) var(--motion-ease);
