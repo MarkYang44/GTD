@@ -20,6 +20,8 @@ class SharedMotionAssetTests(unittest.TestCase):
 
         stylesheet = client.get("/static/css/motion.css")
         script = client.get("/static/js/motion.js")
+        self.addCleanup(stylesheet.close)
+        self.addCleanup(script.close)
         self.assertEqual(stylesheet.status_code, 200)
         self.assertEqual(script.status_code, 200)
         self.assertEqual(stylesheet.mimetype, "text/css")

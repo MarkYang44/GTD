@@ -1,4 +1,5 @@
 import unittest
+import subprocess
 from pathlib import Path
 
 import app as web_app
@@ -47,6 +48,101 @@ class WebGuideTests(unittest.TestCase):
         self.assertIn("window.MotionSystem?.refresh", html)
         self.assertNotIn("const pointerLight", html)
         self.assertNotIn("requestAnimationFrame(updateScrollState)", html)
+        self.assertRegex(
+            html,
+            r'class="guide-document"(?![^>]*data-motion-reveal)[^>]*data-motion-surface',
+        )
+        self.assertIn('heading.setAttribute("data-motion-reveal", "")', html)
+
+    def test_guide_initializer_builds_one_toc_and_refreshes_dynamic_headings(self):
+        script = r'''
+const assert = require("assert");
+const fs = require("fs");
+const template = fs.readFileSync("templates/guide.html", "utf8");
+const match = template.match(/<script>\s*([\s\S]*?)<\/script>/);
+assert(match, "guide inline initializer is missing");
+
+class ClassList {
+  constructor() { this.values = new Set(); }
+  toggle(name, force) { if (force) this.values.add(name); else this.values.delete(name); }
+  contains(name) { return this.values.has(name); }
+}
+class Element {
+  constructor({ id = "", textContent = "", top = 200 } = {}) {
+    this.id = id;
+    this.textContent = textContent;
+    this.top = top;
+    this.attributes = {};
+    this.children = [];
+    this.classList = new ClassList();
+  }
+  setAttribute(name, value) { this.attributes[name] = value; }
+  getAttribute(name) { return this.attributes[name]; }
+  set href(value) { this._href = value; this.hash = value.startsWith("#") ? value : ""; }
+  get href() { return this._href; }
+  appendChild(child) { this.children.push(child); return child; }
+  querySelectorAll(selector) {
+    if (selector !== "a") return [];
+    return this.children.flatMap((item) => item.children.filter((child) => child.tagName === "a"));
+  }
+  getBoundingClientRect() { return { top: this.top }; }
+}
+
+const headings = [
+  new Element({ id: "first", textContent: "First", top: 80 }),
+  new Element({ id: "second", textContent: "Second", top: 180 }),
+];
+const tocList = new Element();
+const markdown = new Element();
+markdown.querySelectorAll = (selector) => selector === "h2" ? headings : [];
+const listeners = new Map();
+const document = {
+  readyState: "loading",
+  getElementById(id) { return id === "guide-toc-list" ? tocList : id === "guide-markdown" ? markdown : null; },
+  createElement(tagName) { const element = new Element(); element.tagName = tagName; return element; },
+  addEventListener(type, listener, options = {}) { (listeners.get(type) || listeners.set(type, []).get(type)).push({ listener, once: options.once }); },
+  dispatchEvent(event) {
+    const registered = [...(listeners.get(event.type) || [])];
+    for (const entry of registered) {
+      entry.listener(event);
+      if (entry.once) listeners.set(event.type, (listeners.get(event.type) || []).filter((item) => item !== entry));
+    }
+  },
+};
+const refreshCalls = [];
+global.document = document;
+global.window = { MotionSystem: { refresh(root) { refreshCalls.push(root); } } };
+global.requestAnimationFrame = () => { throw new Error("guide must not schedule its own frame"); };
+new Function(match[1])();
+
+assert.strictEqual((listeners.get("DOMContentLoaded") || []).length, 1);
+document.dispatchEvent({ type: "DOMContentLoaded" });
+assert.strictEqual(tocList.children.length, 2);
+assert.strictEqual((listeners.get("motion:scroll-frame") || []).length, 1);
+assert.deepStrictEqual(headings.map((heading) => heading.getAttribute("data-motion-reveal")), ["", ""]);
+assert.deepStrictEqual(headings.map((heading) => heading.getAttribute("data-motion-group")), ["guide-sections", "guide-sections"]);
+assert.deepStrictEqual(headings.map((heading) => heading.getAttribute("data-motion-order")), ["0", "1"]);
+assert.deepStrictEqual(refreshCalls, [markdown]);
+let links = tocList.querySelectorAll("a");
+assert(links[0].classList.contains("is-current"));
+assert(!links[1].classList.contains("is-current"));
+
+headings[0].top = 150;
+headings[1].top = 90;
+document.dispatchEvent({ type: "motion:scroll-frame" });
+links = tocList.querySelectorAll("a");
+assert(!links[0].classList.contains("is-current"));
+assert(links[1].classList.contains("is-current"));
+
+document.dispatchEvent({ type: "DOMContentLoaded" });
+assert.strictEqual(tocList.children.length, 2);
+assert.strictEqual((listeners.get("motion:scroll-frame") || []).length, 1);
+assert.deepStrictEqual(refreshCalls, [markdown]);
+'''
+        result = subprocess.run(
+            ["node", "-e", script], capture_output=True, text=True, check=False
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_web_guide_excludes_cli_only_instructions(self):
         source = Path("docs/WEB_GUIDE.md").read_text(encoding="utf-8")
