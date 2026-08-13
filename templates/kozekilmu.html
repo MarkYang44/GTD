@@ -233,6 +233,7 @@
   .video-card {
     position: relative;
     display: block;
+    aspect-ratio: 1.333;
     overflow: hidden;
     border: 1px solid var(--border);
     color: var(--foreground);
@@ -240,11 +241,10 @@
     text-decoration: none;
     isolation: isolate;
   }
-  .video-media, .shot-media { display: block; }
-  .shot-media { width: 100%; height: 100%; }
-  .video-card img { width: 100%; aspect-ratio: 1.333; object-fit: cover; transition: transform .55s cubic-bezier(.2, .75, .2, 1), filter .35s ease; }
-  .video-card::after { content: ""; position: absolute; inset: 38% 0 0; z-index: 1; background: linear-gradient(transparent, rgba(3, 8, 18, .92)); }
-  .video-overlay { position: absolute; inset: auto 0 0; z-index: 2; display: flex; padding: clamp(22px, 5vw, 52px); align-items: flex-end; justify-content: space-between; gap: 24px; }
+  .video-media, .shot-media { position: absolute; inset: -14px; display: block; }
+  .video-card img { width: 100%; height: 100%; object-fit: cover; transition: transform .55s cubic-bezier(.2, .75, .2, 1), filter .35s ease; }
+  .video-card::after { content: ""; position: absolute; inset: 38% 0 0; z-index: 2; background: linear-gradient(transparent, rgba(3, 8, 18, .92)); }
+  .video-overlay { position: absolute; inset: auto 0 0; z-index: 3; display: flex; padding: clamp(22px, 5vw, 52px); align-items: flex-end; justify-content: space-between; gap: 24px; }
   .video-kicker { display: block; margin-bottom: 9px; color: #44d7c9; font-size: 10px; font-weight: 700; letter-spacing: .16em; }
   .video-title { max-width: 760px; font-size: clamp(20px, 3vw, 36px); font-weight: 500; line-height: 1.2; }
   .video-play {
@@ -285,6 +285,7 @@
   .shot-caption {
     position: absolute;
     inset: auto 0 0;
+    z-index: 2;
     padding: 34px 16px 12px;
     color: var(--muted-strong);
     background: linear-gradient(transparent, rgba(3, 8, 18, .82));
@@ -334,12 +335,11 @@
     .data-value { font-size: 20px; }
     .section-heading { align-items: flex-start; flex-direction: column; gap: 7px; }
     .video-section { margin-bottom: 60px; }
-    .video-card img { aspect-ratio: 1.12; }
+    .video-card { aspect-ratio: 1.12; }
     .video-overlay { padding: 22px; align-items: flex-start; flex-direction: column; }
     .video-play { width: 50px; height: 50px; }
     .gallery-grid { column-gap: 20px; row-gap: 20px; }
-    .shot, .shot-table { grid-column: 1 / -1; aspect-ratio: auto; }
-    .shot img { height: auto; }
+    .shot, .shot-table { grid-column: 1 / -1; }
   }
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
@@ -393,6 +393,7 @@
     </header>
     <a class="video-card" data-motion-reveal data-motion-group="kozeki-video" data-motion-order="1" data-motion-surface href="https://b23.tv/F3xhGEK" target="_blank" rel="noopener noreferrer" aria-label="在 Bilibili 观看 LMU 第一胜视频">
       <span class="video-media" data-motion-parallax="0.45"><img src="{{ url_for('static', filename='kozekilmu/lmu-first-win.png') }}" width="1448" height="1086" alt="红色 BMW M4 GT3 赛车在富士赛道取得 LMU 首胜的视频封面"></span>
+      <span data-motion-sheen aria-hidden="true"></span>
       <span class="video-overlay">
         <span><span class="video-kicker">BILIBILI / LMU</span><span class="video-title">模拟赛车萌新拿下 LMU 第一胜</span></span>
         <span class="video-play" aria-hidden="true">▶</span>
@@ -406,11 +407,11 @@
       <span class="section-note">LMU · LMGT3 Fixed · Fuji Speedway</span>
     </header>
     <div class="gallery-grid">
-      <figure class="shot shot-summary" data-motion-reveal data-motion-group="kozeki-gallery" data-motion-order="1" data-motion-surface><span class="shot-media" data-motion-parallax="0.40"><img src="{{ url_for('static', filename='kozekilmu/race-summary.png') }}" width="2304" height="1215" loading="lazy" alt="LMU 富士 GT3 比赛前三名总结，Ui Kozeki 获得第一名"></span><figcaption class="shot-caption">OVERALL P1 / +7 POSITIONS</figcaption></figure>
-      <figure class="shot shot-result" data-motion-reveal data-motion-group="kozeki-gallery" data-motion-order="2" data-motion-surface><span class="shot-media" data-motion-parallax="0.46"><img src="{{ url_for('static', filename='kozekilmu/fuji-result.png') }}" width="747" height="422" loading="lazy" alt="LMU 富士赛道比赛结果卡片，显示第一名"></span><figcaption class="shot-caption">FUJI SPEEDWAY / 1ST</figcaption></figure>
-      <figure class="shot shot-table" data-motion-reveal data-motion-group="kozeki-gallery" data-motion-order="3" data-motion-surface><span class="shot-media" data-motion-parallax="0.52"><img src="{{ url_for('static', filename='kozekilmu/classification.png') }}" width="2239" height="1233" loading="lazy" alt="LMU 富士 GT3 完整比赛排名，Ui Kozeki 排名第一"></span><figcaption class="shot-caption">12 LAPS / 21:04 / WINNER</figcaption></figure>
-      <figure class="shot shot-stats" data-motion-reveal data-motion-group="kozeki-gallery" data-motion-order="4" data-motion-surface><span class="shot-media" data-motion-parallax="0.44"><img src="{{ url_for('static', filename='kozekilmu/career-stats.png') }}" width="897" height="415" loading="lazy" alt="LMU 生涯数据，显示一次组别胜利和十次领奖台"></span><figcaption class="shot-caption">CAREER STATS / FIRST CLASS WIN</figcaption></figure>
-      <figure class="shot shot-achievements" data-motion-reveal data-motion-group="kozeki-gallery" data-motion-order="5" data-motion-surface><span class="shot-media" data-motion-parallax="0.48"><img src="{{ url_for('static', filename='kozekilmu/achievements.png') }}" width="533" height="226" loading="lazy" alt="First Past the Post 与 At the Foot of the Mountain 两项成就"></span><figcaption class="shot-caption">ACHIEVEMENTS UNLOCKED</figcaption></figure>
+      <figure class="shot shot-summary" data-motion-reveal data-motion-group="kozeki-gallery" data-motion-order="1" data-motion-surface><span class="shot-media" data-motion-parallax="0.40"><img src="{{ url_for('static', filename='kozekilmu/race-summary.png') }}" width="2304" height="1215" loading="lazy" alt="LMU 富士 GT3 比赛前三名总结，Ui Kozeki 获得第一名"></span><span data-motion-sheen aria-hidden="true"></span><figcaption class="shot-caption">OVERALL P1 / +7 POSITIONS</figcaption></figure>
+      <figure class="shot shot-result" data-motion-reveal data-motion-group="kozeki-gallery" data-motion-order="2" data-motion-surface><span class="shot-media" data-motion-parallax="0.46"><img src="{{ url_for('static', filename='kozekilmu/fuji-result.png') }}" width="747" height="422" loading="lazy" alt="LMU 富士赛道比赛结果卡片，显示第一名"></span><span data-motion-sheen aria-hidden="true"></span><figcaption class="shot-caption">FUJI SPEEDWAY / 1ST</figcaption></figure>
+      <figure class="shot shot-table" data-motion-reveal data-motion-group="kozeki-gallery" data-motion-order="3" data-motion-surface><span class="shot-media" data-motion-parallax="0.52"><img src="{{ url_for('static', filename='kozekilmu/classification.png') }}" width="2239" height="1233" loading="lazy" alt="LMU 富士 GT3 完整比赛排名，Ui Kozeki 排名第一"></span><span data-motion-sheen aria-hidden="true"></span><figcaption class="shot-caption">12 LAPS / 21:04 / WINNER</figcaption></figure>
+      <figure class="shot shot-stats" data-motion-reveal data-motion-group="kozeki-gallery" data-motion-order="4" data-motion-surface><span class="shot-media" data-motion-parallax="0.44"><img src="{{ url_for('static', filename='kozekilmu/career-stats.png') }}" width="897" height="415" loading="lazy" alt="LMU 生涯数据，显示一次组别胜利和十次领奖台"></span><span data-motion-sheen aria-hidden="true"></span><figcaption class="shot-caption">CAREER STATS / FIRST CLASS WIN</figcaption></figure>
+      <figure class="shot shot-achievements" data-motion-reveal data-motion-group="kozeki-gallery" data-motion-order="5" data-motion-surface><span class="shot-media" data-motion-parallax="0.48"><img src="{{ url_for('static', filename='kozekilmu/achievements.png') }}" width="533" height="226" loading="lazy" alt="First Past the Post 与 At the Foot of the Mountain 两项成就"></span><span data-motion-sheen aria-hidden="true"></span><figcaption class="shot-caption">ACHIEVEMENTS UNLOCKED</figcaption></figure>
     </div>
   </section>
 </main>

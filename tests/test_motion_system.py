@@ -84,6 +84,66 @@ class SharedMotionAssetTests(unittest.TestCase):
         self.assertIn("radial-gradient", JS_PATH.read_text(encoding="utf-8"))
         self.assertNotIn("NUMBER_SELECTOR", JS_PATH.read_text(encoding="utf-8"))
 
+    def test_layered_sheen_is_opt_in_and_ordinary_surfaces_keep_background_fallback(self):
+        css = CSS_PATH.read_text(encoding="utf-8")
+        self.assertRegex(css, r"\[data-motion-sheen\]\s*\{[^}]*pointer-events:\s*none")
+        self.assertRegex(css, r"\[data-motion-sheen\]\s*\{[^}]*opacity:\s*0")
+        self.assertRegex(
+            css,
+            r"\.motion-surface-active\s*>\s*\[data-motion-sheen\]\s*\{[^}]*opacity:",
+        )
+        self.assertRegex(
+            css,
+            r"(?s)@media\s*\(prefers-reduced-motion:\s*reduce\).*?\[data-motion-sheen\][^{]*\{[^}]*display:\s*none",
+        )
+
+        script = r'''
+const assert = require("assert");
+const fs = require("fs");
+class ClassList { constructor() { this.values = new Set(); } add(...names) { names.forEach((name) => this.values.add(name)); } remove(...names) { names.forEach((name) => this.values.delete(name)); } contains(name) { return this.values.has(name); } }
+class Element {
+  constructor({ sheen = false, background = "" } = {}) { this.classList = new ClassList(); this.listeners = {}; this.sheen = sheen; this.style = { backgroundImage: background, values: {}, setProperty(name, value) { this.values[name] = value; } }; }
+  getAttribute() { return null; }
+  querySelector(selector) { return selector === "[data-motion-sheen]" && this.sheen ? {} : null; }
+  addEventListener(name, listener) { (this.listeners[name] ||= []).push(listener); }
+  removeEventListener(name, listener) { this.listeners[name] = (this.listeners[name] || []).filter((item) => item !== listener); }
+  getBoundingClientRect() { return { left: 0, top: 0, width: 100, height: 100 }; }
+}
+const layered = new Element({ sheen: true, background: "layered-inline" });
+const ordinary = new Element({ background: "ordinary-inline" });
+const root = { classList: new ClassList(), querySelectorAll(selector) { return selector === "[data-motion-surface]" ? [layered, ordinary] : []; } };
+const listeners = {};
+global.document = { documentElement: root, hidden: false, body: { scrollHeight: 100 }, querySelectorAll: root.querySelectorAll.bind(root), querySelector() { return null; }, addEventListener(name, listener) { (listeners[name] ||= []).push(listener); }, removeEventListener() {}, dispatchEvent() {} };
+global.window = { matchMedia(query) { return { matches: query.includes("pointer: fine") }; }, addEventListener() {}, removeEventListener() {}, innerHeight: 100, scrollY: 0, getComputedStyle(element) { return { backgroundImage: element === layered ? "layered-computed" : "ordinary-computed" }; } };
+const frames = new Map(); let nextId = 1;
+global.requestAnimationFrame = (callback) => { const id = nextId++; frames.set(id, callback); return id; };
+global.cancelAnimationFrame = (id) => frames.delete(id);
+global.IntersectionObserver = class { constructor() {} observe() {} disconnect() {} };
+global.CustomEvent = class { constructor(type, init) { this.type = type; this.detail = init.detail; } };
+function runFrames(timestamp) { for (const [id, callback] of [...frames]) { frames.delete(id); callback(timestamp); } }
+new Function(fs.readFileSync("static/js/motion.js", "utf8"))();
+runFrames(0);
+layered.listeners.pointerenter[0]({ clientX: 75, clientY: 25 });
+runFrames(1);
+assert(layered.classList.contains("motion-surface-active"));
+assert.strictEqual(layered.style.backgroundImage, "layered-inline");
+layered.listeners.pointerleave[0]();
+assert(!layered.classList.contains("motion-surface-active"));
+assert.strictEqual(layered.style.values["--motion-rx"], "0deg");
+ordinary.listeners.pointerenter[0]({ clientX: 75, clientY: 25 });
+runFrames(2);
+assert(ordinary.style.backgroundImage.includes("radial-gradient"));
+ordinary.listeners.pointerleave[0]();
+assert.strictEqual(ordinary.style.backgroundImage, "ordinary-inline");
+window.MotionSystem.destroy();
+assert(!layered.classList.contains("motion-surface-active"));
+assert.strictEqual(layered.style.backgroundImage, "layered-inline");
+'''
+        result = subprocess.run(
+            ["node", "-e", script], capture_output=True, text=True, check=False
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_runtime_is_static_without_animation_apis_or_for_reduced_motion(self):
         script = r'''
 const assert = require("assert");

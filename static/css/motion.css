@@ -37,6 +37,20 @@
   --motion-ry: 0deg;
 }
 
+[data-motion-sheen] {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle at var(--motion-x) var(--motion-y), rgba(0, 161, 155, .11), transparent 38%);
+  transition: opacity var(--motion-fast) ease;
+}
+
+.motion-fine-pointer [data-motion-surface].motion-surface-active > [data-motion-sheen] {
+  opacity: 1;
+}
+
 .motion-fine-pointer [data-motion-surface].motion-surface-active {
   transform: translate3d(0, var(--motion-parallax-offset, 0px), 0) perspective(1200px) rotateX(var(--motion-rx)) rotateY(var(--motion-ry));
 }
@@ -67,4 +81,5 @@
     transition: none !important;
   }
 
+  [data-motion-sheen] { display: none !important; }
 }

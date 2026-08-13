@@ -185,6 +185,7 @@
   function beginSurfaceSheen(surface) {
     const listeners = surfaceListeners.get(surface);
     if (!listeners || listeners.backgroundImage !== undefined) return;
+    if (surface.querySelector?.("[data-motion-sheen]")) return;
     const computedStyle = window.getComputedStyle?.(surface);
     if (!computedStyle || typeof computedStyle.backgroundImage !== "string") return;
     listeners.backgroundImage = surface.style.backgroundImage || "";

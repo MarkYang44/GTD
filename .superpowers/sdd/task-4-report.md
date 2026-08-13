@@ -1,25 +1,24 @@
 # Task 4 Report: Kozeki Ui Hidden-Page Motion
 
-## Commit
+## Result
 
-`560ad15d2208b387122f5da75b3d5de53982266e` — `feat: apply shared motion to hidden page`
+The hidden page now uses the shared motion system for staged reveals, scroll depth, and six approved pointer surfaces: one video card and five gallery shots. The page contains no private pointer, animation-frame, intersection, or scroll runtime.
 
-## Delivered
+The review fix adds an explicit `data-motion-sheen` child to each media surface. The shared runtime uses that opt-in layer without changing the background-based sheen used by ordinary homepage surfaces. Each sheen is non-interactive, sits below the video overlay and shot captions, and becomes static on leave, destroy, fail-open, reduced motion, or non-fine pointers.
 
-- Loaded the shared motion stylesheet after the hidden page's inline styles and the deferred shared runtime before `</body>`.
-- Added staged reveals for the hero, race data, video heading/card, gallery heading, and gallery shots.
-- Applied the six approved motion surfaces: the main video card and five gallery shots.
-- Added low-strength parallax to the hero stamp and new video/gallery media wrappers, keeping existing image hover transforms on the images themselves.
-- Removed the full inline pointer/scroll runtime and its page-specific pointer light; the shared runtime now owns progress, topbar state, pointer surfaces, lifecycle, and scheduling.
-- Preserved clipping, dimensions, gallery lazy loading, captions, the Bilibili link and play affordance, and the responsive grid. Reduced-motion rules do not hide media or the play affordance.
+The video and gallery media wrappers have 14px overscan on every edge. Their parallax transform remains separate from the images' hover transform, while the original clipping, desktop and mobile aspect ratios, image dimensions, five lazy gallery images, captions, play affordance, Bilibili link, and responsive grid remain intact.
 
-## TDD and Verification
+## TDD Evidence
 
-- RED: the added hidden-page/shared-delivery tests failed because `/kozekilmu` did not yet include the shared CSS or JavaScript.
-- GREEN: `node --check static/js/motion.js` completed successfully.
-- GREEN: `../../venv/bin/python -m unittest tests.test_kozekilmu tests.test_motion_system tests.test_web_guide -q` completed with `Ran 22 tests` and `OK`.
-- Structural verification confirmed exactly six `data-motion-surface` markers, wrapper-only image parallax, no hidden-page scheduling IIFE, and retained lazy-loading markers.
+- RED: the tightened hidden-page and shared-runtime tests failed on the missing sheen children, missing 14px overscan, and missing layered-sheen opt-in path.
+- GREEN: 18 focused hidden-page/shared-motion tests pass.
+- The layered-sheen runtime test verifies pointer activation and leave/destroy cleanup while confirming ordinary surfaces still receive and restore their background-gradient fallback.
+- Structural tests require exactly six approved surfaces, stable media order, the seven approved parallax targets, exactly five lazy gallery images, no duplicate runtime tokens, and preserved link/caption/play/responsive and reduced-motion contracts.
 
-## Environment Note
+## Verification
 
-The linked worktree has no local `venv/bin/python`; verification used the project's existing root virtual environment. No service configuration or port `8233` files were changed.
+- `node --check static/js/motion.js`: passed.
+- Full Python suite: 321 tests passed, 2 skipped.
+- `git diff --check`: passed.
+
+The linked worktree uses the repository root virtual environment because it does not contain its own `venv`. Port `8233` and service configuration were not changed. The exact fix commit is recorded in Git history to avoid embedding a stale commit identifier in this report.
