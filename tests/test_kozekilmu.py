@@ -1,3 +1,4 @@
+import re
 import unittest
 from pathlib import Path
 from html.parser import HTMLParser
@@ -54,6 +55,50 @@ def _parse_structure(html):
     parser = _StructureParser()
     parser.feed(html)
     return parser
+
+
+def _css_block(source, marker):
+    marker_start = source.index(marker)
+    opening_brace = source.index("{", marker_start + len(marker))
+    depth = 0
+    quote = None
+    escaped = False
+    in_comment = False
+    index = opening_brace
+    while index < len(source):
+        character = source[index]
+        following = source[index + 1] if index + 1 < len(source) else ""
+        if in_comment:
+            if character == "*" and following == "/":
+                in_comment = False
+                index += 2
+                continue
+        elif quote:
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == quote:
+                quote = None
+        elif character == "/" and following == "*":
+            in_comment = True
+            index += 2
+            continue
+        elif character in {'"', "'"}:
+            quote = character
+        elif character == "{":
+            depth += 1
+        elif character == "}":
+            depth -= 1
+            if depth == 0:
+                return source[opening_brace + 1:index]
+        index += 1
+    raise AssertionError(f"Unclosed CSS block for {marker}")
+
+
+def _z_index(source, selector, default=0):
+    declaration = re.search(r"\bz-index\s*:\s*(-?\d+)", _css_block(source, selector))
+    return int(declaration.group(1)) if declaration else default
 
 
 class KozekiLmuEasterEggTests(unittest.TestCase):
@@ -175,6 +220,16 @@ class KozekiLmuEasterEggTests(unittest.TestCase):
         for token in ("requestAnimationFrame", "new IntersectionObserver", "pointermove", "pointerenter"):
             self.assertNotIn(token, html)
 
+    def test_hidden_page_loads_only_the_shared_motion_runtime(self):
+        html = self.client.get("/kozekilmu").get_data(as_text=True)
+        structure = _parse_structure(html)
+        scripts = [node for node in structure.nodes if node.tag == "script"]
+
+        self.assertEqual(
+            [(node.attrs.get("src"), "defer" in node.attrs) for node in scripts],
+            [("/static/js/motion.js", True)],
+        )
+
     def test_media_surfaces_have_noninteractive_sheen_below_controls(self):
         html = self.client.get("/kozekilmu").get_data(as_text=True)
         structure = _parse_structure(html)
@@ -191,8 +246,11 @@ class KozekiLmuEasterEggTests(unittest.TestCase):
         self.assertRegex(motion_css, r"\[data-motion-sheen\]\s*\{[^}]*z-index:\s*1")
         self.assertNotIn("[data-motion-surface]::before", motion_css)
         self.assertNotIn("[data-motion-surface]::after", motion_css)
-        self.assertRegex(html, r"\.video-overlay\s*\{[^}]*z-index:\s*3")
-        self.assertRegex(html, r"\.shot-caption\s*\{[^}]*z-index:\s*2")
+        wrapper_z = _z_index(html, ".video-media, .shot-media")
+        sheen_z = _z_index(motion_css, "[data-motion-sheen]")
+        self.assertLess(wrapper_z, sheen_z)
+        self.assertGreater(_z_index(html, ".video-overlay"), sheen_z)
+        self.assertGreater(_z_index(html, ".shot-caption"), sheen_z)
 
     def test_media_parallax_has_overscan_and_preserves_access(self):
         html = self.client.get("/kozekilmu").get_data(as_text=True)
@@ -211,9 +269,12 @@ class KozekiLmuEasterEggTests(unittest.TestCase):
         self.assertEqual(video.attrs.get("rel"), "noopener noreferrer")
         self.assertIn("@media (max-width: 820px)", html)
         self.assertIn("@media (max-width: 560px)", html)
-        reduced_block = html.split("@media (prefers-reduced-motion: reduce)", 1)[1].split("}", 2)[0]
-        for selector in ("video-card", "video-media", "video-play", "shot-media"):
-            self.assertNotIn(selector, reduced_block)
+        reduced_block = _css_block(html, "@media (prefers-reduced-motion: reduce)")
+        hidden_media = re.compile(
+            r"(?s)(?:\.video-card|\.video-media|\.video-play|\.shot|\.shot-media|\.shot-caption|img)"
+            r"[^{}]*\{[^{}]*(?:display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0(?:\D|$))"
+        )
+        self.assertNotRegex(reduced_block, hidden_media)
 
 
 if __name__ == "__main__":

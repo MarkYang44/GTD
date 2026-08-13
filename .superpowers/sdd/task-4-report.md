@@ -14,11 +14,14 @@ The video and gallery media wrappers have 14px overscan on every edge. Their par
 - GREEN: 18 focused hidden-page/shared-motion tests pass.
 - The layered-sheen runtime test verifies pointer activation and leave/destroy cleanup while confirming ordinary surfaces still receive and restore their background-gradient fallback.
 - Structural tests require exactly six approved surfaces, stable media order, the seven approved parallax targets, exactly five lazy gallery images, no duplicate runtime tokens, and preserved link/caption/play/responsive and reduced-motion contracts.
+- Mutation audit: the previous 25 focused tests still passed after temporarily adding a hidden reduced-motion media rule, a second external runtime, and `z-index: 5` on the parallax wrappers.
+- RED: the new contracts independently rejected all three mutations. The reduced-motion check now brace-matches the complete media block, the script check requires the exact ordered resource list, and the layer check compares wrapper, sheen, video-control, and caption z-index values.
+- GREEN: after removing the temporary mutations, all 26 focused hidden-page/shared-motion/guide tests pass without a production-code diff.
 
 ## Verification
 
 - `node --check static/js/motion.js`: passed.
-- Full Python suite: 321 tests passed, 2 skipped.
+- Full Python suite: 322 tests passed, 2 skipped.
 - `git diff --check`: passed.
 
 The linked worktree uses the repository root virtual environment because it does not contain its own `venv`. Port `8233` and service configuration were not changed. The exact fix commit is recorded in Git history to avoid embedding a stale commit identifier in this report.
