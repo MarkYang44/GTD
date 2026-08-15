@@ -889,8 +889,8 @@ class BilibiliDocumentationTests(unittest.TestCase):
             "源站未提供 FLAC，已自动回退至 MP3 V0",
             "[MP3 V0 · 源FLAC 1521kbps].mp3",
             "[FLAC Lossless · 1521kbps].flac",
-            "自动嵌入视频封面",
-            "没有封面时仍正常输出音频",
+            "源封面始终优先",
+            "随机选择一张内置兜底图",
             "mutagen",
             "MP3 成品仍是有损音频",
         ]

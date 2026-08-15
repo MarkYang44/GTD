@@ -21,6 +21,21 @@ EXPECTED_ASSETS = {
 
 
 class FallbackCoverResourceTests(unittest.TestCase):
+    def test_readme_documents_fallback_cover_contract(self):
+        readme = (Path(__file__).resolve().parent.parent / "README.md").read_text(
+            encoding="utf-8"
+        )
+        for statement in (
+            "源封面始终优先，绝不会被兜底图片替换",
+            "MP3、FLAC、M4A、OGG、Opus 和 MP4",
+            "随机选择一张内置兜底图",
+            "每次重试或重新下载都可能选择不同图片",
+            "WAV 和 WebM 不支持封面写入",
+            "封面处理失败不会让已完成的媒体下载变为失败",
+        ):
+            with self.subTest(statement=statement):
+                self.assertIn(statement, readme)
+
     def test_assets_have_exact_names_hashes_and_image_signatures(self):
         assets = fallback_cover_paths()
         self.assertEqual([path.name for path in assets], list(EXPECTED_ASSETS))
@@ -75,6 +90,8 @@ class RealContainerCoverTests(unittest.TestCase):
             ".mp3": ["-c:a", "libmp3lame"],
             ".flac": ["-c:a", "flac"],
             ".m4a": ["-c:a", "aac"],
+            ".ogg": ["-ac", "2", "-c:a", "vorbis", "-strict", "-2"],
+            ".opus": ["-c:a", "libopus"],
         }[suffix]
         self._ffmpeg(
             "-f", "lavfi", "-i", "sine=frequency=440:duration=0.2", *codec_args, str(target)
@@ -109,7 +126,7 @@ class RealContainerCoverTests(unittest.TestCase):
 
     def test_inserts_and_redetects_fallback_for_real_audio_containers(self):
         chosen = fallback_cover_paths()[2]
-        for suffix in (".mp3", ".flac", ".m4a"):
+        for suffix in (".mp3", ".flac", ".m4a", ".ogg", ".opus"):
             with self.subTest(suffix=suffix):
                 media = self._audio_fixture(suffix)
                 first = ensure_media_cover(media, chooser=lambda _paths: chosen)

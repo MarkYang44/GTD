@@ -12,7 +12,7 @@ YouTube + Instagram + Bilibili 视频与多格式音频批量下载工具。
 - 提交前预览并选择播放列表、合集与分 P 条目；每批最多选择 100 项，单次预览最多汇总前 1000 项并明确提示截断
 - YouTube 自动选择可用的最高画质与最高音质
 - 音频模式选择源站可获取的最高质量音轨，可输出 MP3 V0、真实源 FLAC、原始音频或 WAV PCM
-- 音频文件自动嵌入视频封面；没有封面时仍正常输出音频
+- 音频与 MP4 视频优先嵌入源封面；源站无封面时随机使用内置兜底图
 - Instagram 支持 Reels、视频帖子、IGTV 和有效期内的 Stories
 - Bilibili 支持 `BV`、`av`、移动端视频、分 P 链接和 `b23.tv` 短链接
 - Bilibili 大于 50 MiB 的文件可在源站返回的最多 4 个 CDN 主机间自适应测速；aria2c 极速模式为可选功能
@@ -32,6 +32,7 @@ Multiple_Video_Downloader/
 ├── main.py                      # 命令行入口
 ├── app.py                       # Web 服务入口
 ├── downloader.py                # 通用下载核心逻辑（main.py 与 app.py 共用）
+├── media_cover.py               # 最终媒体封面检测与随机兜底写入
 ├── bilibili_acceleration.py     # Bilibili CDN 测速、缓存与极速模式策略
 ├── collection_resolver.py       # 播放列表、合集与分 P 预览/选择
 ├── task_control.py              # Web 队列、取消、重试与重新下载
@@ -39,6 +40,7 @@ Multiple_Video_Downloader/
 ├── download_logging.py          # 脱敏 JSONL 轮转日志
 ├── folder_picker.py             # Windows / macOS 原生文件夹选择器
 ├── guide_renderer.py            # 项目内网页说明 Markdown 安全渲染器
+├── assets/fallback_covers/      # 6 张内置封面兜底图片
 ├── docs/
 │   └── WEB_GUIDE.md             # 仅保留网页使用相关内容的说明文档
 ├── templates/
@@ -438,7 +440,9 @@ https://www.youtube.com/watch?v=BaW_jenozKc
 - 实际音频文件名会在扩展名前追加真实规格。例如，以约 1521 kbps 的源 FLAC 转换 MP3 时得到 `标题 [内容ID] [MP3 V0 · 源FLAC 1521kbps].mp3`；保留源文件时得到 `标题 [内容ID] [FLAC Lossless · 1521kbps].flac`。
 - MP3 V0 会先选取源站可获取的最高质量音轨，再使用 FFmpeg 的最高 VBR 品质设置转换。即使输入是 Hi-Res FLAC，MP3 成品仍是有损音频，不能保留真正的无损数据。
 - “源 FLAC”只在提取结果确实包含 FLAC 音轨时直接输出 FLAC；程序不会把 AAC、Opus 等有损源转码并伪装成 FLAC。没有 FLAC 时自动回退 MP3 V0。
-- MP3 和 FLAC 会自动嵌入视频封面；原始 M4A 等支持封面的容器也会尝试嵌入。WebM 与 WAV 不支持当前封面写入流程，会正常输出无封面音频；源内容没有封面时所有格式都照常完成。
+- 源封面始终优先，绝不会被兜底图片替换。MP3、FLAC、M4A、OGG、Opus 和 MP4 会先尝试嵌入视频的源封面；最终文件仍无封面时，程序会随机选择一张内置兜底图并写入容器元数据，不会在下载目录生成额外的 JPG 文件。
+- 随机选择按每次下载独立执行，因此每次重试或重新下载都可能选择不同图片。WAV 和 WebM 不支持封面写入，程序不会仅为封面而转码或重封装它们。
+- 兜底资源缺失、媒体标签损坏或写入失败时只记录警告；封面处理失败不会让已完成的媒体下载变为失败，也不会删除或回滚已下载文件。
 
 ### Bilibili 下载加速策略
 

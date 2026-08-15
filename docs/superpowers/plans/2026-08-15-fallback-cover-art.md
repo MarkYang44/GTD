@@ -108,7 +108,7 @@ Using `tempfile`, `shutil.which("ffmpeg")`, and subprocess argument lists (no sh
 - the chosen asset name is returned;
 - an existing source cover is byte-identical after another call and the chooser is not invoked;
 - two separate uncovered fixtures with an injected sequential chooser receive different covers;
-- MP4 `ffprobe` codec names and stream counts are unchanged before/after cover insertion.
+- MP4 的非封面音视频流 codec 与数量在写入前后保持不变；`covr` 可由 ffprobe 呈现为一个 `attached_pic` 封面流。
 
 Skip only the real-container tests when FFmpeg/ffprobe is unavailable; resource and unit contracts must still run.
 
