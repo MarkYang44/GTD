@@ -148,13 +148,6 @@ def audio_postprocessors(
             "add_infojson": False,
         },
     ]
-    if profile.cover_embedded:
-        postprocessors.append(
-            {
-                "key": "EmbedThumbnail",
-                "already_have_thumbnail": False,
-            }
-        )
     return postprocessors
 
 

@@ -134,7 +134,7 @@ Windows PowerShell（无需激活虚拟环境）：
 .\venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-`requirements.txt` 会同时安装 yt-dlp 和 `mutagen`；后者用于把封面元数据写入 FLAC 文件。请通过依赖文件安装，不要只单独安装 yt-dlp。
+`requirements.txt` 会同时安装 yt-dlp 和 `mutagen`；后者用于检测并写入 MP3、FLAC、M4A/MP4、OGG 与 Opus 的封面元数据。请通过依赖文件安装，不要只单独安装 yt-dlp。
 
 后续示例默认虚拟环境已经启用，因此统一使用 `python`。如果 Windows PowerShell 未启用虚拟环境，请将示例开头的 `python` 替换为 `.\venv\Scripts\python.exe`，例如使用 `.\venv\Scripts\python.exe app.py` 启动网站。
 

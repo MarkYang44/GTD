@@ -132,6 +132,7 @@ def _embed_cover(filepath: Path, cover_path: Path) -> None:
 def ensure_media_cover(
     filepath: Path,
     *,
+    source_cover: Path | None = None,
     chooser: Callable[[Sequence[Path]], Path] | None = None,
 ) -> CoverOutcome:
     """Ensure a final media file has cover art without replacing source art."""
@@ -141,6 +142,26 @@ def ensure_media_cover(
     try:
         if _has_cover(media_path):
             return CoverOutcome(True, "source")
+    except Exception as exc:
+        logger.warning("无法检查媒体文件 %s 的封面：%s", media_path, exc)
+        return CoverOutcome(False, "none")
+
+    if source_cover is not None:
+        source_path = Path(source_cover)
+        try:
+            _embed_cover(media_path, source_path)
+            if not _has_cover(media_path):
+                raise ValueError("source cover verification failed")
+            return CoverOutcome(True, "source")
+        except Exception as exc:
+            logger.warning(
+                "无法为媒体文件 %s 使用源封面 %s：%s",
+                media_path,
+                source_path,
+                exc,
+            )
+
+    try:
         cover_path = Path((chooser or secrets.choice)(fallback_cover_paths()))
         _embed_cover(media_path, cover_path)
         if not _has_cover(media_path):

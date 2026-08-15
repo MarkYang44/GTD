@@ -96,9 +96,10 @@ class DownloadErrorMessageTests(unittest.TestCase):
                     self.assertNotIn("preferredquality", postprocessors[0])
                 else:
                     self.assertEqual(postprocessors[0]["preferredquality"], quality)
-                self.assertEqual(
-                    "EmbedThumbnail" in [item["key"] for item in postprocessors],
-                    embeds_cover,
+                self.assertEqual(actual.cover_embedded, embeds_cover)
+                self.assertNotIn(
+                    "EmbedThumbnail",
+                    [item["key"] for item in postprocessors],
                 )
 
     def test_audio_output_module_source_validation_and_final_path_profile_contract(self):
@@ -467,7 +468,10 @@ class DownloadOutputTemplateTests(unittest.TestCase):
                                 info, path, media_type, active_profile, 1
                             )
                         )
-                    ensure_cover.assert_called_once_with(final_path)
+                    ensure_cover.assert_called_once_with(
+                        final_path,
+                        source_cover=None,
+                    )
                     result = downloader._build_download_result(
                         info,
                         final_path,
@@ -495,6 +499,102 @@ class DownloadOutputTemplateTests(unittest.TestCase):
                             "fallback_cover": "cover-03.jpg",
                         },
                     )
+
+    def test_finalizer_uses_and_removes_downloaded_source_thumbnail(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            media = root / "Clip [.__mvd_clip].mp4"
+            stale_thumbnail = root / "attempt" / "Clip [.__mvd_clip].jpg"
+            thumbnail = root / stale_thumbnail.name
+            media.write_bytes(b"media")
+            thumbnail.write_bytes(b"thumbnail")
+            info = {
+                "title": "Clip",
+                "thumbnails": [{"filepath": str(stale_thumbnail)}],
+            }
+            with patch(
+                "downloader._ensure_media_cover",
+                return_value=CoverOutcome(True, "source"),
+            ) as ensure_cover:
+                final_path, _, _ = downloader._finalize_download_output(
+                    info,
+                    media,
+                    downloader.VIDEO,
+                    None,
+                    1,
+                )
+
+            ensure_cover.assert_called_once_with(
+                final_path,
+                source_cover=thumbnail,
+            )
+            self.assertFalse(thumbnail.exists())
+
+    def test_finalizer_ignores_unowned_and_malformed_thumbnail_paths(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            media = root / "Clip [.__mvd_clip].mp4"
+            unrelated = root / "Clip.jpg"
+            media.write_bytes(b"media")
+            unrelated.write_bytes(b"unrelated")
+            info = {
+                "title": "Clip",
+                "thumbnails": [None, {"filepath": 7}, {"filepath": str(unrelated)}],
+            }
+            with patch(
+                "downloader._ensure_media_cover",
+                return_value=CoverOutcome(True, "fallback", "cover-01.png"),
+            ) as ensure_cover:
+                final_path, _, _ = downloader._finalize_download_output(
+                    info,
+                    media,
+                    downloader.VIDEO,
+                    None,
+                    1,
+                )
+
+            ensure_cover.assert_called_once_with(final_path, source_cover=None)
+            self.assertEqual(unrelated.read_bytes(), b"unrelated")
+
+    def test_cover_guard_exception_is_nonfatal_and_owned_sidecar_is_cleaned(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            media = root / "Clip [.__mvd_clip].mp4"
+            thumbnail = root / "Clip [.__mvd_clip].jpg"
+            media.write_bytes(b"media")
+            thumbnail.write_bytes(b"thumbnail")
+            info = {
+                "title": "Clip",
+                "thumbnails": [{"filepath": str(thumbnail)}],
+            }
+            with (
+                patch(
+                    "downloader._ensure_media_cover",
+                    side_effect=RuntimeError("cover bug"),
+                ),
+                self.assertLogs("downloader", level="WARNING"),
+            ):
+                final_path, _, _ = downloader._finalize_download_output(
+                    info,
+                    media,
+                    downloader.VIDEO,
+                    None,
+                    1,
+                )
+
+            self.assertTrue(final_path.is_file())
+            self.assertFalse(thumbnail.exists())
+            self.assertFalse(info["_cover_embedded"])
+            self.assertEqual(info["_cover_source"], "none")
+
+    def test_owned_thumbnail_cleanup_failure_is_nonfatal(self):
+        thumbnail = Path("Clip [.__mvd_clip].jpg")
+        with (
+            patch.object(Path, "unlink", side_effect=OSError("busy")) as unlink,
+            self.assertLogs("downloader", level="WARNING"),
+        ):
+            downloader._remove_owned_thumbnail(thumbnail)
+        unlink.assert_called_once_with(missing_ok=True)
 
     def test_download_result_fails_closed_for_malformed_cover_metadata(self):
         cases = (
@@ -1165,7 +1265,7 @@ class DownloadFinalizationOrchestrationTests(unittest.TestCase):
 
 
 class DownloadAudioOptionsTests(unittest.TestCase):
-    def test_all_video_platforms_request_and_embed_source_thumbnail(self):
+    def test_all_video_platforms_download_thumbnail_without_fatal_embed_pp(self):
         for platform in (
             downloader.YOUTUBE,
             downloader.INSTAGRAM,
@@ -1180,9 +1280,9 @@ class DownloadAudioOptionsTests(unittest.TestCase):
                     media_type=downloader.VIDEO,
                 )
                 self.assertTrue(options["writethumbnail"])
-                self.assertEqual(
-                    options["postprocessors"][-1],
-                    {"key": "EmbedThumbnail", "already_have_thumbnail": False},
+                self.assertNotIn(
+                    "EmbedThumbnail",
+                    [item["key"] for item in options.get("postprocessors", [])],
                 )
                 if platform == downloader.INSTAGRAM:
                     self.assertEqual(
@@ -1397,7 +1497,7 @@ class DownloadAudioOptionsTests(unittest.TestCase):
         self.assertFalse(source_options["writethumbnail"])
         self.assertFalse(wav_options["writethumbnail"])
 
-    def test_source_m4a_keeps_supported_thumbnail_embedding(self):
+    def test_source_m4a_downloads_thumbnail_for_nonfatal_finalizer(self):
         options = downloader._build_ydl_options(
             downloader.YOUTUBE,
             Path("/tmp/output"),
@@ -1408,7 +1508,7 @@ class DownloadAudioOptionsTests(unittest.TestCase):
             selected_audio={"acodec": "aac", "ext": "m4a"},
         )
 
-        self.assertIn(
+        self.assertNotIn(
             "EmbedThumbnail",
             [processor["key"] for processor in options["postprocessors"]],
         )
@@ -1500,10 +1600,6 @@ class DownloadAudioOptionsTests(unittest.TestCase):
                     "add_metadata": True,
                     "add_chapters": False,
                     "add_infojson": False,
-                },
-                {
-                    "key": "EmbedThumbnail",
-                    "already_have_thumbnail": False,
                 },
             ],
         )

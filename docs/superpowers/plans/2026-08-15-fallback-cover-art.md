@@ -35,7 +35,7 @@
 **Interfaces:**
 - Produces immutable `CoverOutcome(embedded: bool, source: Literal["source", "fallback", "none"], fallback_name: str | None)`.
 - Produces `fallback_cover_paths() -> tuple[Path, ...]` in stable filename order.
-- Produces `ensure_media_cover(filepath: Path, *, chooser: Callable | None = None) -> CoverOutcome`; `chooser=None` resolves to `secrets.choice` at call time.
+- Produces `ensure_media_cover(filepath: Path, *, source_cover: Path | None = None, chooser: Callable | None = None) -> CoverOutcome`; `chooser=None` resolves to `secrets.choice` at call time.
 
 - [ ] **Step 1: Write failing resource and behavior tests**
 
@@ -86,11 +86,17 @@ Use Mutagen container APIs and signature-based image MIME detection without Pill
 ```python
 SUPPORTED_COVER_EXTENSIONS = {".mp3", ".flac", ".m4a", ".mp4", ".m4v", ".mov", ".ogg", ".opus"}
 
-def ensure_media_cover(filepath, *, chooser=None):
+def ensure_media_cover(filepath, *, source_cover=None, chooser=None):
     if filepath.suffix.lower() not in SUPPORTED_COVER_EXTENSIONS:
         return CoverOutcome(False, "none")
     if _has_cover(filepath):
         return CoverOutcome(True, "source")
+    if source_cover is not None:
+        try:
+            _embed_cover(filepath, source_cover)
+            return CoverOutcome(True, "source")
+        except Exception:
+            pass  # warn locally, then continue to fallback
     cover = (chooser or secrets.choice)(fallback_cover_paths())
     _embed_cover(filepath, cover)
     if not _has_cover(filepath):
@@ -146,13 +152,7 @@ git commit -m "feat: add fallback cover library"
 
 - [ ] **Step 1: Write failing yt-dlp option tests**
 
-Add tests requiring video options for YouTube, Instagram, and Bilibili to set `writethumbnail=True` and end their configured postprocessor list with:
-
-```python
-{"key": "EmbedThumbnail", "already_have_thumbnail": False}
-```
-
-For Instagram, assert `FFmpegVideoRemuxer` remains before `EmbedThumbnail`. Preserve existing audio behavior: supported audio containers keep source-thumbnail embedding, WAV/WebM do not request thumbnails.
+Add tests requiring video options for YouTube, Instagram, and Bilibili to set `writethumbnail=True` without adding `EmbedThumbnail` to yt-dlp's fatal main postprocessor chain. For Instagram, assert `FFmpegVideoRemuxer` remains configured. Supported audio containers also download source thumbnails for the shared non-fatal finalizer; WAV/WebM do not request thumbnails.
 
 - [ ] **Step 2: Write failing finalizer/result tests**
 
@@ -182,14 +182,15 @@ Expected: failures because video options do not request thumbnails and final res
 
 In `_build_ydl_options()`:
 
-- YouTube/Bilibili video: retain format and merge settings, add `writethumbnail=True` and an `EmbedThumbnail` postprocessor.
-- Instagram video: retain the remuxer as the first postprocessor, append `EmbedThumbnail` second, and set `writethumbnail=True`.
+- YouTube/Bilibili video: retain format and merge settings and add `writethumbnail=True` without a thumbnail embedding postprocessor.
+- Instagram video: retain the remuxer and set `writethumbnail=True` without a thumbnail embedding postprocessor.
+- Resolve the moved task-private thumbnail in the shared finalizer, embed it locally with non-fatal error handling, then remove only that owned sidecar.
 
 Do not add thumbnail handling to WAV or WebM audio output.
 
 - [ ] **Step 5: Run the final cover guard in the shared finalizer**
 
-After final audio/video renaming, call `_ensure_media_cover(filepath)` exactly once and store the outcome on `info`. Keep `_finalize_download_output()`'s existing tuple return signature so all platform and retry paths retain compatibility.
+Resolve the task-owned source sidecar before final naming, then call `_ensure_media_cover(filepath, source_cover=source_cover)` exactly once after audio/video renaming and store the outcome on `info`. Keep `_finalize_download_output()`'s existing tuple return signature so all platform and retry paths retain compatibility.
 
 In `_build_download_result()`, add the three public cover fields to the common result dictionary and remove the old audio-only `audio_profile.cover_embedded` report. Validate the stored source against `{"source", "fallback", "none"}` and fail closed to `none` for malformed internal values.
 

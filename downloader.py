@@ -7,6 +7,7 @@ main.py（命令行）和 app.py（Web 服务）均通过导入本模块复用�
 """
 
 import copy
+import logging
 import os
 import shutil
 import threading
@@ -49,7 +50,7 @@ from download_errors import (
     public_error,
 )
 from download_logging import get_download_logger, log_download_event
-from media_cover import ensure_media_cover as _ensure_media_cover
+from media_cover import CoverOutcome, ensure_media_cover as _ensure_media_cover
 from task_control import CancellationToken
 
 from bilibili_acceleration import (
@@ -74,6 +75,7 @@ from bilibili_acceleration import (
 # ---------------------------------------------------------------------------
 PROJECT_DIR = Path(__file__).resolve().parent
 DOWNLOADS_DIR = PROJECT_DIR / "downloads"
+logger = logging.getLogger(__name__)
 
 YOUTUBE = media_sources.YOUTUBE
 INSTAGRAM = media_sources.INSTAGRAM
@@ -443,12 +445,6 @@ def _build_ydl_options(
                 "format": "bestvideo+bestaudio/best",
                 "merge_output_format": "mp4",
                 "writethumbnail": True,
-                "postprocessors": [
-                    {
-                        "key": "EmbedThumbnail",
-                        "already_have_thumbnail": False,
-                    }
-                ],
             }
         )
     else:
@@ -468,10 +464,6 @@ def _build_ydl_options(
                     {
                         "key": "FFmpegVideoRemuxer",
                         "preferedformat": "mp4",
-                    },
-                    {
-                        "key": "EmbedThumbnail",
-                        "already_have_thumbnail": False,
                     },
                 ],
             }
@@ -838,6 +830,42 @@ def _build_download_result(
     return result
 
 
+def _local_source_thumbnail(info: dict, media_path: Path) -> Path | None:
+    """Resolve a task-owned thumbnail even after yt-dlp moved its sidecars."""
+    thumbnails = info.get("thumbnails")
+    if not isinstance(thumbnails, list):
+        return None
+    for thumbnail in reversed(thumbnails):
+        if not isinstance(thumbnail, dict):
+            continue
+        raw_path = thumbnail.get("filepath")
+        if not isinstance(raw_path, (str, os.PathLike)):
+            continue
+        try:
+            original = Path(raw_path)
+            candidates = (original, media_path.parent / original.name)
+            for candidate in candidates:
+                if (
+                    candidate.resolve().parent == media_path.parent.resolve()
+                    and ATTEMPT_OUTPUT_MARKER_RE.search(candidate.stem)
+                    and candidate.is_file()
+                ):
+                    return candidate
+        except (OSError, RuntimeError, TypeError, ValueError):
+            continue
+    return None
+
+
+def _remove_owned_thumbnail(thumbnail: Path | None) -> None:
+    """Remove only a verified task-private sidecar; never fail the download."""
+    if thumbnail is None or not ATTEMPT_OUTPUT_MARKER_RE.search(thumbnail.stem):
+        return
+    try:
+        thumbnail.unlink(missing_ok=True)
+    except OSError as exc:
+        logger.warning("无法清理临时源封面 %s：%s", thumbnail, exc)
+
+
 def _finalize_download_output(
     info: dict,
     filepath: Path,
@@ -847,6 +875,7 @@ def _finalize_download_output(
 ) -> tuple[Path, AudioOutputProfile | None, int]:
     """Claim a visible output name and retain the metadata for its real file."""
     _validate_output_version(output_version)
+    source_cover = _local_source_thumbnail(info, filepath)
     if media_type == AUDIO:
         if profile is None:
             raise ValueError("音频结果缺少输出格式信息")
@@ -867,7 +896,16 @@ def _finalize_download_output(
         )
         profile = None
 
-    cover_outcome = _ensure_media_cover(filepath)
+    try:
+        cover_outcome = _ensure_media_cover(
+            filepath,
+            source_cover=source_cover,
+        )
+    except Exception as exc:
+        logger.warning("媒体封面处理失败但下载文件已保留 %s：%s", filepath, exc)
+        cover_outcome = CoverOutcome(False, "none")
+    finally:
+        _remove_owned_thumbnail(source_cover)
     info["_cover_embedded"] = cover_outcome.embedded
     info["_cover_source"] = cover_outcome.source
     info["_fallback_cover"] = cover_outcome.fallback_name

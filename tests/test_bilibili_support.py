@@ -11,6 +11,7 @@ from bilibili_acceleration import CDN_CANDIDATES_FIELD
 import downloader
 import media_sources
 import main as cli_main
+from media_cover import CoverOutcome
 
 
 def frontend_template_source():
@@ -328,6 +329,14 @@ class BilibiliDownloadOptionsTests(unittest.TestCase):
 
 
 class BilibiliTurboDownloadTests(unittest.TestCase):
+    def setUp(self):
+        cover_patcher = patch(
+            "downloader._ensure_media_cover",
+            return_value=CoverOutcome(False, "none"),
+        )
+        cover_patcher.start()
+        self.addCleanup(cover_patcher.stop)
+
     def test_standard_download_avoids_copy_when_cdn_host_is_unchanged(self):
         info = {
             "id": "BV1TEST",

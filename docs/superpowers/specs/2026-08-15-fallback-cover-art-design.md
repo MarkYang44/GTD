@@ -39,6 +39,7 @@ class CoverOutcome:
 def ensure_media_cover(
     filepath: Path,
     *,
+    source_cover: Path | None = None,
     chooser: Callable[[Sequence[Path]], Path] = secrets.choice,
 ) -> CoverOutcome:
     ...
@@ -60,9 +61,9 @@ def ensure_media_cover(
 
 ## yt-dlp 集成
 
-- 音频继续使用现有 `writethumbnail` 和 `EmbedThumbnail`，源封面路径不变。
-- YouTube、Instagram、Bilibili 视频增加 `writethumbnail=True` 和 `EmbedThumbnail`，使可获取的源封面优先写入最终 MP4。
-- `EmbedThumbnail` 必须位于视频合并/重封装之后。
+- 支持封面的音频和三平台视频使用 `writethumbnail=True` 下载源缩略图，但不把 `EmbedThumbnail` 放入 yt-dlp 主后处理链，避免封面错误中断媒体任务。
+- 共享 finalizer 会在最终命名前解析 yt-dlp 已移动的任务私有缩略图，再由 `media_cover.py` 局部尝试写入；源图失败后继续使用随机兜底图。
+- finalizer 在成功、失败或无可用源图时都只清理带本任务私有 marker 的缩略图，不删除无关图片。
 - 所有下载路径继续汇聚到 `_finalize_download_output()`；文件完成命名后调用 `ensure_media_cover()`，并将结果写入下载结果：
   - `cover_embedded`: 最终文件实际是否包含封面；
   - `cover_source`: `source`、`fallback` 或 `none`；
@@ -88,6 +89,6 @@ def ensure_media_cover(
 - 资源合同：目录恰好包含 6 张有效 PNG/JPEG，重命名前后 SHA-256 不变。
 - 单元合同：支持扩展名、随机选择器每次调用、已有封面不覆盖、失败返回 `none`、WAV/WebM 不调用选择器。
 - 真实容器集成：用临时短媒体验证 MP3、FLAC、M4A 和 MP4 的实际写入与再次检测；MP4 写入前后视频/音频流编码保持不变。
-- yt-dlp 配置：三平台视频均下载源缩略图，并在合并/重封装后嵌入。
+- yt-dlp 配置：三平台视频均下载源缩略图，且主后处理链不包含可能中断任务的 `EmbedThumbnail`。
 - 下载路径：普通下载、Bilibili 标准/极速回退、重试和重新下载均返回实际 `cover_source`。
 - 完整回归：全量 unittest、compileall、下载文件清单比较；不修改既有 `downloads/` 文件。

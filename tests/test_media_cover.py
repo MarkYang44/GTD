@@ -167,6 +167,35 @@ class RealContainerCoverTests(unittest.TestCase):
         self.assertEqual(after, before)
         chooser.assert_not_called()
 
+    def test_valid_local_source_cover_precedes_fallback(self):
+        from mutagen.id3 import ID3
+
+        media = self._audio_fixture(".mp3")
+        source_cover = fallback_cover_paths()[4]
+        chooser = Mock(side_effect=AssertionError("fallback must not be selected"))
+        outcome = ensure_media_cover(
+            media,
+            source_cover=source_cover,
+            chooser=chooser,
+        )
+        self.assertEqual(outcome, CoverOutcome(True, "source", None))
+        self.assertEqual(ID3(media).getall("APIC")[0].data, source_cover.read_bytes())
+        chooser.assert_not_called()
+
+    def test_corrupt_local_source_cover_warns_then_uses_fallback(self):
+        media = self._audio_fixture(".mp3")
+        corrupt = self.root / "source.webp"
+        corrupt.write_bytes(b"corrupt thumbnail")
+        chosen = fallback_cover_paths()[5]
+        with self.assertLogs("media_cover", level="WARNING") as logs:
+            outcome = ensure_media_cover(
+                media,
+                source_cover=corrupt,
+                chooser=lambda _paths: chosen,
+            )
+        self.assertEqual(outcome, CoverOutcome(True, "fallback", chosen.name))
+        self.assertIn(str(corrupt), "\n".join(logs.output))
+
     def test_every_bundled_asset_embeds_in_each_primary_container(self):
         bases = {
             suffix: self._audio_fixture(suffix)
