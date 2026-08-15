@@ -305,6 +305,9 @@ assert \"downloader\" not in sys.modules
             return {
                 "title": "done",
                 "filepath": f"/tmp/done{output_version}.mp4",
+                "cover_embedded": True,
+                "cover_source": "fallback",
+                "fallback_cover": f"cover-0{output_version}.jpg",
             }
 
         manager = TaskManager(runner, max_workers=3)
@@ -319,11 +322,22 @@ assert \"downloader\" not in sys.modules
         first = manager.redownload(batch["id"], task_id)
         second = manager.redownload(batch["id"], task_id)
         release.set()
+        self.assertTrue(manager.wait_for_idle())
+        snapshot = manager.snapshot(batch["id"])
         manager.shutdown()
 
         self.assertEqual(
             [first["output_version"], second["output_version"]],
             [2, 3],
+        )
+        redownload_results = {
+            task["output_version"]: task["result"]["fallback_cover"]
+            for task in snapshot["tasks"]
+            if task["output_version"] > 1
+        }
+        self.assertEqual(
+            redownload_results,
+            {2: "cover-02.jpg", 3: "cover-03.jpg"},
         )
 
     def test_redownload_continues_after_atomic_audio_rename_advanced_version(self):

@@ -16,6 +16,7 @@ import output_files
 import download_errors
 import task_control
 import yt_dlp
+from media_cover import CoverOutcome
 
 
 class DownloadErrorMessageTests(unittest.TestCase):
@@ -409,6 +410,114 @@ class DownloadErrorMessageTests(unittest.TestCase):
 
 
 class DownloadOutputTemplateTests(unittest.TestCase):
+    def test_each_redownload_finalization_runs_a_fresh_cover_guard(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            first = root / "Clip [.__mvd_first].mp4"
+            second = root / "Clip [.__mvd_second] (2).mp4"
+            first.write_bytes(b"first")
+            second.write_bytes(b"second")
+            first_info = {"title": "Clip"}
+            second_info = {"title": "Clip"}
+            with patch(
+                "downloader._ensure_media_cover",
+                side_effect=(
+                    CoverOutcome(True, "fallback", "cover-01.png"),
+                    CoverOutcome(True, "fallback", "cover-06.jpg"),
+                ),
+            ) as ensure_cover:
+                first_final, _, _ = downloader._finalize_download_output(
+                    first_info, first, downloader.VIDEO, None, 1
+                )
+                second_final, _, _ = downloader._finalize_download_output(
+                    second_info, second, downloader.VIDEO, None, 2
+                )
+
+        self.assertEqual(ensure_cover.call_args_list[0].args, (first_final,))
+        self.assertEqual(ensure_cover.call_args_list[1].args, (second_final,))
+        self.assertEqual(first_info["_fallback_cover"], "cover-01.png")
+        self.assertEqual(second_info["_fallback_cover"], "cover-06.jpg")
+
+    def test_shared_finalizer_records_actual_cover_outcome_for_audio_and_video(self):
+        profile = downloader.AudioOutputProfile(
+            downloader.MP3,
+            downloader.MP3,
+            False,
+            "AAC",
+            128,
+            "mp3",
+            True,
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            cases = (
+                (downloader.AUDIO, root / "Song.mp3", profile),
+                (downloader.VIDEO, root / "Clip.mp4", None),
+            )
+            for media_type, path, active_profile in cases:
+                with self.subTest(media_type=media_type):
+                    path.write_bytes(b"media")
+                    info = {"title": path.stem}
+                    expected = CoverOutcome(True, "fallback", "cover-03.jpg")
+                    with patch(
+                        "downloader._ensure_media_cover", return_value=expected
+                    ) as ensure_cover:
+                        final_path, final_profile, version = (
+                            downloader._finalize_download_output(
+                                info, path, media_type, active_profile, 1
+                            )
+                        )
+                    ensure_cover.assert_called_once_with(final_path)
+                    result = downloader._build_download_result(
+                        info,
+                        final_path,
+                        "YouTube",
+                        media_type,
+                        downloader.STANDARD,
+                        downloader.STANDARD,
+                        False,
+                        downloader.AccelerationPlan(False, None, 0),
+                        final_profile,
+                        version,
+                    )
+                    self.assertEqual(
+                        {
+                            key: result[key]
+                            for key in (
+                                "cover_embedded",
+                                "cover_source",
+                                "fallback_cover",
+                            )
+                        },
+                        {
+                            "cover_embedded": True,
+                            "cover_source": "fallback",
+                            "fallback_cover": "cover-03.jpg",
+                        },
+                    )
+
+    def test_download_result_fails_closed_for_malformed_cover_metadata(self):
+        cases = (
+            ({"_cover_embedded": True, "_cover_source": "source", "_fallback_cover": "ignored.jpg"}, True, "source", None),
+            ({"_cover_embedded": False, "_cover_source": "none", "_fallback_cover": "ignored.jpg"}, False, "none", None),
+            ({"_cover_embedded": "yes", "_cover_source": "broken", "_fallback_cover": 3}, False, "none", None),
+        )
+        for cover_info, embedded, source, fallback in cases:
+            with self.subTest(source=source):
+                result = downloader._build_download_result(
+                    {"title": "Clip", **cover_info},
+                    Path("Clip.mp4"),
+                    "YouTube",
+                    downloader.VIDEO,
+                    downloader.STANDARD,
+                    downloader.STANDARD,
+                    False,
+                    downloader.AccelerationPlan(False, None, 0),
+                )
+                self.assertIs(result["cover_embedded"], embedded)
+                self.assertEqual(result["cover_source"], source)
+                self.assertEqual(result["fallback_cover"], fallback)
+
     def test_downloader_claim_helper_keeps_patchable_version_claim_seam(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "private.mp4"
@@ -632,24 +741,28 @@ class DownloadOutputTemplateTests(unittest.TestCase):
             normal_source.write_bytes(b"normal")
             bilibili_source.write_bytes(b"bilibili")
 
-            normal_path, normal_profile, normal_version = (
-                downloader._finalize_download_output(
-                    info,
-                    normal_source,
-                    downloader.AUDIO,
-                    profile,
-                    1,
+            with patch(
+                "downloader._ensure_media_cover",
+                return_value=CoverOutcome(True, "source"),
+            ):
+                normal_path, normal_profile, normal_version = (
+                    downloader._finalize_download_output(
+                        info,
+                        normal_source,
+                        downloader.AUDIO,
+                        profile,
+                        1,
+                    )
                 )
-            )
-            bilibili_path, bilibili_profile, bilibili_version = (
-                downloader._finalize_download_output(
-                    info,
-                    bilibili_source,
-                    downloader.AUDIO,
-                    profile,
-                    1,
+                bilibili_path, bilibili_profile, bilibili_version = (
+                    downloader._finalize_download_output(
+                        info,
+                        bilibili_source,
+                        downloader.AUDIO,
+                        profile,
+                        1,
+                    )
                 )
-            )
 
         normal_result = downloader._build_download_result(
             info,
@@ -681,6 +794,7 @@ class DownloadOutputTemplateTests(unittest.TestCase):
             "title", "filesize", "media_type", "format", "acodec",
             "audio_format_requested", "audio_format_used",
             "audio_format_fallback", "output_ext", "cover_embedded",
+            "cover_source", "fallback_cover",
             "source_acodec", "source_abr_kbps", "output_version_actual",
         ):
             with self.subTest(key=key):
@@ -692,6 +806,8 @@ class DownloadOutputTemplateTests(unittest.TestCase):
         )
         self.assertEqual(normal_result["format"], "SOURCE OPUS")
         self.assertTrue(normal_result["cover_embedded"])
+        self.assertEqual(normal_result["cover_source"], "source")
+        self.assertIsNone(normal_result["fallback_cover"])
         self.assertEqual(normal_result["output_ext"], "opus")
 
     def test_node_discovery_is_cached_until_explicit_refresh(self):
@@ -847,6 +963,10 @@ class DownloadFinalizationOrchestrationTests(unittest.TestCase):
             patch("downloader.yt_dlp.YoutubeDL", FakeYdl),
             patch("downloader._resolve_output_path", return_value=private_path),
             patch(
+                "downloader._ensure_media_cover",
+                return_value=CoverOutcome(True, "source"),
+            ),
+            patch(
                 "downloader._finalize_download_output",
                 wraps=downloader._finalize_download_output,
             ) as finalize,
@@ -894,6 +1014,10 @@ class DownloadFinalizationOrchestrationTests(unittest.TestCase):
             patch(
                 "downloader._process_bilibili_attempt",
                 return_value=(info, private_path),
+            ),
+            patch(
+                "downloader._ensure_media_cover",
+                return_value=CoverOutcome(True, "source"),
             ),
             patch(
                 "downloader._finalize_download_output",
@@ -986,6 +1110,9 @@ class DownloadFinalizationOrchestrationTests(unittest.TestCase):
                 "cdn_host": "未知",
                 "http_chunk_size": 0,
                 "output_version_actual": 2,
+                "cover_embedded": True,
+                "cover_source": "source",
+                "fallback_cover": None,
             }
             bilibili_expected = {
                 **normal_expected,
@@ -1003,7 +1130,6 @@ class DownloadFinalizationOrchestrationTests(unittest.TestCase):
                     "audio_format_used": downloader.SOURCE,
                     "audio_format_fallback": False,
                     "output_ext": "opus",
-                    "cover_embedded": True,
                     "source_acodec": "Opus",
                     "source_abr_kbps": 160,
                 }
@@ -1039,6 +1165,31 @@ class DownloadFinalizationOrchestrationTests(unittest.TestCase):
 
 
 class DownloadAudioOptionsTests(unittest.TestCase):
+    def test_all_video_platforms_request_and_embed_source_thumbnail(self):
+        for platform in (
+            downloader.YOUTUBE,
+            downloader.INSTAGRAM,
+            downloader.BILIBILI,
+        ):
+            with self.subTest(platform=platform):
+                options = downloader._build_ydl_options(
+                    platform,
+                    Path("/tmp/downloads"),
+                    1,
+                    1,
+                    media_type=downloader.VIDEO,
+                )
+                self.assertTrue(options["writethumbnail"])
+                self.assertEqual(
+                    options["postprocessors"][-1],
+                    {"key": "EmbedThumbnail", "already_have_thumbnail": False},
+                )
+                if platform == downloader.INSTAGRAM:
+                    self.assertEqual(
+                        options["postprocessors"][0],
+                        {"key": "FFmpegVideoRemuxer", "preferedformat": "mp4"},
+                    )
+
     def test_completed_audio_wins_if_cancel_arrives_after_processing(self):
         with tempfile.TemporaryDirectory() as directory:
             output_dir = Path(directory)
@@ -1074,6 +1225,10 @@ class DownloadAudioOptionsTests(unittest.TestCase):
             with (
                 patch("downloader.ensure_downloads_dir", return_value=output_dir),
                 patch("downloader.yt_dlp.YoutubeDL", FakeYdl),
+                patch(
+                    "downloader._ensure_media_cover",
+                    return_value=CoverOutcome(True, "source"),
+                ),
             ):
                 result = downloader.download_video(
                     "https://youtu.be/example",
@@ -1085,6 +1240,7 @@ class DownloadAudioOptionsTests(unittest.TestCase):
 
             self.assertIsNotNone(result)
             self.assertEqual(result["media_type"], downloader.AUDIO)
+            self.assertEqual(result["cover_source"], "source")
             self.assertTrue(Path(result["filepath"]).is_file())
 
     def test_unknown_source_codec_is_rejected_instead_of_transcoded(self):

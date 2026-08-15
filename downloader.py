@@ -49,6 +49,7 @@ from download_errors import (
     public_error,
 )
 from download_logging import get_download_logger, log_download_event
+from media_cover import ensure_media_cover as _ensure_media_cover
 from task_control import CancellationToken
 
 from bilibili_acceleration import (
@@ -441,6 +442,13 @@ def _build_ydl_options(
             {
                 "format": "bestvideo+bestaudio/best",
                 "merge_output_format": "mp4",
+                "writethumbnail": True,
+                "postprocessors": [
+                    {
+                        "key": "EmbedThumbnail",
+                        "already_have_thumbnail": False,
+                    }
+                ],
             }
         )
     else:
@@ -455,11 +463,16 @@ def _build_ydl_options(
                     "/best"
                 ),
                 "merge_output_format": "mp4",
+                "writethumbnail": True,
                 "postprocessors": [
                     {
                         "key": "FFmpegVideoRemuxer",
                         "preferedformat": "mp4",
-                    }
+                    },
+                    {
+                        "key": "EmbedThumbnail",
+                        "already_have_thumbnail": False,
+                    },
                 ],
             }
         )
@@ -754,6 +767,28 @@ def _build_download_result(
         if info.get("width") and info.get("height")
         else "未知"
     )
+    cover_embedded = info.get("_cover_embedded")
+    cover_source = info.get("_cover_source")
+    fallback_cover = info.get("_fallback_cover")
+    if not isinstance(cover_embedded, bool) or cover_source not in {
+        "source",
+        "fallback",
+        "none",
+    }:
+        cover_embedded = False
+        cover_source = "none"
+        fallback_cover = None
+    elif not cover_embedded or cover_source == "none":
+        cover_embedded = False
+        cover_source = "none"
+        fallback_cover = None
+    elif cover_source == "source":
+        fallback_cover = None
+    elif not isinstance(fallback_cover, str) or not fallback_cover:
+        cover_embedded = False
+        cover_source = "none"
+        fallback_cover = None
+
     result = {
         "platform": platform_name,
         "title": info.get("title", "未知标题"),
@@ -766,6 +801,9 @@ def _build_download_result(
         "cdn_host": plan.cdn_host or "未知",
         "http_chunk_size": plan.http_chunk_size,
         "output_version_actual": output_version_actual,
+        "cover_embedded": cover_embedded,
+        "cover_source": cover_source,
+        "fallback_cover": fallback_cover,
     }
     if media_type == AUDIO:
         if audio_profile is None:
@@ -782,7 +820,6 @@ def _build_download_result(
                 "audio_format_used": audio_profile.used,
                 "audio_format_fallback": audio_profile.fallback,
                 "output_ext": audio_profile.output_ext,
-                "cover_embedded": audio_profile.cover_embedded,
                 "source_acodec": audio_profile.source_acodec or "未知",
                 "source_abr_kbps": (
                     audio_profile.source_abr_kbps or "未知"
@@ -822,13 +859,19 @@ def _finalize_download_output(
                 profile,
                 output_version=output_version,
             )
-        return filepath, profile, _audio_output_version(filepath, output_version)
+        output_version_actual = _audio_output_version(filepath, output_version)
+    else:
+        filepath, output_version_actual = _finalize_video_output_with_version(
+            filepath,
+            output_version,
+        )
+        profile = None
 
-    filepath, output_version_actual = _finalize_video_output_with_version(
-        filepath,
-        output_version,
-    )
-    return filepath, None, output_version_actual
+    cover_outcome = _ensure_media_cover(filepath)
+    info["_cover_embedded"] = cover_outcome.embedded
+    info["_cover_source"] = cover_outcome.source
+    info["_fallback_cover"] = cover_outcome.fallback_name
+    return filepath, profile, output_version_actual
 
 
 def _download_bilibili(
