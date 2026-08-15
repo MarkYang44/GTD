@@ -1013,11 +1013,28 @@ class DownloadOutputTemplateTests(unittest.TestCase):
             (first / "first.mp4.part").write_bytes(b"first")
             second_part = second / "second.mp4.part"
             second_part.write_bytes(b"second")
+            first_marker = f" [.__mvd_{first.name}]"
+            second_marker = f" [.__mvd_{second.name}]"
+            owned_thumbnail = output_dir / f"Clip{first_marker}.jpg"
+            owned_part = output_dir / f"Clip{first_marker}.f100026.mp4.part"
+            final_file = output_dir / "Clip.mp4"
+            unrelated_part = output_dir / "Clip.f100026.mp4.part"
+            other_marker_file = output_dir / f"Clip{second_marker}.jpg"
+            owned_thumbnail.write_bytes(b"thumbnail")
+            owned_part.write_bytes(b"partial")
+            final_file.write_bytes(b"final")
+            unrelated_part.write_bytes(b"unrelated")
+            other_marker_file.write_bytes(b"other")
 
             downloader._cleanup_attempt_workspace(first)
 
             self.assertFalse(first.exists())
+            self.assertFalse(owned_thumbnail.exists())
+            self.assertFalse(owned_part.exists())
             self.assertEqual(second_part.read_bytes(), b"second")
+            self.assertEqual(final_file.read_bytes(), b"final")
+            self.assertEqual(unrelated_part.read_bytes(), b"unrelated")
+            self.assertEqual(other_marker_file.read_bytes(), b"other")
 
 
 class DownloadFinalizationOrchestrationTests(unittest.TestCase):

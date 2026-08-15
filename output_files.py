@@ -137,10 +137,27 @@ def new_attempt_workspace(
 def cleanup_attempt_workspace(
     workspace: Path, *, path_cls: type[Path] = Path, shutil_module: Any = shutil
 ) -> None:
-    """Delete only a workspace created for one download attempt."""
+    """Delete one attempt's workspace and exact-marker output artifacts."""
     workspace = path_cls(workspace)
     if workspace.parent.name != ".attempts":
         raise ValueError("拒绝清理非任务临时目录")
+    if re.fullmatch(r"[A-Za-z0-9_-]+", workspace.name) is None:
+        raise ValueError("拒绝清理无效任务临时目录")
+
+    marker = f" [.__mvd_{workspace.name}]"
+    output_dir = workspace.parent.parent
+    try:
+        for candidate in output_dir.iterdir():
+            if marker not in candidate.name:
+                continue
+            try:
+                if candidate.is_file() or candidate.is_symlink():
+                    candidate.unlink(missing_ok=True)
+            except OSError:
+                pass
+    except OSError:
+        pass
+
     shutil_module.rmtree(workspace, ignore_errors=True)
     try:
         workspace.parent.rmdir()
