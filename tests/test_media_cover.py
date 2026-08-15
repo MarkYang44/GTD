@@ -116,6 +116,24 @@ class RealContainerCoverTests(unittest.TestCase):
         )
         return json.loads(completed.stdout)["streams"]
 
+    def _probe_duration(self, path):
+        completed = subprocess.run(
+            [
+                shutil.which("ffprobe"),
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                str(path),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return float(completed.stdout.strip())
+
     @staticmethod
     def _media_stream_signature(streams):
         return [
@@ -149,6 +167,27 @@ class RealContainerCoverTests(unittest.TestCase):
         self.assertEqual(after, before)
         chooser.assert_not_called()
 
+    def test_every_bundled_asset_embeds_in_each_primary_container(self):
+        bases = {
+            suffix: self._audio_fixture(suffix)
+            for suffix in (".mp3", ".flac", ".m4a")
+        }
+        bases[".mp4"] = self._mp4_fixture("base.mp4")
+        for suffix, base in bases.items():
+            for cover in fallback_cover_paths():
+                with self.subTest(suffix=suffix, cover=cover.name):
+                    media = self.root / f"{cover.stem}{suffix}"
+                    shutil.copyfile(base, media)
+                    outcome = ensure_media_cover(
+                        media,
+                        chooser=lambda _paths, selected=cover: selected,
+                    )
+                    self.assertEqual(
+                        outcome,
+                        CoverOutcome(True, "fallback", cover.name),
+                    )
+                    self.assertEqual(ensure_media_cover(media).source, "source")
+
     def test_separate_uncovered_files_can_receive_different_covers(self):
         covers = iter(fallback_cover_paths()[:2])
         outcomes = [
@@ -160,9 +199,11 @@ class RealContainerCoverTests(unittest.TestCase):
     def test_mp4_cover_does_not_change_media_streams(self):
         media = self._mp4_fixture()
         before = self._probe_streams(media)
+        duration_before = self._probe_duration(media)
         chooser = Mock(return_value=fallback_cover_paths()[1])
         outcome = ensure_media_cover(media, chooser=chooser)
         after = self._probe_streams(media)
+        duration_after = self._probe_duration(media)
         self.assertEqual(outcome.source, "fallback")
         self.assertEqual(
             self._media_stream_signature(after),
@@ -172,6 +213,7 @@ class RealContainerCoverTests(unittest.TestCase):
             stream for stream in after if stream.get("disposition", {}).get("attached_pic")
         ]
         self.assertEqual(len(attached), 1)
+        self.assertAlmostEqual(duration_after, duration_before, places=3)
         chooser.assert_called_once()
         self.assertEqual(ensure_media_cover(media).source, "source")
 
