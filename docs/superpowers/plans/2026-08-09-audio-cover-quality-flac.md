@@ -724,7 +724,7 @@ import downloader
 url = "https://www.bilibili.com/video/BV1fsTM6CE9P?vd_source=c29bf1bb20fc12664dae270045332759"
 options = downloader._build_ydl_options(
     downloader.BILIBILI,
-    Path("/tmp/ytb_ins_probe"),
+    Path("/tmp/gtd-audio-probe"),
     1,
     1,
     media_type=downloader.AUDIO,
@@ -753,7 +753,7 @@ Expected: format ID `30251`, codec `flac`, profile used format `flac`, bitrate n
 Create an explicit temporary directory and use yt-dlp's range downloader with the same source selector and postprocessor behavior to produce separate 8-second FLAC and MP3 V0 samples:
 
 ```bash
-mkdir -p /tmp/ytb-ins-audio-qa
+mkdir -p /tmp/gtd-audio-qa
 venv/bin/python -m yt_dlp \
   --cookies bilibili_cookies.txt \
   --format "bestaudio[acodec^=flac]" \
@@ -763,7 +763,7 @@ venv/bin/python -m yt_dlp \
   --audio-format flac \
   --embed-thumbnail \
   --add-metadata \
-  --output "/tmp/ytb-ins-audio-qa/sample-flac.%(ext)s" \
+  --output "/tmp/gtd-audio-qa/sample-flac.%(ext)s" \
   "https://www.bilibili.com/video/BV1fsTM6CE9P?vd_source=c29bf1bb20fc12664dae270045332759"
 venv/bin/python -m yt_dlp \
   --cookies bilibili_cookies.txt \
@@ -775,22 +775,22 @@ venv/bin/python -m yt_dlp \
   --audio-quality 0 \
   --embed-thumbnail \
   --add-metadata \
-  --output "/tmp/ytb-ins-audio-qa/sample-mp3.%(ext)s" \
+  --output "/tmp/gtd-audio-qa/sample-mp3.%(ext)s" \
   "https://www.bilibili.com/video/BV1fsTM6CE9P?vd_source=c29bf1bb20fc12664dae270045332759"
 ```
 
 Inspect both files:
 
 ```bash
-ffprobe -v error -show_entries stream=index,codec_name,codec_type,disposition:format_tags -of json /tmp/ytb-ins-audio-qa/sample-flac.flac
-ffprobe -v error -show_entries stream=index,codec_name,codec_type,disposition:format_tags -of json /tmp/ytb-ins-audio-qa/sample-mp3.mp3
-find /tmp/ytb-ins-audio-qa -maxdepth 1 -type f -exec basename {} \; | sort
+ffprobe -v error -show_entries stream=index,codec_name,codec_type,disposition:format_tags -of json /tmp/gtd-audio-qa/sample-flac.flac
+ffprobe -v error -show_entries stream=index,codec_name,codec_type,disposition:format_tags -of json /tmp/gtd-audio-qa/sample-mp3.mp3
+find /tmp/gtd-audio-qa -maxdepth 1 -type f -exec basename {} \; | sort
 ```
 
 Expected: FLAC file has a FLAC audio stream and embedded picture metadata; MP3 has an MP3 audio stream and an attached-picture stream. The file listing contains only `sample-flac.flac` and `sample-mp3.mp3`, with no standalone thumbnail. After recording the results, remove only the explicit QA directory:
 
 ```bash
-rm -rf /tmp/ytb-ins-audio-qa
+rm -rf /tmp/gtd-audio-qa
 ```
 
 - [ ] **Step 7: Perform local Web API/UI validation**

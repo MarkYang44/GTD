@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Multiple_Video_Downloader — Web 界面入口。
+GTD — Generalized Transmedia Downloader — Web 界面入口。
 
 启动本地 Flask 服务，通过浏览器访问网页界面进行批量下载操作。
 """
@@ -407,7 +407,7 @@ if __name__ == "__main__":
         print(f"⚠️  文件夹选择器准备失败：{error}；仍可手动输入下载路径。")
 
     print("=" * 56)
-    print("  🎬 Multiple_Video_Downloader — Web 模式")
+    print("  🎬 GTD — Generalized Transmedia Downloader — Web 模式")
     print("=" * 56)
     print(f"  本机访问:    http://127.0.0.1:{WEB_PORT}")
     print(f"  局域网访问:  http://<本机局域网 IP>:{WEB_PORT}")

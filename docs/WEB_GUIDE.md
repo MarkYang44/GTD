@@ -1,6 +1,6 @@
 # 网页使用说明
 
-这里汇总 Multiple_Video_Downloader 网页界面中的常用操作、下载格式、任务状态和问题处理方式。
+这里汇总 GTD — Generalized Transmedia Downloader 网页界面中的常用操作、下载格式、任务状态和问题处理方式。
 
 ## 开始使用
 

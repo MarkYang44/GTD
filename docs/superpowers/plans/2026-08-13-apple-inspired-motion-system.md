@@ -528,7 +528,7 @@ git commit -m "feat: apply shared motion to hidden page"
 Run without modifying the existing files:
 
 ```bash
-find /Users/markyang/Projects/Multiple_Video_Downloader/downloads -type f -exec shasum -a 256 {} \; | LC_ALL=C sort > /tmp/mvd-motion-downloads-before.sha256
+find /Users/markyang/Projects/GTD/downloads -type f -exec shasum -a 256 {} \; | LC_ALL=C sort > /tmp/gtd-motion-downloads-before.sha256
 ```
 
 - [ ] **Step 2: Run complete automated verification**
@@ -580,8 +580,8 @@ Stop only the temporary `8234` process after QA.
 Run:
 
 ```bash
-find /Users/markyang/Projects/Multiple_Video_Downloader/downloads -type f -exec shasum -a 256 {} \; | LC_ALL=C sort > /tmp/mvd-motion-downloads-after.sha256
-cmp -s /tmp/mvd-motion-downloads-before.sha256 /tmp/mvd-motion-downloads-after.sha256
+find /Users/markyang/Projects/GTD/downloads -type f -exec shasum -a 256 {} \; | LC_ALL=C sort > /tmp/gtd-motion-downloads-after.sha256
+cmp -s /tmp/gtd-motion-downloads-before.sha256 /tmp/gtd-motion-downloads-after.sha256
 ```
 
 Expected: `cmp` exits 0.

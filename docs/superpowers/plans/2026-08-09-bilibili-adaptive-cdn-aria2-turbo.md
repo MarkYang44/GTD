@@ -2191,7 +2191,7 @@ Expected: every run produces a valid file; adaptive standard chooses the fastest
 Run one large video and one large audio task with `DOWNLOADS_DIR` set to the `video` and `audio` children of one task-specific temporary directory. Resolve exactly one output of each type and inspect it:
 
 ```bash
-integrity_root="$(mktemp -d /private/tmp/ytb-bili-integrity.XXXXXX)"
+integrity_root="$(mktemp -d /private/tmp/gtd-bili-integrity.XXXXXX)"
 mkdir "$integrity_root/video" "$integrity_root/audio"
 export YTB_BILI_INTEGRITY_ROOT="$integrity_root"
 venv/bin/python -c 'import os; from pathlib import Path; import downloader; downloader.DOWNLOADS_DIR = Path(os.environ["YTB_BILI_INTEGRITY_ROOT"]) / "video"; task = downloader.make_task("https://www.bilibili.com/video/BV1xRuu6fEeA"); result = downloader.download_tasks([task], speed_mode=downloader.TURBO); assert result[0][1] is not None'
@@ -2222,7 +2222,7 @@ ps -p "$project_service_pid" -o pid=,command=
 lsof -a -p "$project_service_pid" -d cwd -Fn
 ```
 
-Proceed only if the command is this project's Python/Flask process and cwd is exactly `/Users/markyang/Projects/Multiple_Video_Downloader` or the active feature worktree. Stop that explicit validated PID with `kill "$project_service_pid"`, then start the completed checkout with:
+Proceed only if the command is this project's Python/Flask process and cwd is exactly `/Users/markyang/Projects/GTD` or the active feature worktree. Stop that explicit validated PID with `kill "$project_service_pid"`, then start the completed checkout with:
 
 ```bash
 venv/bin/python app.py

@@ -140,6 +140,8 @@ class WebConfigurationTests(unittest.TestCase):
         ico_header = Path("static/icons/favicon.ico").read_bytes()[:6]
         self.assertEqual(ico_header, b"\x00\x00\x01\x00\x06\x00")
         manifest = json.loads(Path("static/site.webmanifest").read_text("utf-8"))
+        self.assertEqual(manifest["name"], "GTD — Generalized Transmedia Downloader")
+        self.assertEqual(manifest["short_name"], "GTD")
         self.assertEqual([icon["sizes"] for icon in manifest["icons"]], ["192x192", "512x512"])
         legacy_icon = web_app.app.test_client().get("/favicon.ico")
         self.assertEqual(legacy_icon.status_code, 200)
@@ -182,19 +184,35 @@ class WebConfigurationTests(unittest.TestCase):
     def test_readme_uses_current_project_directory_name(self):
         readme = Path("README.md").read_text(encoding="utf-8")
 
-        self.assertTrue(readme.startswith("# Multiple_Video_Downloader\n"))
-        self.assertIn("Multiple_Video_Downloader", readme)
+        self.assertTrue(
+            readme.startswith("# GTD\n\n**Generalized Transmedia Downloader**\n")
+        )
+        self.assertIn("GTD stands for Generalized Transmedia Downloader.", readme)
+        self.assertIn("git clone https://github.com/MarkYang44/GTD.git", readme)
+        self.assertIn("cd GTD", readme)
         self.assertNotIn("Ytb_Ins_Video_Download", readme)
 
     def test_web_startup_banner_uses_current_project_name(self):
         source = Path("app.py").read_text(encoding="utf-8")
         readme = Path("README.md").read_text(encoding="utf-8")
 
-        expected = "🎬 Multiple_Video_Downloader — Web 模式"
+        expected = "🎬 GTD — Generalized Transmedia Downloader — Web 模式"
         self.assertIn(expected, source)
         self.assertIn(expected, readme)
         self.assertNotIn("Ytb/Ins/Bili Downloader", source)
         self.assertNotIn("Ytb/Ins/Bili Downloader", readme)
+
+    def test_gtd_rename_preserves_compatibility_identifiers(self):
+        frontend = Path("static/js/index.js").read_text(encoding="utf-8")
+        logging_source = Path("download_logging.py").read_text(encoding="utf-8")
+        acceleration = Path("bilibili_acceleration.py").read_text(encoding="utf-8")
+
+        self.assertIn(
+            '"multiple-video-downloader.download-directory-history.v1"',
+            frontend,
+        )
+        self.assertIn('f"multiple_video_downloader.{resolved}"', logging_source)
+        self.assertIn('os.environ.get("MVD_ARIA2C_PATH")', acceleration)
 
     def test_default_web_listener_supports_lan_access_on_8233(self):
         readme = Path("README.md").read_text(encoding="utf-8")
@@ -610,7 +628,7 @@ assert.deepStrictEqual(
         html = frontend_surface_source()
 
         self.assertIn(
-            "<title>Multiple_Video_Downloader - Designed by Mark Yang</title>",
+            "<title>GTD — Generalized Transmedia Downloader</title>",
             html,
         )
         self.assertIn(

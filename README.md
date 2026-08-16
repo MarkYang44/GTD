@@ -1,4 +1,10 @@
-# Multiple_Video_Downloader
+# GTD
+
+**Generalized Transmedia Downloader**
+
+GTD stands for Generalized Transmedia Downloader.
+
+A multi-platform media downloader designed for downloading and processing media from multiple online platforms.
 
 YouTube + Instagram + Bilibili 视频与多格式音频批量下载工具。
 
@@ -28,7 +34,7 @@ YouTube + Instagram + Bilibili 视频与多格式音频批量下载工具。
 ## 目录结构
 
 ```text
-Multiple_Video_Downloader/
+GTD/
 ├── main.py                      # 命令行入口
 ├── app.py                       # Web 服务入口
 ├── downloader.py                # 通用下载核心逻辑（main.py 与 app.py 共用）
@@ -66,18 +72,25 @@ Cookie 文件均为可选文件，不配置时无需创建。平台专用 Cookie
 - pip
 - FFmpeg
 
-先将本项目下载或克隆到本机，然后在终端中进入项目根目录。下面的路径只是示例，请替换为项目在你电脑上的实际位置。
+先将本项目下载或克隆到本机，然后在终端中进入项目根目录：
+
+```bash
+git clone https://github.com/MarkYang44/GTD.git
+cd GTD
+```
+
+如果项目已经位于本机，下面的路径只是示例，请替换为项目在你电脑上的实际位置。
 
 macOS（Terminal）：
 
 ```bash
-cd /path/to/Multiple_Video_Downloader
+cd /path/to/GTD
 ```
 
 Windows（PowerShell）：
 
 ```powershell
-cd "C:\path\to\Multiple_Video_Downloader"
+cd "C:\path\to\GTD"
 ```
 
 > 路径中包含空格时，macOS 和 Windows 都应使用引号包住完整路径。
@@ -281,13 +294,13 @@ python main.py --audio --audio-format wav "https://youtu.be/xxxx"
 macOS：
 
 ```bash
-python main.py --output-dir "$HOME/Movies/MVD" "https://youtu.be/xxxx"
+python main.py --output-dir "$HOME/Movies/GTD" "https://youtu.be/xxxx"
 ```
 
 Windows PowerShell：
 
 ```powershell
-python main.py --output-dir "D:\Media\MVD" "https://youtu.be/xxxx"
+python main.py --output-dir "D:\Media\GTD" "https://youtu.be/xxxx"
 ```
 
 `--download-dir` 是 `--output-dir` 的等价别名。相对路径以项目根目录为基准；路径必须可创建且可写。省略参数或传入空值时，默认位置保持为项目内的 `downloads/`。
@@ -322,7 +335,7 @@ python main.py --audio --turbo "https://www.bilibili.com/video/BV1xRuu6fEeA"
 任务结束后，视频汇总会显示平台、标题、分辨率、文件大小和保存路径；音频汇总会显示实际输出格式、源编码/码率、是否发生 FLAC 回退、文件大小和保存路径。未自定义位置时，文件保存在项目根目录下的 `downloads/`：
 
 ```text
-Multiple_Video_Downloader/
+GTD/
 └── downloads/
 ```
 
@@ -346,11 +359,11 @@ python app.py
 
 ```text
 ========================================================
-  🎬 Multiple_Video_Downloader — Web 模式
+  🎬 GTD — Generalized Transmedia Downloader — Web 模式
 ========================================================
   本机访问:    http://127.0.0.1:8233
   局域网访问:  http://<本机局域网 IP>:8233
-  默认下载目录: /项目实际路径/Multiple_Video_Downloader/downloads
+  默认下载目录: /项目实际路径/GTD/downloads
   按 Ctrl+C 停止服务
 ========================================================
 ```

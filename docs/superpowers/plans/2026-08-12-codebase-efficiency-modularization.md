@@ -371,7 +371,7 @@ git commit -m "refactor: unify download finalization"
 Run:
 
 ```bash
-find /Users/markyang/Projects/Multiple_Video_Downloader/downloads -type f -exec shasum -a 256 {} \; | LC_ALL=C sort > /tmp/mvd-optimization-downloads-before.sha256
+find /Users/markyang/Projects/GTD/downloads -type f -exec shasum -a 256 {} \; | LC_ALL=C sort > /tmp/gtd-optimization-downloads-before.sha256
 ```
 
 - [ ] **Step 2: Run full automated verification**
@@ -397,7 +397,7 @@ Start Flask on port `8234`, then verify desktop and mobile layouts, video/audio 
 
 - [ ] **Step 5: Recheck downloads manifest**
 
-Run the same absolute-path `find ... shasum` command and compare with `/tmp/mvd-optimization-downloads-before.sha256` using `cmp`.
+Run the same absolute-path `find ... shasum` command and compare with `/tmp/gtd-optimization-downloads-before.sha256` using `cmp`.
 
 Expected: identical manifest.
 

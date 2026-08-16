@@ -66,7 +66,7 @@ Expected: import/resource failures because `media_cover.py` and `assets/fallback
 
 - [ ] **Step 3: Move the six original images without changing bytes**
 
-Create `assets/fallback_covers/`, then move these explicit source files from the main checkout `/Users/markyang/Projects/Multiple_Video_Downloader/` into the active feature worktree at the planned names:
+Create `assets/fallback_covers/`, then move these explicit source files from the main checkout `/Users/markyang/Projects/GTD/` into the active feature worktree at the planned names:
 
 ```text
 10319268-6284-4932-B124-441356EBC322.PNG -> cover-01.png
@@ -256,7 +256,7 @@ git commit -m "docs: explain fallback cover behavior"
 Run:
 
 ```bash
-find /Users/markyang/Projects/Multiple_Video_Downloader/downloads -type f -exec shasum -a 256 {} \; | LC_ALL=C sort > /tmp/mvd-cover-downloads-before.sha256
+find /Users/markyang/Projects/GTD/downloads -type f -exec shasum -a 256 {} \; | LC_ALL=C sort > /tmp/gtd-cover-downloads-before.sha256
 ```
 
 - [ ] **Step 5: Run complete automated verification**
@@ -282,8 +282,8 @@ In a temporary directory, generate MP3, FLAC, M4A, and MP4 fixtures, run `ensure
 Run:
 
 ```bash
-find /Users/markyang/Projects/Multiple_Video_Downloader/downloads -type f -exec shasum -a 256 {} \; | LC_ALL=C sort > /tmp/mvd-cover-downloads-after.sha256
-cmp -s /tmp/mvd-cover-downloads-before.sha256 /tmp/mvd-cover-downloads-after.sha256
+find /Users/markyang/Projects/GTD/downloads -type f -exec shasum -a 256 {} \; | LC_ALL=C sort > /tmp/gtd-cover-downloads-after.sha256
+cmp -s /tmp/gtd-cover-downloads-before.sha256 /tmp/gtd-cover-downloads-after.sha256
 ```
 
 Give the reviewer the design, plan, pre-feature base SHA, branch HEAD, full diff, test output, real-media evidence, six asset hashes, and download comparison. Fix every Critical/Important finding with a new failing regression before implementation changes.

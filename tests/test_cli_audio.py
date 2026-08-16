@@ -12,6 +12,12 @@ from collection_resolver import CollectionEntry, CollectionPreview
 
 
 class CliAudioModeTests(unittest.TestCase):
+    def test_cli_source_uses_gtd_public_identity(self):
+        source = Path("main.py").read_text(encoding="utf-8")
+
+        self.assertIn("GTD — Generalized Transmedia Downloader — 命令行入口", source)
+        self.assertIn('print(f"🎬 GTD · {media_name}批量下载")', source)
+
     def test_command_line_download_flow_validates_directory_once(self):
         url = "https://youtu.be/example"
         result = {

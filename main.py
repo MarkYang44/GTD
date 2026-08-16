@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-YouTube、Instagram 与 Bilibili 视频批量下载工具 — 命令行入口。
+GTD — Generalized Transmedia Downloader — 命令行入口。
 
 同一批任务可以混合包含 YouTube、Instagram 和 Bilibili 链接。程序会自动识别平台，
 并为不同平台选择对应的 yt-dlp 下载参数。
@@ -343,7 +343,7 @@ def choose_speed_mode() -> str:
 def get_inputs_from_user(media_type: str = VIDEO) -> list[str]:
     """交互式收集单条、播放列表、合集或分 P 链接。"""
     media_name = MEDIA_TYPE_NAMES[media_type]
-    print(f"🎬 YouTube + Instagram + Bilibili {media_name}批量下载工具")
+    print(f"🎬 GTD · {media_name}批量下载")
     print("=" * 56)
     print("请逐行粘贴单条视频、播放列表、合集或分 P 链接，每行一个。")
     print("三个平台的链接可以任意混合，输入空行后开始解析。")
@@ -368,7 +368,7 @@ def get_inputs_from_user(media_type: str = VIDEO) -> list[str]:
 def get_tasks_from_user(media_type: str = VIDEO) -> list[VideoTask]:
     """交互式获取混合平台链接，每行一个，空行结束。"""
     media_name = MEDIA_TYPE_NAMES[media_type]
-    print(f"🎬 YouTube + Instagram + Bilibili {media_name}批量下载工具")
+    print(f"🎬 GTD · {media_name}批量下载")
     print("=" * 56)
     print("请逐行粘贴 YouTube、Instagram 或 Bilibili 视频链接，每行一个。")
     print("三个平台的链接可以任意混合，输入空行后开始下载。")

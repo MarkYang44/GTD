@@ -1,6 +1,6 @@
 {
-  "name": "Multiple Video Downloader",
-  "short_name": "MVD",
+  "name": "GTD — Generalized Transmedia Downloader",
+  "short_name": "GTD",
   "icons": [
     {
       "src": "/static/icons/android-chrome-192x192.png",

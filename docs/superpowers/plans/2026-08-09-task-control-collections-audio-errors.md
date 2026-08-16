@@ -1334,8 +1334,8 @@ Run: `venv/bin/python -m unittest tests.test_web_progress -v`
 Run:
 
 ```bash
-venv/bin/python -c "from pathlib import Path; text=Path('templates/index.html').read_text(encoding='utf-8'); Path('/tmp/multiple-video-downloader-index.js').write_text(text.split('<script>',1)[1].split('</script>',1)[0], encoding='utf-8')"
-node --check /tmp/multiple-video-downloader-index.js
+venv/bin/python -c "from pathlib import Path; text=Path('templates/index.html').read_text(encoding='utf-8'); Path('/tmp/gtd-index.js').write_text(text.split('<script>',1)[1].split('</script>',1)[0], encoding='utf-8')"
+node --check /tmp/gtd-index.js
 ```
 
 Expected: Python tests PASS and Node reports no syntax errors.
@@ -1493,7 +1493,7 @@ Run: `venv/bin/python -m compileall app.py downloader.py main.py bilibili_accele
 
 Expected: command exits 0.
 
-Run: `venv/bin/python -c "from pathlib import Path; text=Path('templates/index.html').read_text(encoding='utf-8'); Path('/tmp/multiple-video-downloader-index.js').write_text(text.split('<script>',1)[1].split('</script>',1)[0], encoding='utf-8')" && node --check /tmp/multiple-video-downloader-index.js`
+Run: `venv/bin/python -c "from pathlib import Path; text=Path('templates/index.html').read_text(encoding='utf-8'); Path('/tmp/gtd-index.js').write_text(text.split('<script>',1)[1].split('</script>',1)[0], encoding='utf-8')" && node --check /tmp/gtd-index.js`
 
 Expected: command exits 0.
 
@@ -1512,34 +1512,34 @@ Expected: preview, selected submission, standard cancellation, retry, retry-all,
 First record the existing download manifest with BSD-compatible `stat`:
 
 ```bash
-find downloads -type f -exec stat -f '%N\t%z\t%m' {} \; | sort > /tmp/mvd-downloads-before.txt
+find downloads -type f -exec stat -f '%N\t%z\t%m' {} \; | sort > /tmp/gtd-downloads-before.txt
 ```
 
 Set user-authorized smoke URLs. The public YouTube test clip is the default; Instagram is optional because access depends on the user's current Cookie.
 
 ```bash
-export MVD_SMOKE_YOUTUBE_URL="https://www.youtube.com/watch?v=jNQXAC9IVRw"
-export MVD_SMOKE_BILIBILI_URL="https://www.bilibili.com/video/BV1GJ411x7h7"
-export MVD_SMOKE_INSTAGRAM_URL=""
-export MVD_SMOKE_DIR="$(mktemp -d)"
+export GTD_SMOKE_YOUTUBE_URL="https://www.youtube.com/watch?v=jNQXAC9IVRw"
+export GTD_SMOKE_BILIBILI_URL="https://www.bilibili.com/video/BV1GJ411x7h7"
+export GTD_SMOKE_INSTAGRAM_URL=""
+export GTD_SMOKE_DIR="$(mktemp -d)"
 ```
 
 Run each format in a separate process so `DOWNLOADS_DIR` is patched only in memory:
 
 ```bash
-MVD_FORMAT=video MVD_URL="$MVD_SMOKE_YOUTUBE_URL" venv/bin/python -c "import os; from pathlib import Path; import downloader; downloader.DOWNLOADS_DIR=Path(os.environ['MVD_SMOKE_DIR']); result=downloader.download_video(os.environ['MVD_URL'], media_type='video', raise_errors=True); print(result['filepath'])"
-MVD_FORMAT=mp3 MVD_URL="$MVD_SMOKE_YOUTUBE_URL" venv/bin/python -c "import os; from pathlib import Path; import downloader; downloader.DOWNLOADS_DIR=Path(os.environ['MVD_SMOKE_DIR']); result=downloader.download_video(os.environ['MVD_URL'], media_type='audio', audio_format='mp3', output_version=2, raise_errors=True); print(result['filepath'])"
-MVD_FORMAT=source MVD_URL="$MVD_SMOKE_YOUTUBE_URL" venv/bin/python -c "import os; from pathlib import Path; import downloader; downloader.DOWNLOADS_DIR=Path(os.environ['MVD_SMOKE_DIR']); result=downloader.download_video(os.environ['MVD_URL'], media_type='audio', audio_format='source', output_version=3, raise_errors=True); print(result['filepath'])"
-MVD_FORMAT=wav MVD_URL="$MVD_SMOKE_YOUTUBE_URL" venv/bin/python -c "import os; from pathlib import Path; import downloader; downloader.DOWNLOADS_DIR=Path(os.environ['MVD_SMOKE_DIR']); result=downloader.download_video(os.environ['MVD_URL'], media_type='audio', audio_format='wav', output_version=4, raise_errors=True); print(result['filepath'])"
-MVD_FORMAT=video MVD_URL="$MVD_SMOKE_BILIBILI_URL" venv/bin/python -c "import os; from pathlib import Path; import downloader; downloader.DOWNLOADS_DIR=Path(os.environ['MVD_SMOKE_DIR']); result=downloader.download_video(os.environ['MVD_URL'], media_type='video', speed_mode='standard', raise_errors=True); print(result['filepath'])"
+GTD_FORMAT=video GTD_URL="$GTD_SMOKE_YOUTUBE_URL" venv/bin/python -c "import os; from pathlib import Path; import downloader; downloader.DOWNLOADS_DIR=Path(os.environ['GTD_SMOKE_DIR']); result=downloader.download_video(os.environ['GTD_URL'], media_type='video', raise_errors=True); print(result['filepath'])"
+GTD_FORMAT=mp3 GTD_URL="$GTD_SMOKE_YOUTUBE_URL" venv/bin/python -c "import os; from pathlib import Path; import downloader; downloader.DOWNLOADS_DIR=Path(os.environ['GTD_SMOKE_DIR']); result=downloader.download_video(os.environ['GTD_URL'], media_type='audio', audio_format='mp3', output_version=2, raise_errors=True); print(result['filepath'])"
+GTD_FORMAT=source GTD_URL="$GTD_SMOKE_YOUTUBE_URL" venv/bin/python -c "import os; from pathlib import Path; import downloader; downloader.DOWNLOADS_DIR=Path(os.environ['GTD_SMOKE_DIR']); result=downloader.download_video(os.environ['GTD_URL'], media_type='audio', audio_format='source', output_version=3, raise_errors=True); print(result['filepath'])"
+GTD_FORMAT=wav GTD_URL="$GTD_SMOKE_YOUTUBE_URL" venv/bin/python -c "import os; from pathlib import Path; import downloader; downloader.DOWNLOADS_DIR=Path(os.environ['GTD_SMOKE_DIR']); result=downloader.download_video(os.environ['GTD_URL'], media_type='audio', audio_format='wav', output_version=4, raise_errors=True); print(result['filepath'])"
+GTD_FORMAT=video GTD_URL="$GTD_SMOKE_BILIBILI_URL" venv/bin/python -c "import os; from pathlib import Path; import downloader; downloader.DOWNLOADS_DIR=Path(os.environ['GTD_SMOKE_DIR']); result=downloader.download_video(os.environ['GTD_URL'], media_type='video', speed_mode='standard', raise_errors=True); print(result['filepath'])"
 ```
 
-If `MVD_SMOKE_INSTAGRAM_URL` is non-empty, run the same temporary-directory video command with that URL. If it returns `AUTH_REQUIRED`, report the current Cookie limitation without copying or modifying Cookie files. Let any manually enabled aria2c sample finish.
+If `GTD_SMOKE_INSTAGRAM_URL` is non-empty, run the same temporary-directory video command with that URL. If it returns `AUTH_REQUIRED`, report the current Cookie limitation without copying or modifying Cookie files. Let any manually enabled aria2c sample finish.
 
 Validate every output:
 
 ```bash
-find "$MVD_SMOKE_DIR" -type f -exec ffprobe -v error -show_entries format=filename,duration,size -show_entries stream=codec_type,codec_name -of json {} \;
+find "$GTD_SMOKE_DIR" -type f -exec ffprobe -v error -show_entries format=filename,duration,size -show_entries stream=codec_type,codec_name -of json {} \;
 ```
 
 Expected: each produced media has a nonzero size, positive duration, and the expected video/audio stream. The source output retains its selected codec; WAV reports PCM audio.
@@ -1549,8 +1549,8 @@ Expected: each produced media has a nonzero size, positive duration, and the exp
 After Step 7 run:
 
 ```bash
-find downloads -type f -exec stat -f '%N\t%z\t%m' {} \; | sort > /tmp/mvd-downloads-after.txt
-cmp /tmp/mvd-downloads-before.txt /tmp/mvd-downloads-after.txt
+find downloads -type f -exec stat -f '%N\t%z\t%m' {} \; | sort > /tmp/gtd-downloads-after.txt
+cmp /tmp/gtd-downloads-before.txt /tmp/gtd-downloads-after.txt
 ```
 
 Expected: `cmp` exits 0 with no output.
