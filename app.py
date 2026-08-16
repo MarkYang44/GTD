@@ -5,10 +5,13 @@ GTD — Generalized Transmedia Downloader — Web 界面入口。
 启动本地 Flask 服务，通过浏览器访问网页界面进行批量下载操作。
 """
 
+import mimetypes
 from pathlib import Path
 from urllib.parse import urlparse
 
 from flask import Flask, jsonify, render_template, request
+
+mimetypes.add_type("text/javascript", ".js")
 
 from collection_resolver import (
     CollectionResolveError,
