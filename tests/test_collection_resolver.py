@@ -11,6 +11,12 @@ class CollectionResolverTests(unittest.TestCase):
         ydl.extract_info.return_value = info
         return lambda options: ydl
 
+    def test_youtube_preview_enables_js_challenge_solver(self):
+        options = resolver._preview_options(resolver.YOUTUBE)
+
+        self.assertIn("node", options.get("js_runtimes", {}))
+        self.assertIn("ejs:github", options.get("remote_components", []))
+
     def test_youtube_playlist_preserves_order_and_disabled_entries(self):
         info = {
             "_type": "playlist",

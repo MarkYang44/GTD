@@ -393,9 +393,7 @@ def _build_ydl_options(
         options["paths"] = {"temp": str(attempt_workspace)}
 
     if platform == YOUTUBE:
-        node_path = _node_path()
-        options["js_runtimes"] = {"node": {"path": node_path} if node_path else {}}
-        options["remote_components"] = ["ejs:github"]
+        options.update(media_sources.youtube_js_options(_node_path()))
     elif platform == INSTAGRAM:
         options.update(
             {
