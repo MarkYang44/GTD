@@ -591,11 +591,15 @@ class Element {
 const reveal = new Element({ "data-motion-reveal": "" });
 const number = new Element({ "data-motion-number": "" });
 const surface = new Element({ "data-motion-surface": "" });
+const softSurface = new Element({
+  "data-motion-surface": "",
+  "data-motion-tilt-strength": "0.4",
+});
 const parallax = new Element({ "data-motion-parallax": "0.55" });
 const root = { classList: new ClassList(), querySelectorAll(selector) {
   if (selector === "[data-motion-reveal]") return [reveal];
   if (selector === "[data-motion-number]") return [number];
-  if (selector === "[data-motion-surface]") return [surface];
+  if (selector === "[data-motion-surface]") return [surface, softSurface];
   if (selector === "[data-motion-parallax]") return [parallax];
   if (selector === "[data-motion-group]") return [];
   return [];
@@ -647,6 +651,10 @@ surface.listeners.pointerenter[0]({ clientX: 100, clientY: 0 });
 for (const callback of [...queuedFrames.values()]) callback(600);
 assert.strictEqual(surface.style.values["--motion-rx"], "0.6deg");
 assert.strictEqual(surface.style.values["--motion-ry"], "0.6deg");
+softSurface.listeners.pointerenter[0]({ clientX: 100, clientY: 0 });
+for (const callback of [...queuedFrames.values()]) callback(650);
+assert.strictEqual(softSurface.style.values["--motion-rx"], "0.24deg");
+assert.strictEqual(softSurface.style.values["--motion-ry"], "0.24deg");
 assert(surface.classList.contains("motion-surface-fallback"));
 assert.strictEqual(surface.style.values["--motion-base-background"], "linear-gradient(#111, #222)");
 assert.strictEqual(document.lastEvent.type, "motion:scroll-frame");
@@ -654,6 +662,7 @@ assert(Math.abs(Number.parseFloat(parallax.style.values["--motion-parallax-offse
 window.MotionSystem.destroy();
 assert(!root.classList.contains("motion-ready"));
 assert.strictEqual(surface.listeners.pointerenter.length, 0);
+assert.strictEqual(softSurface.listeners.pointerenter.length, 0);
 assert.strictEqual(surface.style.values["--motion-rx"], "0deg");
 assert.strictEqual(parallax.style.values["--motion-parallax-offset"], "0px");
 assert.strictEqual(surface.style.values["--motion-base-background"], undefined);

@@ -128,13 +128,17 @@
     if (!bounds.width || !bounds.height) return;
     const x = clamp((event.clientX - bounds.left) / bounds.width, 0, 1);
     const y = clamp((event.clientY - bounds.top) / bounds.height, 0, 1);
-    const rotateX = clamp((0.5 - y) * 2 * MAX_TILT, -MAX_TILT, MAX_TILT);
-    const rotateY = clamp((x - 0.5) * 2 * MAX_TILT, -MAX_TILT, MAX_TILT);
+    const configuredStrength = Number.parseFloat(surface.getAttribute("data-motion-tilt-strength"));
+    const tiltStrength = Number.isFinite(configuredStrength) ? clamp(configuredStrength, 0, 1) : 1;
+    const maxTilt = MAX_TILT * tiltStrength;
+    const rotateX = clamp((0.5 - y) * 2 * maxTilt, -maxTilt, maxTilt);
+    const rotateY = clamp((x - 0.5) * 2 * maxTilt, -maxTilt, maxTilt);
+    const tiltPrecision = tiltStrength === 1 ? 1 : 2;
 
     surface.style.setProperty("--motion-x", `${(x * 100).toFixed(1)}%`);
     surface.style.setProperty("--motion-y", `${(y * 100).toFixed(1)}%`);
-    surface.style.setProperty("--motion-rx", `${rotateX.toFixed(1)}deg`);
-    surface.style.setProperty("--motion-ry", `${rotateY.toFixed(1)}deg`);
+    surface.style.setProperty("--motion-rx", `${rotateX.toFixed(tiltPrecision)}deg`);
+    surface.style.setProperty("--motion-ry", `${rotateY.toFixed(tiltPrecision)}deg`);
   }
 
   function updateNumbers(timestamp) {
