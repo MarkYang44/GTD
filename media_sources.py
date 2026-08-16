@@ -194,3 +194,11 @@ def platform_http_headers(platform: str) -> dict[str, str]:
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
     }
+
+
+def youtube_js_options(node_path: str | None) -> dict[str, object]:
+    """Return the shared yt-dlp JavaScript challenge solver configuration."""
+    return {
+        "js_runtimes": {"node": {"path": node_path} if node_path else {}},
+        "remote_components": ["ejs:github"],
+    }

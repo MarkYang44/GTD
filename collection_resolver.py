@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 import threading
 import time
 import uuid
@@ -12,6 +13,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 import yt_dlp
 
 from download_errors import DownloadFailure, classify_download_error
+import media_sources
 from media_sources import (
     BILIBILI,
     INSTAGRAM,
@@ -107,6 +109,8 @@ def _preview_options(platform: str) -> dict[str, object]:
     cookie_file = find_cookie_file(platform)
     if cookie_file:
         options["cookiefile"] = str(cookie_file)
+    if platform == YOUTUBE:
+        options.update(media_sources.youtube_js_options(shutil.which("node")))
     return options
 
 
