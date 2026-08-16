@@ -595,11 +595,16 @@ const softSurface = new Element({
   "data-motion-surface": "",
   "data-motion-tilt-strength": "0.4",
 });
+const blankStrengthSurface = new Element({ "data-motion-surface": "", "data-motion-tilt-strength": " " });
+const malformedStrengthSurface = new Element({ "data-motion-surface": "", "data-motion-tilt-strength": "0.4oops" });
+const negativeStrengthSurface = new Element({ "data-motion-surface": "", "data-motion-tilt-strength": "-1" });
+const excessiveStrengthSurface = new Element({ "data-motion-surface": "", "data-motion-tilt-strength": "2" });
+const surfaces = [surface, softSurface, blankStrengthSurface, malformedStrengthSurface, negativeStrengthSurface, excessiveStrengthSurface];
 const parallax = new Element({ "data-motion-parallax": "0.55" });
 const root = { classList: new ClassList(), querySelectorAll(selector) {
   if (selector === "[data-motion-reveal]") return [reveal];
   if (selector === "[data-motion-number]") return [number];
-  if (selector === "[data-motion-surface]") return [surface, softSurface];
+  if (selector === "[data-motion-surface]") return surfaces;
   if (selector === "[data-motion-parallax]") return [parallax];
   if (selector === "[data-motion-group]") return [];
   return [];
@@ -655,14 +660,27 @@ softSurface.listeners.pointerenter[0]({ clientX: 100, clientY: 0 });
 for (const callback of [...queuedFrames.values()]) callback(650);
 assert.strictEqual(softSurface.style.values["--motion-rx"], "0.24deg");
 assert.strictEqual(softSurface.style.values["--motion-ry"], "0.24deg");
+for (const invalidSurface of [blankStrengthSurface, malformedStrengthSurface]) {
+  invalidSurface.listeners.pointerenter[0]({ clientX: 100, clientY: 0 });
+  for (const callback of [...queuedFrames.values()]) callback(675);
+  assert.strictEqual(invalidSurface.style.values["--motion-rx"], "0.6deg");
+  assert.strictEqual(invalidSurface.style.values["--motion-ry"], "0.6deg");
+}
+negativeStrengthSurface.listeners.pointerenter[0]({ clientX: 100, clientY: 0 });
+for (const callback of [...queuedFrames.values()]) callback(700);
+assert.strictEqual(negativeStrengthSurface.style.values["--motion-rx"], "0.00deg");
+assert.strictEqual(negativeStrengthSurface.style.values["--motion-ry"], "0.00deg");
+excessiveStrengthSurface.listeners.pointerenter[0]({ clientX: 100, clientY: 0 });
+for (const callback of [...queuedFrames.values()]) callback(725);
+assert.strictEqual(excessiveStrengthSurface.style.values["--motion-rx"], "0.6deg");
+assert.strictEqual(excessiveStrengthSurface.style.values["--motion-ry"], "0.6deg");
 assert(surface.classList.contains("motion-surface-fallback"));
 assert.strictEqual(surface.style.values["--motion-base-background"], "linear-gradient(#111, #222)");
 assert.strictEqual(document.lastEvent.type, "motion:scroll-frame");
 assert(Math.abs(Number.parseFloat(parallax.style.values["--motion-parallax-offset"])) <= 6.6);
 window.MotionSystem.destroy();
 assert(!root.classList.contains("motion-ready"));
-assert.strictEqual(surface.listeners.pointerenter.length, 0);
-assert.strictEqual(softSurface.listeners.pointerenter.length, 0);
+for (const item of surfaces) assert.strictEqual(item.listeners.pointerenter.length, 0);
 assert.strictEqual(surface.style.values["--motion-rx"], "0deg");
 assert.strictEqual(parallax.style.values["--motion-parallax-offset"], "0px");
 assert.strictEqual(surface.style.values["--motion-base-background"], undefined);

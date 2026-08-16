@@ -74,7 +74,8 @@ Expected: FAIL because the runtime still emits `0.6deg` for the soft surface and
 In `static/js/motion.js`, derive a per-surface strength inside `updateSurface`:
 
 ```javascript
-const configuredStrength = Number.parseFloat(surface.getAttribute("data-motion-tilt-strength"));
+const rawStrength = surface.getAttribute("data-motion-tilt-strength");
+const configuredStrength = rawStrength === null || rawStrength.trim() === "" ? NaN : Number(rawStrength);
 const tiltStrength = Number.isFinite(configuredStrength) ? clamp(configuredStrength, 0, 1) : 1;
 const maxTilt = MAX_TILT * tiltStrength;
 const rotateX = clamp((0.5 - y) * 2 * maxTilt, -maxTilt, maxTilt);

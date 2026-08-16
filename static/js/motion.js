@@ -128,7 +128,8 @@
     if (!bounds.width || !bounds.height) return;
     const x = clamp((event.clientX - bounds.left) / bounds.width, 0, 1);
     const y = clamp((event.clientY - bounds.top) / bounds.height, 0, 1);
-    const configuredStrength = Number.parseFloat(surface.getAttribute("data-motion-tilt-strength"));
+    const rawStrength = surface.getAttribute("data-motion-tilt-strength");
+    const configuredStrength = rawStrength === null || rawStrength.trim() === "" ? NaN : Number(rawStrength);
     const tiltStrength = Number.isFinite(configuredStrength) ? clamp(configuredStrength, 0, 1) : 1;
     const maxTilt = MAX_TILT * tiltStrength;
     const rotateX = clamp((0.5 - y) * 2 * maxTilt, -maxTilt, maxTilt);

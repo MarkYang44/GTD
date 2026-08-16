@@ -46,7 +46,14 @@ class WebGuideTests(unittest.TestCase):
         self.assertIn('class="guide-heading" data-motion-group="guide-hero"', html)
         self.assertIn('class="guide-document"', html)
         self.assertIn("data-motion-surface", html)
-        self.assertEqual(html.count('data-motion-tilt-strength="0.4"'), 2)
+        self.assertRegex(
+            html,
+            r'class="guide-toc-inner"[^>]*data-motion-surface[^>]*data-motion-tilt-strength="0\.4"',
+        )
+        self.assertRegex(
+            html,
+            r'class="guide-document"[^>]*data-motion-surface[^>]*data-motion-tilt-strength="0\.4"',
+        )
         self.assertIn("motion:scroll-frame", html)
         self.assertIn("window.MotionSystem?.refresh", html)
         self.assertNotIn("const pointerLight", html)
