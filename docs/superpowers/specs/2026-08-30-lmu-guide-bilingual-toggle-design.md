@@ -56,7 +56,7 @@ Chinese companion fields are added only where copy is translated:
 
 - `Car`: Chinese strength and caution;
 - `Recommendation`: Chinese fit explanation;
-- `Circuit`: Chinese character, challenge, and advice.
+- `Circuit`: Chinese location, character, challenge, and advice.
 
 The current English field names and official names/URLs remain unchanged to
 avoid breaking existing callers and tests. Static UI translations live in the
@@ -68,8 +68,10 @@ slugs, local image rules, official LMU URLs, and exactly three unique
 recommendations for each requested class.
 
 Chinese translations favor natural motorsport language over literal wording.
-When a term could be ambiguous, the Chinese copy includes the English form once,
-for example `制动稳定性（braking stability）` or `轮胎负荷（tyre load）`.
+Chinese locations retain the original location in parentheses, for example
+`萨基尔，巴林（Sakhir, Bahrain）`. When a motorsport term could be ambiguous,
+the Chinese copy includes the English form once, for example
+`制动稳定性（braking stability）` or `轮胎负荷（tyre load）`.
 
 ## Rendering and State Flow
 
