@@ -27,7 +27,8 @@
     <article class="circuit-card" id="{{ circuit.slug }}" data-motion-reveal data-motion-surface data-motion-tilt-strength="0.18">
       <div class="circuit-media">
         {% if circuit.image %}
-        <img src="{{ url_for("static", filename=circuit.image) }}" width="1024" height="576" loading="lazy" alt="{{ circuit.name }} 赛道">
+        <img src="{{ url_for("static", filename=circuit.image) }}" width="1024" height="576" loading="lazy" alt="{{ circuit.name }} 赛道" onerror="this.hidden=true;this.nextElementSibling.hidden=false">
+        <div class="media-placeholder" role="img" aria-label="{{ circuit.name }} 暂无官方赛道图片" hidden>官方赛道图片暂缺</div>
         {% else %}
         <div class="media-placeholder" role="img" aria-label="{{ circuit.name }} 暂无官方赛道图片">官方赛道图片暂缺</div>
         {% endif %}
@@ -52,7 +53,8 @@
               {% set car = cars[recommendation.car_slug] %}
               <li class="recommendation" data-class="{{ class_name }}">
                 {% if car.image %}
-                <img src="{{ url_for("static", filename=car.image) }}" width="1024" height="576" loading="lazy" alt="{{ car.name }}">
+                <img src="{{ url_for("static", filename=car.image) }}" width="1024" height="576" loading="lazy" alt="{{ car.name }}" onerror="this.hidden=true;this.nextElementSibling.hidden=false">
+                <div class="media-placeholder" role="img" aria-label="{{ car.name }} 暂无官方车型图片" hidden>官方车型图片暂缺</div>
                 {% else %}
                 <div class="media-placeholder" role="img" aria-label="{{ car.name }} 暂无官方车型图片">官方车型图片暂缺</div>
                 {% endif %}

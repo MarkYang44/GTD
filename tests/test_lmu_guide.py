@@ -1,5 +1,6 @@
 import importlib.util
 import unittest
+from dataclasses import replace
 from tempfile import TemporaryDirectory
 from pathlib import Path
 from unittest.mock import patch
@@ -78,6 +79,22 @@ class LmuGuideRouteTests(unittest.TestCase):
         self.assertEqual(html.count("<details"), 16)
         self.assertEqual(html.count('data-class="LMGT3"'), 48)
         self.assertEqual(html.count('data-class="Hypercar"'), 48)
+
+    def test_invalid_circuit_image_path_keeps_a_readable_placeholder(self):
+        missing_image_circuit = replace(
+            guide.CIRCUITS[0],
+            image="kozekilmu/guide/tracks/missing-for-qa.webp",
+        )
+        with patch.object(
+            web_app,
+            "CIRCUITS",
+            (missing_image_circuit, *guide.CIRCUITS[1:]),
+        ):
+            html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
+
+        self.assertIn("missing-for-qa.webp", html)
+        self.assertIn('aria-label="Bahrain 暂无官方赛道图片"', html)
+        self.assertIn("onerror=", html)
 
 class LmuGuidePresentationTests(unittest.TestCase):
     def setUp(self):
