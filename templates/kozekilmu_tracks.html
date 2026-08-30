@@ -22,11 +22,15 @@
     <p class="guide-updated">资料更新：<time datetime="{{ guide_updated }}">{{ guide_updated }}</time></p>
   </header>
 
-  <section class="circuit-list" aria-label="LMU 赛道与车型建议">
+  <section class="circuit-list circuit-grid" aria-label="LMU 赛道与车型建议">
   {% for circuit in circuits %}
-    <article class="circuit-card" id="{{ circuit.slug }}" data-motion-reveal>
+    <article class="circuit-card" id="{{ circuit.slug }}" data-motion-reveal data-motion-surface data-motion-tilt-strength="0.18">
       <div class="circuit-media">
-        <img src="{{ url_for("static", filename=circuit.image) }}" loading="lazy" alt="{{ circuit.name }} 赛道">
+        {% if circuit.image %}
+        <img src="{{ url_for("static", filename=circuit.image) }}" width="1024" height="576" loading="lazy" alt="{{ circuit.name }} 赛道">
+        {% else %}
+        <div class="media-placeholder" role="img" aria-label="{{ circuit.name }} 暂无官方赛道图片">官方赛道图片暂缺</div>
+        {% endif %}
       </div>
       <div class="circuit-content">
         <header>
@@ -47,7 +51,11 @@
             {% for recommendation in recommendations %}
               {% set car = cars[recommendation.car_slug] %}
               <li class="recommendation" data-class="{{ class_name }}">
-                <img src="{{ url_for("static", filename=car.image) }}" loading="lazy" alt="{{ car.name }}">
+                {% if car.image %}
+                <img src="{{ url_for("static", filename=car.image) }}" width="1024" height="576" loading="lazy" alt="{{ car.name }}">
+                {% else %}
+                <div class="media-placeholder" role="img" aria-label="{{ car.name }} 暂无官方车型图片">官方车型图片暂缺</div>
+                {% endif %}
                 <div>
                   <h4>{{ car.name }}</h4>
                   <p>{{ recommendation.fit }}</p>
@@ -61,12 +69,17 @@
           {% endfor %}
         </details>
       </div>
+      <span data-motion-sheen aria-hidden="true"></span>
     </article>
   {% endfor %}
   </section>
 </main>
 <footer class="guide-footer">
-  <p>赛道与车型资料来源于 Le Mans Ultimate 官方页面；建议基于当前内容整理，不构成最快圈速承诺。</p>
+  <p>
+    资料来源：<a href="https://lemansultimate.com/circuits/" target="_blank" rel="noopener noreferrer">LMU 官方赛道索引</a>
+    与 <a href="https://lemansultimate.com/cars/" target="_blank" rel="noopener noreferrer">LMU 官方车型索引</a>。
+    车型建议反映 {{ guide_updated }} 的公开游戏内容，Balance of Performance（BoP）或物理版本更新后可能变化，不构成最快圈速承诺。
+  </p>
 </footer>
 <script defer src="/static/js/motion.js"></script>
 </body>

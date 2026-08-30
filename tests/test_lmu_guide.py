@@ -7,6 +7,8 @@ from unittest.mock import patch
 import lmu_guide_data as guide
 import app as web_app
 
+CSS_PATH = Path("static/css/kozekilmu_tracks.css")
+
 
 def _load_asset_sync_module():
     script_path = Path(__file__).resolve().parents[1] / "scripts" / "sync_lmu_guide_assets.py"
@@ -76,6 +78,47 @@ class LmuGuideRouteTests(unittest.TestCase):
         self.assertEqual(html.count("<details"), 16)
         self.assertEqual(html.count('data-class="LMGT3"'), 48)
         self.assertEqual(html.count('data-class="Hypercar"'), 48)
+
+class LmuGuidePresentationTests(unittest.TestCase):
+    def setUp(self):
+        self.client = web_app.app.test_client()
+
+    def test_layout_disclosure_and_reduced_motion_contracts(self):
+        css = CSS_PATH.read_text(encoding="utf-8") if CSS_PATH.exists() else ""
+        reduced_motion_start = css.find("@media (prefers-reduced-motion: reduce)")
+        reduced_motion_block = css[reduced_motion_start:] if reduced_motion_start >= 0 else ""
+
+        self.assertIn("grid-template-columns: repeat(2, minmax(0, 1fr))", css)
+        self.assertRegex(css, r"@media\s*\(max-width:\s*820px\)")
+        self.assertRegex(
+            css,
+            r"(?s)\.circuit-grid\s*\{[^}]*grid-template-columns:\s*1fr",
+        )
+        self.assertIn("prefers-reduced-motion: reduce", css)
+        self.assertIn("details[open]", css)
+        self.assertIn(":focus-visible", css)
+        self.assertIn(".media-placeholder", css)
+        self.assertNotIn("display: none", reduced_motion_block)
+
+    def test_media_motion_and_attribution_contracts(self):
+        html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
+
+        self.assertIn('loading="lazy"', html)
+        self.assertIn('width="1024" height="576"', html)
+        self.assertEqual(html.count("data-motion-surface"), 16)
+        self.assertEqual(html.count('data-motion-sheen aria-hidden="true"'), 16)
+        self.assertIn("Balance of Performance（BoP）或物理版本更新后可能变化", html)
+        self.assertIn('href="https://lemansultimate.com/circuits/"', html)
+        self.assertIn('href="https://lemansultimate.com/cars/"', html)
+
+    def test_original_page_uses_matching_responsive_easter_navigation(self):
+        html = self.client.get("/kozekilmu").get_data(as_text=True)
+
+        self.assertIn("margin-bottom: clamp(34px, 5vw, 64px)", html)
+        self.assertRegex(
+            html,
+            r"(?s)@media \(max-width: 560px\).*?\.easter-nav-link\s*\{\s*width:\s*100%",
+        )
 
 
 class LmuGuideAssetTests(unittest.TestCase):
