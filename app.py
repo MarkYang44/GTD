@@ -44,6 +44,7 @@ from folder_picker import (
     prepare_folder_picker,
 )
 from guide_renderer import render_markdown_file
+from lmu_guide_data import CARS, CIRCUITS, GUIDE_UPDATED
 from task_control import TaskManager, TaskSeed
 
 app = Flask(__name__)
@@ -84,6 +85,17 @@ def guide():
 def kozekilmu():
     """A hidden LMU Fuji GT3 victory page reached from the task mascot."""
     return render_template("kozekilmu.html")
+
+
+@app.route("/kozekilmu/tracks")
+def kozekilmu_tracks():
+    """Render the read-only LMU circuit and car recommendation guide."""
+    return render_template(
+        "kozekilmu_tracks.html",
+        cars=CARS,
+        circuits=CIRCUITS,
+        guide_updated=GUIDE_UPDATED,
+    )
 
 
 @app.route("/favicon.ico")

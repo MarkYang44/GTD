@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0f172a">
+<title>LMU 赛道指南 - GTD</title>
+<link rel="stylesheet" href="/static/css/kozekilmu_tracks.css">
+<link rel="stylesheet" href="/static/css/motion.css">
+</head>
+<body>
+<main class="guide-main">
+  <nav class="easter-nav" aria-label="LMU 彩蛋分页">
+    <a class="easter-nav-link" href="{{ url_for("kozekilmu") }}">VICTORY ARCHIVE <span>/ 冠军档案</span></a>
+    <a class="easter-nav-link is-active" href="{{ url_for("kozekilmu_tracks") }}" aria-current="page">CIRCUIT GUIDE <span>/ 赛道指南</span></a>
+  </nav>
+
+  <header class="guide-hero" data-motion-reveal>
+    <p class="guide-kicker">LE MANS ULTIMATE / READ-ONLY GUIDE</p>
+    <h1>LMU 赛道指南</h1>
+    <p>以赛道特性为起点，整理 LMGT3 与 Hypercar 的三台可尝试车型。</p>
+    <p class="guide-updated">资料更新：<time datetime="{{ guide_updated }}">{{ guide_updated }}</time></p>
+  </header>
+
+  <section class="circuit-list" aria-label="LMU 赛道与车型建议">
+  {% for circuit in circuits %}
+    <article class="circuit-card" id="{{ circuit.slug }}" data-motion-reveal>
+      <div class="circuit-media">
+        <img src="{{ url_for("static", filename=circuit.image) }}" loading="lazy" alt="{{ circuit.name }} 赛道">
+      </div>
+      <div class="circuit-content">
+        <header>
+          <p class="circuit-meta">{{ circuit.location }} · {{ circuit.length_km }} km{% if circuit.is_dlc %} · DLC{% endif %}</p>
+          <h2>{{ circuit.name }}</h2>
+          <p>{{ circuit.character }}</p>
+        </header>
+        <p>{{ circuit.challenge }}</p>
+        <p>{{ circuit.advice }}</p>
+        <p><a href="{{ circuit.source_url }}" target="_blank" rel="noopener noreferrer">LMU 官方赛道资料</a></p>
+
+        <details>
+          <summary>查看车型建议</summary>
+          {% for class_name, recommendations in (("LMGT3", circuit.lmgt3), ("Hypercar", circuit.hypercar)) %}
+          <section class="recommendation-group" aria-labelledby="{{ circuit.slug }}-{{ class_name|lower }}">
+            <h3 id="{{ circuit.slug }}-{{ class_name|lower }}">{{ class_name }}</h3>
+            <ul>
+            {% for recommendation in recommendations %}
+              {% set car = cars[recommendation.car_slug] %}
+              <li class="recommendation" data-class="{{ class_name }}">
+                <img src="{{ url_for("static", filename=car.image) }}" loading="lazy" alt="{{ car.name }}">
+                <div>
+                  <h4>{{ car.name }}</h4>
+                  <p>{{ recommendation.fit }}</p>
+                  <p>{{ car.strength }}；注意：{{ car.caution }}。</p>
+                  <a href="{{ car.source_url }}" target="_blank" rel="noopener noreferrer">LMU 官方车型资料</a>
+                </div>
+              </li>
+            {% endfor %}
+            </ul>
+          </section>
+          {% endfor %}
+        </details>
+      </div>
+    </article>
+  {% endfor %}
+  </section>
+</main>
+<footer class="guide-footer">
+  <p>赛道与车型资料来源于 Le Mans Ultimate 官方页面；建议基于当前内容整理，不构成最快圈速承诺。</p>
+</footer>
+<script defer src="/static/js/motion.js"></script>
+</body>
+</html>

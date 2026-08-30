@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import lmu_guide_data as guide
+import app as web_app
 
 
 def _load_asset_sync_module():
@@ -56,6 +57,25 @@ class LmuGuideDataTests(unittest.TestCase):
             self.assertFalse(any(token in copy.lower() for token in forbidden))
             for recommendation in (*circuit.lmgt3, *circuit.hypercar):
                 self.assertGreaterEqual(len(recommendation.fit), 12)
+
+
+class LmuGuideRouteTests(unittest.TestCase):
+    def setUp(self):
+        self.client = web_app.app.test_client()
+
+    def test_read_only_circuit_guide_renders_all_circuits_and_recommendations(self):
+        response = self.client.get("/kozekilmu/tracks")
+        html = response.get_data(as_text=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("<title>LMU 赛道指南 - GTD</title>", html)
+        self.assertIn('href="/kozekilmu"', html)
+        self.assertIn('href="/kozekilmu/tracks"', html)
+        self.assertIn('aria-current="page"', html)
+        self.assertEqual(html.count('class="circuit-card"'), 16)
+        self.assertEqual(html.count("<details"), 16)
+        self.assertEqual(html.count('data-class="LMGT3"'), 48)
+        self.assertEqual(html.count('data-class="Hypercar"'), 48)
 
 
 class LmuGuideAssetTests(unittest.TestCase):

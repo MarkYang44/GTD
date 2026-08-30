@@ -139,6 +139,12 @@ class KozekiLmuEasterEggTests(unittest.TestCase):
         self.assertIn('target="_blank" rel="noopener noreferrer"', html)
         self.assertIn("模拟赛车萌新拿下 LMU 第一胜", html)
         self.assertIn('href="/#task-card"', html)
+        self.assertIn('href="/kozekilmu"', html)
+        self.assertIn('href="/kozekilmu/tracks"', html)
+        self.assertIn(
+            'href="/kozekilmu" aria-current="page"',
+            html,
+        )
 
     def test_all_supplied_images_are_project_local_and_rendered(self):
         html = self.client.get("/kozekilmu").get_data(as_text=True)
