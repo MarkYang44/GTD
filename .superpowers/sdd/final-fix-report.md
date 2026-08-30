@@ -15,9 +15,9 @@
 - The helper rejects absolute, backslash, and parent-directory paths before a
   filesystem lookup, then verifies the resolved candidate remains below the
   static root.
-- Existing-file checks are cached by relative path. The route builds one small
+- Existing-file checks remain fresh for each request. The route builds one small
   availability set from the 16 circuits and referenced cars, not one lookup per
-  rendered recommendation.
+  rendered recommendation; the set still deduplicates repeated recommendations.
 - No download, extraction, conversion, queue, or API behavior changed.
 
 ## TDD and verification evidence
@@ -30,3 +30,5 @@
   `node --check static/js/motion.js`, and `git diff --check` exited 0.
 - A repository scan found no `onerror=` attributes under `templates/` or
   `static/`.
+- Runtime-state regression: the same configured path transitions from absent to
+  created to absent again under a patched Flask static root without stale state.

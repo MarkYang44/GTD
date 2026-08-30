@@ -84,6 +84,19 @@ class LmuGuideRouteTests(unittest.TestCase):
     def setUp(self):
         self.client = web_app.app.test_client()
 
+    def test_image_availability_reflects_runtime_static_file_changes(self):
+        relative_path = "kozekilmu/guide/tracks/runtime-image.webp"
+        with TemporaryDirectory() as directory:
+            static_root = Path(directory)
+            image_path = static_root / relative_path
+            with patch.object(web_app.app, "_static_folder", str(static_root)):
+                self.assertFalse(web_app._guide_static_image_exists(relative_path))
+                image_path.parent.mkdir(parents=True)
+                image_path.write_bytes(b"image")
+                self.assertTrue(web_app._guide_static_image_exists(relative_path))
+                image_path.unlink()
+                self.assertFalse(web_app._guide_static_image_exists(relative_path))
+
     def test_read_only_circuit_guide_renders_all_circuits_and_recommendations(self):
         response = self.client.get("/kozekilmu/tracks")
         html = response.get_data(as_text=True)
