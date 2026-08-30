@@ -1,6 +1,7 @@
 import importlib.util
 import unittest
 from dataclasses import replace
+from html import unescape
 from tempfile import TemporaryDirectory
 from pathlib import Path
 from unittest.mock import patch
@@ -225,11 +226,39 @@ class LmuGuideRouteTests(unittest.TestCase):
         css = CSS_PATH.read_text(encoding="utf-8")
 
         self.assertIn('<header class="topbar" id="topbar">', html)
-        self.assertIn('class="topbar-link" href="/#task-card">返回下载</a>', html)
-        self.assertIn('class="service-status" role="img" aria-label="Kozeki Ui">', html)
+        self.assertIn('class="topbar-link" href="/#task-card">', html)
+        self.assertIn('<span data-guide-copy="zh">返回下载</span>', html)
+        self.assertIn('class="service-status"', html)
+        self.assertIn('aria-label="Kozeki Ui"', html)
         self.assertIn('.topbar.is-scrolled', css)
         self.assertIn('height: 68px', css)
         self.assertIn('width: min(1180px, calc(100% - 40px))', css)
+
+    def test_guide_server_renders_chinese_default_and_complete_language_control(self):
+        html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
+        rendered_copy = unescape(html)
+
+        self.assertIn('<html lang="zh-CN" data-guide-language="zh"', html)
+        self.assertIn('id="guide-language-toggle"', html)
+        self.assertIn('type="checkbox"', html)
+        self.assertIn('data-guide-copy="zh"', html)
+        self.assertIn('data-guide-copy="en"', html)
+        self.assertIn("LMU 赛道指南", html)
+        self.assertIn("LMU Circuit Guide", html)
+        self.assertIn(guide.CIRCUITS[0].character_zh, rendered_copy)
+        self.assertIn(guide.CIRCUITS[0].character, rendered_copy)
+        self.assertIn(guide.CIRCUITS[0].lmgt3[0].fit_zh, rendered_copy)
+        self.assertIn(guide.CIRCUITS[0].lmgt3[0].fit, rendered_copy)
+
+    def test_language_metadata_covers_dynamic_accessible_attributes(self):
+        html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
+
+        self.assertIn('data-title-zh="LMU 赛道指南 - GTD"', html)
+        self.assertIn('data-title-en="LMU Circuit Guide - GTD"', html)
+        self.assertIn('data-i18n-alt-zh="Bahrain 赛道"', html)
+        self.assertIn('data-i18n-alt-en="Bahrain circuit"', html)
+        self.assertIn('data-i18n-aria-label-zh=', html)
+        self.assertIn('data-i18n-aria-label-en=', html)
 
 class LmuGuidePresentationTests(unittest.TestCase):
     def setUp(self):
@@ -256,12 +285,25 @@ class LmuGuidePresentationTests(unittest.TestCase):
         html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
 
         self.assertIn('loading="lazy"', html)
-        self.assertIn('width="1024" height="576"', html)
+        self.assertIn('width="1024"', html)
+        self.assertIn('height="576"', html)
         self.assertEqual(html.count("data-motion-surface"), 16)
         self.assertEqual(html.count('data-motion-sheen aria-hidden="true"'), 16)
         self.assertIn("Balance of Performance（BoP）或物理版本更新后可能变化", html)
         self.assertIn('href="https://lemansultimate.com/circuits/"', html)
         self.assertIn('href="https://lemansultimate.com/cars/"', html)
+
+    def test_language_slider_css_is_responsive_accessible_and_fail_open(self):
+        css = CSS_PATH.read_text(encoding="utf-8")
+
+        self.assertIn('html[data-guide-language="zh"] [data-guide-copy="zh"]', css)
+        self.assertIn('html[data-guide-language="en"] [data-guide-copy="en"]', css)
+        self.assertRegex(css, r"(?s)\.language-toggle\s*\{[^}]*min-height:\s*44px")
+        self.assertIn(".language-toggle input:focus-visible", css)
+        self.assertRegex(css, r"@media\s*\(max-width:\s*560px\)")
+        reduced_motion_start = css.find("@media (prefers-reduced-motion: reduce)")
+        self.assertNotEqual(reduced_motion_start, -1)
+        self.assertNotIn("display: none", css[reduced_motion_start:])
 
     def test_original_page_uses_matching_responsive_easter_navigation(self):
         html = self.client.get("/kozekilmu").get_data(as_text=True)

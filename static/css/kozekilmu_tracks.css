@@ -32,6 +32,15 @@ html {
   scroll-behavior: smooth;
 }
 
+[data-guide-copy] {
+  display: none;
+}
+
+html[data-guide-language="zh"] [data-guide-copy="zh"],
+html[data-guide-language="en"] [data-guide-copy="en"] {
+  display: revert;
+}
+
 body {
   min-width: 320px;
   min-height: 100vh;
@@ -131,6 +140,57 @@ img {
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+.language-toggle {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted-strong);
+  font-size: 11px;
+  letter-spacing: .04em;
+  cursor: pointer;
+  user-select: none;
+}
+
+.language-toggle input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.language-toggle-track {
+  position: relative;
+  width: 42px;
+  height: 22px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, .72);
+  transition: border-color .18s ease, background-color .18s ease;
+}
+
+.language-toggle-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 12px rgba(0, 161, 155, .38);
+  transition: transform .18s ease;
+}
+
+.language-toggle input:checked + .language-toggle-track .language-toggle-thumb {
+  transform: translateX(18px);
+}
+
+.language-toggle input:focus-visible + .language-toggle-track {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
 .topbar-link {
@@ -500,6 +560,18 @@ details[open] summary::before {
 
   .topbar-actions {
     gap: 8px;
+  }
+
+  .language-toggle {
+    gap: 4px;
+  }
+
+  .language-toggle-track {
+    width: 38px;
+  }
+
+  .language-toggle input:checked + .language-toggle-track .language-toggle-thumb {
+    transform: translateX(14px);
   }
 
   .topbar-link {

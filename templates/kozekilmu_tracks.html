@@ -1,5 +1,8 @@
+{% macro guide_copy(zh, en) -%}
+<span data-guide-copy="zh">{{ zh }}</span><span data-guide-copy="en">{{ en }}</span>
+{%- endmacro -%}
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-guide-language="zh" data-title-zh="LMU 赛道指南 - GTD" data-title-en="LMU Circuit Guide - GTD">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -21,48 +24,80 @@
   <div class="topbar-inner">
     <div class="brand">Designed by Mark Yang</div>
     <div class="topbar-actions">
-      <a class="topbar-link" href="{{ url_for('index') }}#task-card">返回下载</a>
-      <div class="service-status" role="img" aria-label="Kozeki Ui">
+      <label class="language-toggle" for="guide-language-toggle">
+        <span lang="zh-CN">中文</span>
+        <input id="guide-language-toggle"
+               type="checkbox"
+               data-i18n-aria-label-zh="切换为英文"
+               data-i18n-aria-label-en="Switch to Chinese"
+               aria-label="切换为英文">
+        <span class="language-toggle-track" aria-hidden="true">
+          <span class="language-toggle-thumb"></span>
+        </span>
+        <span lang="en">EN</span>
+      </label>
+      <a class="topbar-link" href="{{ url_for('index') }}#task-card">{{ guide_copy("返回下载", "Back to downloads") }}</a>
+      <div class="service-status"
+           role="img"
+           aria-label="Kozeki Ui"
+           data-i18n-aria-label-zh="Kozeki Ui"
+           data-i18n-aria-label-en="Kozeki Ui">
         <img class="service-avatar" src="{{ url_for('static', filename='icons/favicon-32x32.png', v='20260811') }}" srcset="{{ url_for('static', filename='icons/favicon-32x32.png', v='20260811') }} 1x, {{ url_for('static', filename='icons/favicon-64x64.png', v='20260811') }} 2x, {{ url_for('static', filename='icons/character-icon-128x128.png', v='20260811') }} 3x" width="30" height="30" alt="" aria-hidden="true">
       </div>
     </div>
   </div>
 </header>
 <main class="guide-main">
-  <nav class="easter-nav" aria-label="LMU 彩蛋分页">
-    <a class="easter-nav-link" href="{{ url_for("kozekilmu") }}">VICTORY ARCHIVE <span>/ 冠军档案</span></a>
-    <a class="easter-nav-link is-active" href="{{ url_for("kozekilmu_tracks") }}" aria-current="page">CIRCUIT GUIDE <span>/ 赛道指南</span></a>
+  <nav class="easter-nav"
+       aria-label="LMU 彩蛋分页"
+       data-i18n-aria-label-zh="LMU 彩蛋分页"
+       data-i18n-aria-label-en="LMU easter egg pages">
+    <a class="easter-nav-link" href="{{ url_for("kozekilmu") }}">{{ guide_copy("冠军档案", "Victory archive") }}</a>
+    <a class="easter-nav-link is-active" href="{{ url_for("kozekilmu_tracks") }}" aria-current="page">{{ guide_copy("赛道指南", "Circuit guide") }}</a>
   </nav>
 
   <header class="guide-hero" data-motion-reveal>
-    <p class="guide-kicker">LE MANS ULTIMATE / READ-ONLY GUIDE</p>
-    <h1>LMU 赛道指南</h1>
-    <p>以赛道特性为起点，整理 LMGT3 与 Hypercar 的三台可尝试车型。</p>
-    <p class="guide-updated">资料更新：<time datetime="{{ guide_updated }}">{{ guide_updated }}</time></p>
+    <p class="guide-kicker">{{ guide_copy("LE MANS ULTIMATE / 只读指南", "LE MANS ULTIMATE / READ-ONLY GUIDE") }}</p>
+    <h1>{{ guide_copy("LMU 赛道指南", "LMU Circuit Guide") }}</h1>
+    <p>{{ guide_copy("以赛道特性为起点，整理 LMGT3 与 Hypercar 的三台可尝试车型。", "Start with each circuit's character and compare three approachable LMGT3 and Hypercar choices.") }}</p>
+    <p class="guide-updated">{{ guide_copy("资料更新：", "Updated:") }}<time datetime="{{ guide_updated }}">{{ guide_updated }}</time></p>
   </header>
 
-  <section class="circuit-list circuit-grid" aria-label="LMU 赛道与车型建议">
+  <section class="circuit-list circuit-grid"
+           aria-label="LMU 赛道与车型建议"
+           data-i18n-aria-label-zh="LMU 赛道与车型建议"
+           data-i18n-aria-label-en="LMU circuits and car recommendations">
   {% for circuit in circuits %}
     <article class="circuit-card" id="{{ circuit.slug }}" data-motion-reveal data-motion-surface data-motion-tilt-strength="0.18">
       <div class="circuit-media">
         {% if circuit.image in available_images %}
-        <img src="{{ url_for("static", filename=circuit.image) }}" width="1024" height="576" loading="lazy" alt="{{ circuit.name }} 赛道">
+        <img src="{{ url_for("static", filename=circuit.image) }}"
+             width="1024"
+             height="576"
+             loading="lazy"
+             alt="{{ circuit.name }} 赛道"
+             data-i18n-alt-zh="{{ circuit.name }} 赛道"
+             data-i18n-alt-en="{{ circuit.name }} circuit">
         {% else %}
-        <div class="media-placeholder" role="img" aria-label="{{ circuit.name }} 暂无官方赛道图片">官方赛道图片暂缺</div>
+        <div class="media-placeholder"
+             role="img"
+             aria-label="{{ circuit.name }} 暂无官方赛道图片"
+             data-i18n-aria-label-zh="{{ circuit.name }} 暂无官方赛道图片"
+             data-i18n-aria-label-en="Official circuit image unavailable for {{ circuit.name }}">{{ guide_copy("官方赛道图片暂缺", "Official circuit image unavailable") }}</div>
         {% endif %}
       </div>
       <div class="circuit-content">
         <header>
-          <p class="circuit-meta">{{ circuit.location }} · {{ circuit.length_km }} km{% if circuit.is_dlc %} · DLC{% endif %}</p>
+          <p class="circuit-meta">{{ guide_copy(circuit.location_zh, circuit.location) }} · {{ circuit.length_km }} km{% if circuit.is_dlc %} · DLC{% endif %}</p>
           <h2>{{ circuit.name }}</h2>
-          <p>{{ circuit.character }}</p>
+          <p>{{ guide_copy(circuit.character_zh, circuit.character) }}</p>
         </header>
-        <p>{{ circuit.challenge }}</p>
-        <p>{{ circuit.advice }}</p>
-        <p><a href="{{ circuit.source_url }}" target="_blank" rel="noopener noreferrer">LMU 官方赛道资料</a></p>
+        <p>{{ guide_copy(circuit.challenge_zh, circuit.challenge) }}</p>
+        <p>{{ guide_copy(circuit.advice_zh, circuit.advice) }}</p>
+        <p><a href="{{ circuit.source_url }}" target="_blank" rel="noopener noreferrer">{{ guide_copy("LMU 官方赛道资料", "Official LMU circuit page") }}</a></p>
 
         <details>
-          <summary>查看车型建议</summary>
+          <summary>{{ guide_copy("查看车型建议", "View car recommendations") }}</summary>
           {% for class_name, recommendations in (("LMGT3", circuit.lmgt3), ("Hypercar", circuit.hypercar)) %}
           <section class="recommendation-group" aria-labelledby="{{ circuit.slug }}-{{ class_name|lower }}">
             <h3 id="{{ circuit.slug }}-{{ class_name|lower }}">{{ class_name }}</h3>
@@ -71,15 +106,28 @@
               {% set car = cars[recommendation.car_slug] %}
               <li class="recommendation" data-class="{{ class_name }}">
                 {% if car.image in available_images %}
-                <img src="{{ url_for("static", filename=car.image) }}" width="1024" height="576" loading="lazy" alt="{{ car.name }}">
+                <img src="{{ url_for("static", filename=car.image) }}"
+                     width="1024"
+                     height="576"
+                     loading="lazy"
+                     alt="{{ car.name }} 车型"
+                     data-i18n-alt-zh="{{ car.name }} 车型"
+                     data-i18n-alt-en="{{ car.name }} car">
                 {% else %}
-                <div class="media-placeholder" role="img" aria-label="{{ car.name }} 暂无官方车型图片">官方车型图片暂缺</div>
+                <div class="media-placeholder"
+                     role="img"
+                     aria-label="{{ car.name }} 暂无官方车型图片"
+                     data-i18n-aria-label-zh="{{ car.name }} 暂无官方车型图片"
+                     data-i18n-aria-label-en="Official car image unavailable for {{ car.name }}">{{ guide_copy("官方车型图片暂缺", "Official car image unavailable") }}</div>
                 {% endif %}
                 <div>
                   <h4>{{ car.name }}</h4>
-                  <p>{{ recommendation.fit }}</p>
-                  <p>{{ car.strength }}；注意：{{ car.caution }}。</p>
-                  <a href="{{ car.source_url }}" target="_blank" rel="noopener noreferrer">LMU 官方车型资料</a>
+                  <p>{{ guide_copy(recommendation.fit_zh, recommendation.fit) }}</p>
+                  <p>
+                    <span data-guide-copy="zh">{{ car.strength_zh }}；注意：{{ car.caution_zh }}。</span>
+                    <span data-guide-copy="en">{{ car.strength }}; caution: {{ car.caution }}.</span>
+                  </p>
+                  <a href="{{ car.source_url }}" target="_blank" rel="noopener noreferrer">{{ guide_copy("LMU 官方车型资料", "Official LMU car page") }}</a>
                 </div>
               </li>
             {% endfor %}
@@ -95,9 +143,16 @@
 </main>
 <footer class="guide-footer">
   <p>
-    资料来源：<a href="https://lemansultimate.com/circuits/" target="_blank" rel="noopener noreferrer">LMU 官方赛道索引</a>
-    与 <a href="https://lemansultimate.com/cars/" target="_blank" rel="noopener noreferrer">LMU 官方车型索引</a>。
-    车型建议反映 {{ guide_updated }} 的公开游戏内容，Balance of Performance（BoP）或物理版本更新后可能变化，不构成最快圈速承诺。
+    <span data-guide-copy="zh">
+      资料来源：<a href="https://lemansultimate.com/circuits/" target="_blank" rel="noopener noreferrer">LMU 官方赛道索引</a>
+      与 <a href="https://lemansultimate.com/cars/" target="_blank" rel="noopener noreferrer">LMU 官方车型索引</a>。
+      车型建议反映 {{ guide_updated }} 的公开游戏内容，Balance of Performance（BoP）或物理版本更新后可能变化，不构成最快圈速承诺。
+    </span>
+    <span data-guide-copy="en">
+      Sources: <a href="https://lemansultimate.com/circuits/" target="_blank" rel="noopener noreferrer">official LMU circuit index</a>
+      and <a href="https://lemansultimate.com/cars/" target="_blank" rel="noopener noreferrer">official LMU car index</a>.
+      Recommendations reflect public game content available on {{ guide_updated }} and may change after Balance of Performance (BoP) or physics updates; they do not promise the fastest lap time.
+    </span>
   </p>
 </footer>
 <script defer src="/static/js/motion.js"></script>
