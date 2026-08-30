@@ -66,6 +66,43 @@ class LmuGuideDataTests(unittest.TestCase):
         for term in ("制动稳定性（braking stability）", "轮胎负荷（tyre load）"):
             self.assertIn(term, copy)
 
+    def test_chinese_copy_preserves_specific_fit_details_and_low_drag(self):
+        circuits = {circuit.slug: circuit for circuit in guide.CIRCUITS}
+        fits = [
+            recommendation
+            for circuit in guide.CIRCUITS
+            for recommendation in (*circuit.lmgt3, *circuit.hypercar)
+        ]
+        barcelona_porsche = next(
+            item for item in (*circuits["barcelona"].lmgt3, *circuits["barcelona"].hypercar)
+            if item.car_slug == "porsche-911-gt3-r"
+        )
+        barcelona_peugeot = next(
+            item for item in circuits["barcelona"].hypercar
+            if item.car_slug == "peugeot-9x8-2024"
+        )
+        le_mans_ferrari = next(
+            item for item in circuits["le-mans"].hypercar
+            if item.car_slug == "ferrari-499p"
+        )
+
+        self.assertEqual(
+            barcelona_porsche.fit_zh,
+            "后置引擎的牵引力有助于应对负荷弯后的技术性末段。",
+        )
+        self.assertEqual(
+            barcelona_peugeot.fit_zh,
+            "灵活的空气动力学套件对 Barcelona 的混合型末段响应良好。",
+        )
+        self.assertEqual(
+            le_mans_ferrari.fit_zh,
+            "空气动力学性能适合勒芒的低阻力与高速需求。",
+        )
+        self.assertIn("低阻力", circuits["le-mans"].character_zh)
+        self.assertNotIn("低下压力", circuits["le-mans"].character_zh)
+        self.assertEqual(len({item.fit_zh for item in fits}), 96)
+        self.assertFalse(any("可应对" in item.fit_zh for item in fits))
+
     def test_current_official_circuit_snapshot_is_complete_and_ordered(self):
         self.assertEqual(tuple(item.slug for item in guide.CIRCUITS), EXPECTED_SLUGS)
         self.assertEqual(
