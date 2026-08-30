@@ -260,6 +260,23 @@ class LmuGuideRouteTests(unittest.TestCase):
         self.assertIn('data-i18n-aria-label-zh=', html)
         self.assertIn('data-i18n-aria-label-en=', html)
 
+    def test_language_control_order_footer_and_no_inline_script_contract(self):
+        html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
+        template = Path("templates/kozekilmu_tracks.html").read_text(encoding="utf-8")
+
+        toggle_position = html.index('class="language-toggle"')
+        return_position = html.index('class="topbar-link"')
+        avatar_position = html.index('class="service-status"')
+        self.assertLess(toggle_position, return_position)
+        self.assertLess(return_position, avatar_position)
+        self.assertIn("资料来源：", html)
+        self.assertIn("车型建议反映", html)
+        self.assertIn("Sources:", html)
+        self.assertIn("Recommendations reflect public game content", html)
+        self.assertNotRegex(template, r"<script(?![^>]*\bsrc=)")
+        self.assertNotRegex(template, r"\bon[a-z]+\s*=")
+
+
 class LmuGuidePresentationTests(unittest.TestCase):
     def setUp(self):
         self.client = web_app.app.test_client()
@@ -304,6 +321,28 @@ class LmuGuidePresentationTests(unittest.TestCase):
         reduced_motion_start = css.find("@media (prefers-reduced-motion: reduce)")
         self.assertNotEqual(reduced_motion_start, -1)
         self.assertNotIn("display: none", css[reduced_motion_start:])
+
+    def test_compact_topbar_keeps_language_controls_unshrunk_at_390px(self):
+        css = CSS_PATH.read_text(encoding="utf-8")
+        compact_start = css.find("@media (max-width: 440px)")
+
+        self.assertGreaterEqual(compact_start, 0)
+        compact_end = css.find("@media", compact_start + 1)
+        compact_block = css[compact_start:compact_end]
+        self.assertRegex(compact_block, r"(?s)\.brand\s*\{[^}]*display:\s*none")
+        self.assertRegex(
+            compact_block,
+            r"(?s)\.topbar-inner\s*\{[^}]*justify-content:\s*flex-end",
+        )
+        self.assertRegex(
+            compact_block,
+            r"(?s)\.topbar-actions\s*\{[^}]*width:\s*100%[^}]*justify-content:\s*flex-end",
+        )
+        self.assertRegex(
+            compact_block,
+            r"(?s)\.language-toggle,\s*\.topbar-link,\s*\.service-status\s*\{[^}]*flex:\s*0 0 auto",
+        )
+        self.assertRegex(css, r"(?s)\.topbar-link\s*\{[^}]*white-space:\s*nowrap")
 
     def test_original_page_uses_matching_responsive_easter_navigation(self):
         html = self.client.get("/kozekilmu").get_data(as_text=True)
