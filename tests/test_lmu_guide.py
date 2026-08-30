@@ -34,6 +34,38 @@ EXPECTED_DLC = {
 
 
 class LmuGuideDataTests(unittest.TestCase):
+    def test_every_guide_entry_has_complete_chinese_copy(self):
+        for car in guide.CARS.values():
+            with self.subTest(car=car.slug):
+                self.assertTrue(car.strength_zh.strip())
+                self.assertTrue(car.caution_zh.strip())
+
+        for circuit in guide.CIRCUITS:
+            with self.subTest(circuit=circuit.slug):
+                self.assertTrue(circuit.location_zh.strip())
+                self.assertIn(f"（{circuit.location}）", circuit.location_zh)
+                self.assertTrue(circuit.character_zh.strip())
+                self.assertTrue(circuit.challenge_zh.strip())
+                self.assertTrue(circuit.advice_zh.strip())
+                for recommendation in (*circuit.lmgt3, *circuit.hypercar):
+                    self.assertTrue(recommendation.fit_zh.strip())
+
+    def test_data_validation_rejects_blank_chinese_copy(self):
+        invalid = replace(guide.CIRCUITS[0], advice_zh="")
+        with patch.object(guide, "CIRCUITS", (invalid, *guide.CIRCUITS[1:])):
+            with self.assertRaisesRegex(ValueError, "blank circuit copy"):
+                guide.validate_guide_data()
+
+    def test_chinese_copy_keeps_selected_technical_terms_bilingual(self):
+        copy = " ".join(
+            (
+                *(car.strength_zh + " " + car.caution_zh for car in guide.CARS.values()),
+                *(circuit.character_zh + " " + circuit.challenge_zh + " " + circuit.advice_zh for circuit in guide.CIRCUITS),
+            )
+        )
+        for term in ("制动稳定性（braking stability）", "轮胎负荷（tyre load）"):
+            self.assertIn(term, copy)
+
     def test_current_official_circuit_snapshot_is_complete_and_ordered(self):
         self.assertEqual(tuple(item.slug for item in guide.CIRCUITS), EXPECTED_SLUGS)
         self.assertEqual(
