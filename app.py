@@ -6,7 +6,9 @@ GTD — Generalized Transmedia Downloader — Web 界面入口。
 """
 
 import mimetypes
+from functools import cache
 from pathlib import Path
+from pathlib import PurePosixPath
 from urllib.parse import urlparse
 
 from flask import Flask, jsonify, render_template, request
@@ -53,6 +55,30 @@ WEB_PORT = 8233
 MAX_STORED_BATCHES = 100
 WEB_GUIDE_PATH = Path(__file__).resolve().parent / "docs" / "WEB_GUIDE.md"
 
+
+@cache
+def _guide_static_image_exists(relative_path: str) -> bool:
+    """Return whether a guide asset is a file below Flask's static root."""
+    if not relative_path or "\\" in relative_path:
+        return False
+    path = PurePosixPath(relative_path)
+    if path.is_absolute() or ".." in path.parts:
+        return False
+    static_root = Path(app.static_folder).resolve()
+    candidate = (static_root / path).resolve()
+    try:
+        candidate.relative_to(static_root)
+    except ValueError:
+        return False
+    return candidate.is_file()
+
+
+def _available_guide_images(circuits, cars) -> frozenset[str]:
+    """Build the small, cached availability mapping required by the guide."""
+    image_paths = {item.image for item in circuits}
+    image_paths.update(item.image for item in cars)
+    return frozenset(path for path in image_paths if _guide_static_image_exists(path))
+
 preview_store = PreviewStore(ttl_seconds=1800)
 task_manager = TaskManager(
     download_video,
@@ -95,6 +121,7 @@ def kozekilmu_tracks():
         cars=CARS,
         circuits=CIRCUITS,
         guide_updated=GUIDE_UPDATED,
+        available_images=_available_guide_images(CIRCUITS, CARS.values()),
     )
 
 

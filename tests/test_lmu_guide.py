@@ -61,6 +61,24 @@ class LmuGuideDataTests(unittest.TestCase):
             for recommendation in (*circuit.lmgt3, *circuit.hypercar):
                 self.assertGreaterEqual(len(recommendation.fit), 12)
 
+    def test_blank_image_paths_are_valid_optional_metadata(self):
+        blank_car = replace(guide.CARS["bmw-m4-lmgt3"], image="")
+        blank_circuit = replace(guide.CIRCUITS[0], image="")
+
+        with patch.object(guide, "CARS", {**guide.CARS, blank_car.slug: blank_car}), patch.object(
+            guide,
+            "CIRCUITS",
+            (blank_circuit, *guide.CIRCUITS[1:]),
+        ):
+            guide.validate_guide_data()
+
+    def test_unsafe_configured_image_path_is_rejected(self):
+        unsafe_circuit = replace(guide.CIRCUITS[0], image="../../outside.webp")
+
+        with patch.object(guide, "CIRCUITS", (unsafe_circuit, *guide.CIRCUITS[1:])):
+            with self.assertRaisesRegex(ValueError, "non-local circuit image"):
+                guide.validate_guide_data()
+
 
 class LmuGuideRouteTests(unittest.TestCase):
     def setUp(self):
@@ -80,21 +98,56 @@ class LmuGuideRouteTests(unittest.TestCase):
         self.assertEqual(html.count('data-class="LMGT3"'), 48)
         self.assertEqual(html.count('data-class="Hypercar"'), 48)
 
-    def test_invalid_circuit_image_path_keeps_a_readable_placeholder(self):
+    def test_blank_and_missing_circuit_images_render_placeholders_without_static_urls(self):
         missing_image_circuit = replace(
             guide.CIRCUITS[0],
             image="kozekilmu/guide/tracks/missing-for-qa.webp",
         )
+        blank_image_circuit = replace(guide.CIRCUITS[1], image="")
         with patch.object(
             web_app,
             "CIRCUITS",
-            (missing_image_circuit, *guide.CIRCUITS[1:]),
+            (missing_image_circuit, blank_image_circuit, *guide.CIRCUITS[2:]),
         ):
             html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
 
-        self.assertIn("missing-for-qa.webp", html)
         self.assertIn('aria-label="Bahrain 暂无官方赛道图片"', html)
-        self.assertIn("onerror=", html)
+        self.assertIn('aria-label="Circuit de Barcelona-Catalunya 暂无官方赛道图片"', html)
+        self.assertNotIn("missing-for-qa.webp", html)
+
+    def test_blank_and_missing_car_images_render_placeholders_without_static_urls(self):
+        missing_car = replace(
+            guide.CARS["bmw-m4-lmgt3"],
+            image="kozekilmu/guide/cars/missing-for-qa.webp",
+        )
+        blank_car = replace(guide.CARS["corvette-z06-lmgt3-r"], image="")
+        with patch.object(
+            web_app,
+            "CARS",
+            {**guide.CARS, missing_car.slug: missing_car, blank_car.slug: blank_car},
+        ):
+            html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
+
+        self.assertIn('aria-label="BMW M4 LMGT3 暂无官方车型图片"', html)
+        self.assertIn('aria-label="Corvette Z06 LMGT3.R 暂无官方车型图片"', html)
+        self.assertNotIn("missing-for-qa.webp", html)
+
+    def test_guide_never_renders_inline_image_error_handlers(self):
+        html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
+
+        self.assertNotIn("onerror=", html)
+        self.assertNotIn("onerror=", Path("templates/kozekilmu_tracks.html").read_text(encoding="utf-8"))
+
+    def test_guide_reuses_the_victory_topbar_and_download_return_link(self):
+        html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
+        css = CSS_PATH.read_text(encoding="utf-8")
+
+        self.assertIn('<header class="topbar" id="topbar">', html)
+        self.assertIn('class="topbar-link" href="/#task-card">返回下载</a>', html)
+        self.assertIn('class="service-status" role="img" aria-label="Kozeki Ui">', html)
+        self.assertIn('.topbar.is-scrolled', css)
+        self.assertIn('height: 68px', css)
+        self.assertIn('width: min(1180px, calc(100% - 40px))', css)
 
 class LmuGuidePresentationTests(unittest.TestCase):
     def setUp(self):

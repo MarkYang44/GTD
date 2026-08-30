@@ -4,11 +4,30 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0f172a">
+<link rel="icon" href="{{ url_for('static', filename='icons/favicon.ico', v='20260811') }}" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/favicon-32x32.png', v='20260811') }}">
+<link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png', v='20260811') }}">
+<link rel="manifest" href="{{ url_for('static', filename='site.webmanifest', v='20260811') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,400&amp;display=swap" rel="stylesheet">
 <title>LMU 赛道指南 - GTD</title>
 <link rel="stylesheet" href="/static/css/kozekilmu_tracks.css">
 <link rel="stylesheet" href="/static/css/motion.css">
 </head>
 <body>
+<div class="scroll-progress" id="scroll-progress" aria-hidden="true"></div>
+<header class="topbar" id="topbar">
+  <div class="topbar-inner">
+    <div class="brand">Designed by Mark Yang</div>
+    <div class="topbar-actions">
+      <a class="topbar-link" href="{{ url_for('index') }}#task-card">返回下载</a>
+      <div class="service-status" role="img" aria-label="Kozeki Ui">
+        <img class="service-avatar" src="{{ url_for('static', filename='icons/favicon-32x32.png', v='20260811') }}" srcset="{{ url_for('static', filename='icons/favicon-32x32.png', v='20260811') }} 1x, {{ url_for('static', filename='icons/favicon-64x64.png', v='20260811') }} 2x, {{ url_for('static', filename='icons/character-icon-128x128.png', v='20260811') }} 3x" width="30" height="30" alt="" aria-hidden="true">
+      </div>
+    </div>
+  </div>
+</header>
 <main class="guide-main">
   <nav class="easter-nav" aria-label="LMU 彩蛋分页">
     <a class="easter-nav-link" href="{{ url_for("kozekilmu") }}">VICTORY ARCHIVE <span>/ 冠军档案</span></a>
@@ -26,9 +45,8 @@
   {% for circuit in circuits %}
     <article class="circuit-card" id="{{ circuit.slug }}" data-motion-reveal data-motion-surface data-motion-tilt-strength="0.18">
       <div class="circuit-media">
-        {% if circuit.image %}
-        <img src="{{ url_for("static", filename=circuit.image) }}" width="1024" height="576" loading="lazy" alt="{{ circuit.name }} 赛道" onerror="this.hidden=true;this.nextElementSibling.hidden=false">
-        <div class="media-placeholder" role="img" aria-label="{{ circuit.name }} 暂无官方赛道图片" hidden>官方赛道图片暂缺</div>
+        {% if circuit.image in available_images %}
+        <img src="{{ url_for("static", filename=circuit.image) }}" width="1024" height="576" loading="lazy" alt="{{ circuit.name }} 赛道">
         {% else %}
         <div class="media-placeholder" role="img" aria-label="{{ circuit.name }} 暂无官方赛道图片">官方赛道图片暂缺</div>
         {% endif %}
@@ -52,9 +70,8 @@
             {% for recommendation in recommendations %}
               {% set car = cars[recommendation.car_slug] %}
               <li class="recommendation" data-class="{{ class_name }}">
-                {% if car.image %}
-                <img src="{{ url_for("static", filename=car.image) }}" width="1024" height="576" loading="lazy" alt="{{ car.name }}" onerror="this.hidden=true;this.nextElementSibling.hidden=false">
-                <div class="media-placeholder" role="img" aria-label="{{ car.name }} 暂无官方车型图片" hidden>官方车型图片暂缺</div>
+                {% if car.image in available_images %}
+                <img src="{{ url_for("static", filename=car.image) }}" width="1024" height="576" loading="lazy" alt="{{ car.name }}">
                 {% else %}
                 <div class="media-placeholder" role="img" aria-label="{{ car.name }} 暂无官方车型图片">官方车型图片暂缺</div>
                 {% endif %}

@@ -184,7 +184,7 @@ def validate_guide_data() -> None:
             raise ValueError(f"unsupported car class: {car.slug}")
         if not all((car.name.strip(), car.strength.strip(), car.caution.strip())):
             raise ValueError(f"blank car copy: {car.slug}")
-        if not _is_local_guide_image(car.image, "cars"):
+        if car.image and not _is_local_guide_image(car.image, "cars"):
             raise ValueError(f"non-local car image: {car.slug}")
         if not _is_lmu_url(car.source_url) or not _is_lmu_url(car.image_source_url):
             raise ValueError(f"non-LMU car source: {car.slug}")
@@ -196,7 +196,7 @@ def validate_guide_data() -> None:
     for circuit in CIRCUITS:
         if not all((circuit.name.strip(), circuit.location.strip(), circuit.length_km.strip(), circuit.character.strip(), circuit.challenge.strip(), circuit.advice.strip())):
             raise ValueError(f"blank circuit copy: {circuit.slug}")
-        if not _is_local_guide_image(circuit.image, "tracks"):
+        if circuit.image and not _is_local_guide_image(circuit.image, "tracks"):
             raise ValueError(f"non-local circuit image: {circuit.slug}")
         if not _is_lmu_url(circuit.source_url) or not _is_lmu_url(circuit.image_source_url):
             raise ValueError(f"non-LMU circuit source: {circuit.slug}")
