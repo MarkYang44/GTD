@@ -12,7 +12,7 @@ HARNESS_PATH = Path("tests/js/lmu_guide_language_harness.js")
 class LmuGuideLanguageTests(unittest.TestCase):
     def test_page_bootstraps_language_before_visible_guide_content(self):
         client = web_app.app.test_client()
-        html = client.get("/kozekilmu").get_data(as_text=True)
+        html = client.get("/kozekilmu/tracks").get_data(as_text=True)
 
         bootstrap = '<script src="/static/js/lmu_guide_language.js"></script>'
         self.assertIn(bootstrap, html)

@@ -104,13 +104,13 @@ def guide():
     )
 
 
-@app.route("/kozekilmu/tracks")
+@app.route("/kozekilmu")
 def kozekilmu():
     """Render the hidden LMU Fuji GT3 victory archive."""
     return render_template("kozekilmu.html")
 
 
-@app.route("/kozekilmu")
+@app.route("/kozekilmu/tracks")
 def kozekilmu_tracks():
     """Render the read-only LMU circuit and car recommendation guide."""
     return render_template(

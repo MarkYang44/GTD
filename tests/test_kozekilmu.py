@@ -115,12 +115,12 @@ class KozekiLmuEasterEggTests(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn('class="icon" href="/kozekilmu"', html)
+        self.assertIn('class="icon" href="/kozekilmu/tracks"', html)
         self.assertIn('aria-label="打开隐藏的 LMU 赛道指南"', html)
         self.assertIn('.empty-state .icon:focus-visible', html)
 
-    def test_swapped_victory_route_renders_archive_and_active_navigation(self):
-        response = self.client.get("/kozekilmu/tracks")
+    def test_victory_route_renders_archive_and_active_navigation(self):
+        response = self.client.get("/kozekilmu")
         html = response.get_data(as_text=True)
 
         self.assertEqual(response.status_code, 200)
@@ -142,12 +142,12 @@ class KozekiLmuEasterEggTests(unittest.TestCase):
         self.assertIn('href="/kozekilmu"', html)
         self.assertIn('href="/kozekilmu/tracks"', html)
         self.assertIn(
-            'href="/kozekilmu/tracks" aria-current="page"',
+            'href="/kozekilmu" aria-current="page"',
             html,
         )
 
     def test_all_supplied_images_are_project_local_and_rendered(self):
-        html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
+        html = self.client.get("/kozekilmu").get_data(as_text=True)
         expected_assets = {
             "lmu-first-win.png": (1448, 1086),
             "race-summary.png": (2304, 1215),
@@ -164,7 +164,7 @@ class KozekiLmuEasterEggTests(unittest.TestCase):
             self.assertIn(f'width="{dimensions[0]}" height="{dimensions[1]}"', html)
 
     def test_easter_egg_keeps_main_theme_and_responsive_layout(self):
-        html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
+        html = self.client.get("/kozekilmu").get_data(as_text=True)
 
         self.assertIn("--background: #0f172a", html)
         self.assertIn("--accent: #00a19b", html)
@@ -180,7 +180,7 @@ class KozekiLmuEasterEggTests(unittest.TestCase):
         self.assertIn("column-gap: 20px; row-gap: 20px", html)
 
     def test_hidden_page_motion_structure_is_bounded_and_ordered(self):
-        html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
+        html = self.client.get("/kozekilmu").get_data(as_text=True)
         structure = _parse_structure(html)
 
         self.assertIn('href="/static/css/motion.css"', html)
@@ -227,7 +227,7 @@ class KozekiLmuEasterEggTests(unittest.TestCase):
             self.assertNotIn(token, html)
 
     def test_hidden_page_loads_only_the_shared_motion_runtime(self):
-        html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
+        html = self.client.get("/kozekilmu").get_data(as_text=True)
         structure = _parse_structure(html)
         scripts = [node for node in structure.nodes if node.tag == "script"]
 
@@ -237,7 +237,7 @@ class KozekiLmuEasterEggTests(unittest.TestCase):
         )
 
     def test_media_surfaces_have_noninteractive_sheen_below_controls(self):
-        html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
+        html = self.client.get("/kozekilmu").get_data(as_text=True)
         structure = _parse_structure(html)
         motion_css = Path("static/css/motion.css").read_text(encoding="utf-8")
 
@@ -259,7 +259,7 @@ class KozekiLmuEasterEggTests(unittest.TestCase):
         self.assertGreater(_z_index(html, ".shot-caption"), sheen_z)
 
     def test_media_parallax_has_overscan_and_preserves_access(self):
-        html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
+        html = self.client.get("/kozekilmu").get_data(as_text=True)
         structure = _parse_structure(html)
 
         self.assertRegex(html, r"\.video-media,\s*\.shot-media\s*\{[^}]*inset:\s*-14px")
