@@ -2,6 +2,7 @@ import importlib.util
 import unittest
 import re
 from dataclasses import replace
+from html.parser import HTMLParser
 from html import unescape
 from tempfile import TemporaryDirectory
 from pathlib import Path
@@ -11,6 +12,36 @@ import lmu_guide_data as guide
 import app as web_app
 
 CSS_PATH = Path("static/css/kozekilmu_tracks.css")
+HAN = re.compile(r"[\u3400-\u9fff]")
+
+
+class _EnglishVisibleCopyParser(HTMLParser):
+    VOID_ELEMENTS = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
+
+    def __init__(self):
+        super().__init__()
+        self.stack = []
+        self.han_text = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag not in self.VOID_ELEMENTS:
+            self.stack.append((tag, dict(attrs)))
+
+    def handle_endtag(self, tag):
+        for index in range(len(self.stack) - 1, -1, -1):
+            if self.stack[index][0] == tag:
+                del self.stack[index:]
+                return
+
+    def handle_data(self, data):
+        if not HAN.search(data):
+            return
+        if any(tag in {"head", "script", "style"} for tag, _ in self.stack):
+            return
+        if any(attrs.get("data-guide-copy") == "zh" for _, attrs in self.stack):
+            return
+        self.han_text.append(" ".join(data.split()))
+
 
 
 def _load_asset_sync_module():
@@ -36,6 +67,15 @@ EXPECTED_DLC = {
 
 
 class LmuGuideDataTests(unittest.TestCase):
+    def test_all_english_guide_data_is_han_free(self):
+        english = []
+        for car in guide.CARS.values():
+            english.extend((car.name, car.car_class, car.strength, car.caution))
+        for circuit in guide.CIRCUITS:
+            english.extend((circuit.name, circuit.location, circuit.character, circuit.challenge, circuit.advice))
+            english.extend(item.fit for item in (*circuit.lmgt3, *circuit.hypercar))
+        self.assertEqual([value for value in english if HAN.search(value)], [])
+
     def test_every_guide_entry_has_complete_chinese_copy(self):
         for car in guide.CARS.values():
             with self.subTest(car=car.slug):
@@ -163,6 +203,11 @@ class LmuGuideDataTests(unittest.TestCase):
 class LmuGuideRouteTests(unittest.TestCase):
     def setUp(self):
         self.client = web_app.app.test_client()
+
+    def test_english_visible_body_has_no_han_copy(self):
+        parser = _EnglishVisibleCopyParser()
+        parser.feed(self.client.get("/kozekilmu").get_data(as_text=True))
+        self.assertEqual(parser.han_text, [])
 
     def test_image_availability_reflects_runtime_static_file_changes(self):
         relative_path = "kozekilmu/guide/tracks/runtime-image.webp"
