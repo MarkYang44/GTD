@@ -28,7 +28,12 @@ class Element {
   }
 }
 
-function boot({ stored = null, throwGet = false, throwSet = false } = {}) {
+function boot({
+  stored = null,
+  throwGet = false,
+  throwSet = false,
+  readyState = "complete",
+} = {}) {
   const root = new Element({
     "data-title-zh": "LMU 赛道指南 - GTD",
     "data-title-en": "LMU Circuit Guide - GTD",
@@ -46,6 +51,7 @@ function boot({ stored = null, throwGet = false, throwSet = false } = {}) {
     "data-i18n-aria-label-en": "Switch to Chinese",
   });
   const values = new Map();
+  const storageWrites = [];
   if (stored !== null) values.set("gtd_lmu_guide_language_v1", stored);
 
   const localStorage = {
@@ -55,13 +61,15 @@ function boot({ stored = null, throwGet = false, throwSet = false } = {}) {
     },
     setItem(key, value) {
       if (throwSet) throw new Error("blocked write");
+      storageWrites.push([key, value]);
       values.set(key, value);
     },
   };
 
+  const documentListeners = {};
   const document = {
     documentElement: root,
-    readyState: "complete",
+    readyState,
     title: "",
     querySelector(selector) {
       return selector === "#guide-language-toggle" ? toggle : null;
@@ -71,11 +79,23 @@ function boot({ stored = null, throwGet = false, throwSet = false } = {}) {
       if (selector.startsWith("[data-i18n-aria-label-")) return [navigation, toggle];
       return [];
     },
-    addEventListener() {},
+    addEventListener(name, listener, options) {
+      (documentListeners[name] ||= []).push({ listener, options });
+    },
   };
   const window = { localStorage };
   vm.runInNewContext(source, { document, window, console });
-  return { root, image, navigation, toggle, values, document, api: window.LmuGuideLanguage };
+  return {
+    root,
+    image,
+    navigation,
+    toggle,
+    values,
+    storageWrites,
+    document,
+    documentListeners,
+    api: window.LmuGuideLanguage,
+  };
 }
 
 const initial = boot();
@@ -113,3 +133,19 @@ const blockedWrite = boot({ throwSet: true });
 blockedWrite.toggle.checked = true;
 blockedWrite.toggle.listeners.change[0]();
 assert.strictEqual(blockedWrite.root.dataset.guideLanguage, "en");
+
+const loading = boot({ readyState: "loading" });
+assert.strictEqual(loading.root.dataset.guideLanguage, undefined);
+assert.strictEqual(loading.toggle.listeners.change, undefined);
+assert.strictEqual(loading.documentListeners.DOMContentLoaded.length, 1);
+assert.strictEqual(loading.documentListeners.DOMContentLoaded[0].options.once, true);
+loading.documentListeners.DOMContentLoaded[0].listener();
+assert.strictEqual(loading.root.dataset.guideLanguage, "zh");
+assert.strictEqual(loading.toggle.listeners.change.length, 1);
+
+const publicApi = boot();
+assert.strictEqual(publicApi.api.apply("invalid"), "zh");
+assert.strictEqual(publicApi.root.dataset.guideLanguage, "zh");
+assert.deepStrictEqual(publicApi.storageWrites, []);
+assert.strictEqual(publicApi.api.apply("en", false), "en");
+assert.deepStrictEqual(publicApi.storageWrites, []);
