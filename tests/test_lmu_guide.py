@@ -1,5 +1,6 @@
 import importlib.util
 import unittest
+import re
 from dataclasses import replace
 from html import unescape
 from tempfile import TemporaryDirectory
@@ -103,6 +104,15 @@ class LmuGuideDataTests(unittest.TestCase):
         self.assertNotIn("低下压力", circuits["le-mans"].character_zh)
         self.assertEqual(len({item.fit_zh for item in fits}), 96)
         self.assertFalse(any("可应对" in item.fit_zh for item in fits))
+
+    def test_portimao_throttle_advice_is_natural_and_not_self_contradictory(self):
+        portimao = next(circuit for circuit in guide.CIRCUITS if circuit.slug == "portimao")
+
+        self.assertEqual(
+            portimao.advice_zh,
+            "在盲顶使用可重复的参考点，等车身稳定后再加油。",
+        )
+        self.assertNotIn("再延后加油", portimao.advice_zh)
 
     def test_current_official_circuit_snapshot_is_complete_and_ordered(self):
         self.assertEqual(tuple(item.slug for item in guide.CIRCUITS), EXPECTED_SLUGS)
@@ -250,6 +260,19 @@ class LmuGuideRouteTests(unittest.TestCase):
         self.assertIn(guide.CIRCUITS[0].lmgt3[0].fit_zh, rendered_copy)
         self.assertIn(guide.CIRCUITS[0].lmgt3[0].fit, rendered_copy)
 
+    def test_topbar_brand_and_updated_label_render_complete_bilingual_copy(self):
+        html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
+
+        self.assertIn(
+            '<div class="brand"><span data-guide-copy="zh">由 Mark Yang 设计</span>'
+            '<span data-guide-copy="en">Designed by Mark Yang</span></div>',
+            html,
+        )
+        self.assertIn(
+            '<span data-guide-copy="en">Updated: </span><time',
+            html,
+        )
+
     def test_language_metadata_covers_dynamic_accessible_attributes(self):
         html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
 
@@ -259,6 +282,22 @@ class LmuGuideRouteTests(unittest.TestCase):
         self.assertIn('data-i18n-alt-en="Bahrain circuit"', html)
         self.assertIn('data-i18n-aria-label-zh=', html)
         self.assertIn('data-i18n-aria-label-en=', html)
+
+    def test_every_dynamic_accessible_attribute_has_both_language_variants(self):
+        html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
+        translated_tags = [
+            tag
+            for tag in re.findall(r"<[^>]+>", html)
+            if "data-i18n-alt-" in tag or "data-i18n-aria-label-" in tag
+        ]
+
+        self.assertTrue(translated_tags)
+        for tag in translated_tags:
+            with self.subTest(tag=tag[:120]):
+                for attribute in ("alt", "aria-label"):
+                    if f"data-i18n-{attribute}-" in tag:
+                        self.assertIn(f"data-i18n-{attribute}-zh=", tag)
+                        self.assertIn(f"data-i18n-{attribute}-en=", tag)
 
     def test_language_control_order_footer_and_no_inline_script_contract(self):
         html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
@@ -321,6 +360,11 @@ class LmuGuidePresentationTests(unittest.TestCase):
         reduced_motion_start = css.find("@media (prefers-reduced-motion: reduce)")
         self.assertNotEqual(reduced_motion_start, -1)
         self.assertNotIn("display: none", css[reduced_motion_start:])
+
+    def test_bilingual_navigation_copy_is_not_offset_as_a_single_wrapper(self):
+        css = CSS_PATH.read_text(encoding="utf-8")
+
+        self.assertNotIn(".easter-nav-link span {", css)
 
     def test_compact_topbar_keeps_language_controls_unshrunk_at_390px(self):
         css = CSS_PATH.read_text(encoding="utf-8")

@@ -268,11 +268,6 @@ img {
   transition: color .18s ease, border-color .18s ease, background-color .18s ease;
 }
 
-.easter-nav-link span {
-  margin-left: 6px;
-  letter-spacing: .04em;
-}
-
 .easter-nav-link:hover {
   color: var(--foreground);
   border-color: var(--border-strong);

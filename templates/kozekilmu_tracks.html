@@ -22,7 +22,7 @@
 <div class="scroll-progress" id="scroll-progress" aria-hidden="true"></div>
 <header class="topbar" id="topbar">
   <div class="topbar-inner">
-    <div class="brand">Designed by Mark Yang</div>
+    <div class="brand">{{ guide_copy("由 Mark Yang 设计", "Designed by Mark Yang") }}</div>
     <div class="topbar-actions">
       <label class="language-toggle" for="guide-language-toggle">
         <span lang="zh-CN">中文</span>
@@ -60,7 +60,7 @@
     <p class="guide-kicker">{{ guide_copy("LE MANS ULTIMATE / 只读指南", "LE MANS ULTIMATE / READ-ONLY GUIDE") }}</p>
     <h1>{{ guide_copy("LMU 赛道指南", "LMU Circuit Guide") }}</h1>
     <p>{{ guide_copy("以赛道特性为起点，整理 LMGT3 与 Hypercar 的三台可尝试车型。", "Start with each circuit's character and compare three approachable LMGT3 and Hypercar choices.") }}</p>
-    <p class="guide-updated">{{ guide_copy("资料更新：", "Updated:") }}<time datetime="{{ guide_updated }}">{{ guide_updated }}</time></p>
+    <p class="guide-updated">{{ guide_copy("资料更新：", "Updated: ") }}<time datetime="{{ guide_updated }}">{{ guide_updated }}</time></p>
   </header>
 
   <section class="circuit-list circuit-grid"

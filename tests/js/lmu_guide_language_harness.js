@@ -113,6 +113,7 @@ assert.strictEqual(initial.root.lang, "en");
 assert.strictEqual(initial.document.title, "LMU Circuit Guide - GTD");
 assert.strictEqual(initial.image.getAttribute("alt"), "Bahrain circuit");
 assert.strictEqual(initial.navigation.getAttribute("aria-label"), "LMU easter egg pages");
+assert.strictEqual(initial.toggle.getAttribute("aria-label"), "Switch to Chinese");
 assert.strictEqual(initial.values.get("gtd_lmu_guide_language_v1"), "en");
 
 initial.api.init();
