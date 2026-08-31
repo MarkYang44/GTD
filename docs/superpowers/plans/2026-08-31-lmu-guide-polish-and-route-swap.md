@@ -26,6 +26,8 @@
 - Modify: `templates/index.html:203`
 - Modify: `tests/test_kozekilmu.py`
 - Modify: `tests/test_lmu_guide.py`
+- Modify: `tests/test_lmu_guide_language.py`
+- Modify: `tests/test_motion_system.py`
 
 **Interfaces:**
 - Consumes: existing Flask endpoints `kozekilmu` and `kozekilmu_tracks` used by both page templates.
@@ -48,7 +50,7 @@ def test_swapped_victory_route_renders_archive_and_active_navigation(self):
     self.assertIn('href="/kozekilmu"', html)
 ```
 
-In `tests/test_lmu_guide.py`, require `/kozekilmu` to render the guide and its guide link to be active:
+In `tests/test_lmu_guide.py`, require `/kozekilmu` to render the guide and its guide link to be active. Also update `tests/test_lmu_guide_language.py` to request the new guide URL, and update archive-specific `tests/test_motion_system.py` requests to `/kozekilmu/tracks`:
 
 ```python
 def test_default_easter_route_renders_circuit_guide(self):
@@ -115,7 +117,7 @@ Expected: all tests pass after updating every old route expectation to the new c
 - [ ] **Step 5: Commit**
 
 ```bash
-git add app.py templates/index.html tests/test_kozekilmu.py tests/test_lmu_guide.py
+git add app.py templates/index.html tests/test_kozekilmu.py tests/test_lmu_guide.py tests/test_lmu_guide_language.py tests/test_motion_system.py
 git commit -m "feat: make LMU circuit guide the default easter page"
 ```
 
