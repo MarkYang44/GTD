@@ -12,7 +12,7 @@ HARNESS_PATH = Path("tests/js/lmu_guide_language_harness.js")
 class LmuGuideLanguageTests(unittest.TestCase):
     def test_page_serves_only_the_dedicated_language_runtime_after_motion(self):
         client = web_app.app.test_client()
-        html = client.get("/kozekilmu/tracks").get_data(as_text=True)
+        html = client.get("/kozekilmu").get_data(as_text=True)
         self.assertIn('<script defer src="/static/js/motion.js"></script>', html)
         self.assertIn('<script defer src="/static/js/lmu_guide_language.js"></script>', html)
         self.assertLess(html.index("motion.js"), html.index("lmu_guide_language.js"))

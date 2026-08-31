@@ -177,15 +177,15 @@ class LmuGuideRouteTests(unittest.TestCase):
                 image_path.unlink()
                 self.assertFalse(web_app._guide_static_image_exists(relative_path))
 
-    def test_read_only_circuit_guide_renders_all_circuits_and_recommendations(self):
-        response = self.client.get("/kozekilmu/tracks")
+    def test_default_easter_route_renders_circuit_guide(self):
+        response = self.client.get("/kozekilmu")
         html = response.get_data(as_text=True)
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("<title>LMU 赛道指南 - GTD</title>", html)
         self.assertIn('href="/kozekilmu"', html)
         self.assertIn('href="/kozekilmu/tracks"', html)
-        self.assertIn('aria-current="page"', html)
+        self.assertIn('href="/kozekilmu" aria-current="page"', html)
         self.assertEqual(html.count('class="circuit-card"'), 16)
         self.assertEqual(html.count("<details"), 16)
         self.assertEqual(html.count('data-class="LMGT3"'), 48)
@@ -202,7 +202,7 @@ class LmuGuideRouteTests(unittest.TestCase):
             "CIRCUITS",
             (missing_image_circuit, blank_image_circuit, *guide.CIRCUITS[2:]),
         ):
-            html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
+            html = self.client.get("/kozekilmu").get_data(as_text=True)
 
         self.assertIn('aria-label="Bahrain 暂无官方赛道图片"', html)
         self.assertIn('aria-label="Circuit de Barcelona-Catalunya 暂无官方赛道图片"', html)
@@ -219,20 +219,20 @@ class LmuGuideRouteTests(unittest.TestCase):
             "CARS",
             {**guide.CARS, missing_car.slug: missing_car, blank_car.slug: blank_car},
         ):
-            html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
+            html = self.client.get("/kozekilmu").get_data(as_text=True)
 
         self.assertIn('aria-label="BMW M4 LMGT3 暂无官方车型图片"', html)
         self.assertIn('aria-label="Corvette Z06 LMGT3.R 暂无官方车型图片"', html)
         self.assertNotIn("missing-for-qa.webp", html)
 
     def test_guide_never_renders_inline_image_error_handlers(self):
-        html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
+        html = self.client.get("/kozekilmu").get_data(as_text=True)
 
         self.assertNotIn("onerror=", html)
         self.assertNotIn("onerror=", Path("templates/kozekilmu_tracks.html").read_text(encoding="utf-8"))
 
     def test_guide_reuses_the_victory_topbar_and_download_return_link(self):
-        html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
+        html = self.client.get("/kozekilmu").get_data(as_text=True)
         css = CSS_PATH.read_text(encoding="utf-8")
 
         self.assertIn('<header class="topbar" id="topbar">', html)
@@ -245,7 +245,7 @@ class LmuGuideRouteTests(unittest.TestCase):
         self.assertIn('width: min(1180px, calc(100% - 40px))', css)
 
     def test_guide_server_renders_chinese_default_and_complete_language_control(self):
-        html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
+        html = self.client.get("/kozekilmu").get_data(as_text=True)
         rendered_copy = unescape(html)
 
         self.assertIn('<html lang="zh-CN" data-guide-language="zh"', html)
@@ -261,7 +261,7 @@ class LmuGuideRouteTests(unittest.TestCase):
         self.assertIn(guide.CIRCUITS[0].lmgt3[0].fit, rendered_copy)
 
     def test_topbar_brand_and_updated_label_render_complete_bilingual_copy(self):
-        html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
+        html = self.client.get("/kozekilmu").get_data(as_text=True)
 
         self.assertIn(
             '<div class="brand"><span data-guide-copy="zh">由 Mark Yang 设计</span>'
@@ -274,7 +274,7 @@ class LmuGuideRouteTests(unittest.TestCase):
         )
 
     def test_language_metadata_covers_dynamic_accessible_attributes(self):
-        html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
+        html = self.client.get("/kozekilmu").get_data(as_text=True)
 
         self.assertIn('data-title-zh="LMU 赛道指南 - GTD"', html)
         self.assertIn('data-title-en="LMU Circuit Guide - GTD"', html)
@@ -284,7 +284,7 @@ class LmuGuideRouteTests(unittest.TestCase):
         self.assertIn('data-i18n-aria-label-en=', html)
 
     def test_every_dynamic_accessible_attribute_has_both_language_variants(self):
-        html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
+        html = self.client.get("/kozekilmu").get_data(as_text=True)
         translated_tags = [
             tag
             for tag in re.findall(r"<[^>]+>", html)
@@ -300,7 +300,7 @@ class LmuGuideRouteTests(unittest.TestCase):
                         self.assertIn(f"data-i18n-{attribute}-en=", tag)
 
     def test_language_control_order_footer_and_no_inline_script_contract(self):
-        html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
+        html = self.client.get("/kozekilmu").get_data(as_text=True)
         template = Path("templates/kozekilmu_tracks.html").read_text(encoding="utf-8")
 
         toggle_position = html.index('class="language-toggle"')
@@ -338,7 +338,7 @@ class LmuGuidePresentationTests(unittest.TestCase):
         self.assertNotIn("display: none", reduced_motion_block)
 
     def test_media_motion_and_attribution_contracts(self):
-        html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
+        html = self.client.get("/kozekilmu").get_data(as_text=True)
 
         self.assertIn('loading="lazy"', html)
         self.assertIn('width="1024"', html)
@@ -389,7 +389,7 @@ class LmuGuidePresentationTests(unittest.TestCase):
         self.assertRegex(css, r"(?s)\.topbar-link\s*\{[^}]*white-space:\s*nowrap")
 
     def test_original_page_uses_matching_responsive_easter_navigation(self):
-        html = self.client.get("/kozekilmu").get_data(as_text=True)
+        html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
 
         self.assertIn("margin-bottom: clamp(34px, 5vw, 64px)", html)
         self.assertRegex(

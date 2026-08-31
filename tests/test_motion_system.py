@@ -13,7 +13,7 @@ class SharedMotionAssetTests(unittest.TestCase):
     def test_pages_serve_shared_motion_assets_with_browser_mime_types(self):
         client = web_app.app.test_client()
 
-        for path in ("/guide", "/kozekilmu"):
+        for path in ("/guide", "/kozekilmu/tracks"):
             page = client.get(path)
             self.assertEqual(page.status_code, 200)
             html = page.get_data(as_text=True)
@@ -238,7 +238,7 @@ assert.strictEqual(failingNumber.textContent, "09");
             self.assertIn("transition-delay: 0ms", match.group(1))
 
         homepage = web_app.app.test_client().get("/").get_data(as_text=True)
-        kozeki = web_app.app.test_client().get("/kozekilmu").get_data(as_text=True)
+        kozeki = web_app.app.test_client().get("/kozekilmu/tracks").get_data(as_text=True)
         self.assertRegex(homepage, r'data-motion-reveal[^>]*data-motion-surface')
         self.assertRegex(homepage, r'data-motion-parallax="0\.55"')
         self.assertRegex(kozeki, r'data-motion-reveal[^>]*data-motion-surface')
