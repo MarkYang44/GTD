@@ -68,7 +68,12 @@
            data-i18n-aria-label-zh="LMU 赛道与车型建议"
            data-i18n-aria-label-en="LMU circuits and car recommendations">
   {% for circuit in circuits %}
-    <article class="circuit-card" id="{{ circuit.slug }}" data-motion-reveal data-motion-surface data-motion-tilt-strength="0.18">
+    <article class="circuit-card"
+             id="{{ circuit.slug }}"
+             data-motion-reveal
+             data-motion-group="lmu-circuits"
+             data-motion-order="{{ loop.index0 % 2 }}"
+             data-motion-surface data-motion-tilt-strength="0.18">
       <div class="circuit-media">
         {% if circuit.image in available_images %}
         <img src="{{ url_for("static", filename=circuit.image) }}"

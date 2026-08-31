@@ -236,6 +236,15 @@ class LmuGuideRouteTests(unittest.TestCase):
         self.assertEqual(html.count('data-class="LMGT3"'), 48)
         self.assertEqual(html.count('data-class="Hypercar"'), 48)
 
+    def test_circuit_reveal_stagger_is_bounded_per_grid_row(self):
+        html = self.client.get("/kozekilmu").get_data(as_text=True)
+        cards = re.findall(r'<article class="circuit-card"[^>]*>', html)
+        self.assertEqual(len(cards), 16)
+        self.assertTrue(all('data-motion-group="lmu-circuits"' in card for card in cards))
+        orders = [re.search(r'data-motion-order="(\d+)"', card).group(1) for card in cards]
+        self.assertEqual(orders, [str(index % 2) for index in range(16)])
+        self.assertLessEqual(max(map(int, orders)), 1)
+
     def test_blank_and_missing_circuit_images_render_placeholders_without_static_urls(self):
         missing_image_circuit = replace(
             guide.CIRCUITS[0],
