@@ -10,12 +10,15 @@ HARNESS_PATH = Path("tests/js/lmu_guide_language_harness.js")
 
 
 class LmuGuideLanguageTests(unittest.TestCase):
-    def test_page_serves_only_the_dedicated_language_runtime_after_motion(self):
+    def test_page_bootstraps_language_before_visible_guide_content(self):
         client = web_app.app.test_client()
         html = client.get("/kozekilmu").get_data(as_text=True)
+
+        bootstrap = '<script src="/static/js/lmu_guide_language.js"></script>'
+        self.assertIn(bootstrap, html)
+        self.assertLess(html.index(bootstrap), html.index("<body>"))
         self.assertIn('<script defer src="/static/js/motion.js"></script>', html)
-        self.assertIn('<script defer src="/static/js/lmu_guide_language.js"></script>', html)
-        self.assertLess(html.index("motion.js"), html.index("lmu_guide_language.js"))
+        self.assertNotIn('<script defer src="/static/js/lmu_guide_language.js"></script>', html)
         self.assertNotIn("onchange=", html)
         self.assertNotIn("onclick=", html)
 

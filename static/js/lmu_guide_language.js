@@ -26,6 +26,14 @@
     }
   }
 
+  function applyRoot(language) {
+    const selected = normalize(language);
+    root.dataset.guideLanguage = selected;
+    root.lang = selected === "zh" ? "zh-CN" : "en";
+    document.title = root.getAttribute(`data-title-${selected}`);
+    return selected;
+  }
+
   function applyTranslatedAttributes(language) {
     for (const attribute of ATTRIBUTE_NAMES) {
       const selector = `[data-i18n-${attribute}-${language}]`;
@@ -39,10 +47,7 @@
   }
 
   function apply(language, persist = false) {
-    const selected = normalize(language);
-    root.dataset.guideLanguage = selected;
-    root.lang = selected === "zh" ? "zh-CN" : "en";
-    document.title = root.getAttribute(`data-title-${selected}`);
+    const selected = applyRoot(language);
     applyTranslatedAttributes(selected);
 
     const toggle = document.querySelector("#guide-language-toggle");
@@ -68,6 +73,7 @@
   }
 
   window.LmuGuideLanguage = { apply, init };
+  applyRoot(readStoredLanguage());
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init, { once: true });
   } else {

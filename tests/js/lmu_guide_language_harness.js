@@ -135,13 +135,18 @@ blockedWrite.toggle.checked = true;
 blockedWrite.toggle.listeners.change[0]();
 assert.strictEqual(blockedWrite.root.dataset.guideLanguage, "en");
 
-const loading = boot({ readyState: "loading" });
-assert.strictEqual(loading.root.dataset.guideLanguage, undefined);
+const loading = boot({ readyState: "loading", stored: "en" });
+assert.strictEqual(loading.root.dataset.guideLanguage, "en");
+assert.strictEqual(loading.root.lang, "en");
+assert.strictEqual(loading.document.title, "LMU Circuit Guide - GTD");
 assert.strictEqual(loading.toggle.listeners.change, undefined);
 assert.strictEqual(loading.documentListeners.DOMContentLoaded.length, 1);
 assert.strictEqual(loading.documentListeners.DOMContentLoaded[0].options.once, true);
 loading.documentListeners.DOMContentLoaded[0].listener();
-assert.strictEqual(loading.root.dataset.guideLanguage, "zh");
+assert.strictEqual(loading.root.dataset.guideLanguage, "en");
+assert.strictEqual(loading.image.getAttribute("alt"), "Bahrain circuit");
+assert.strictEqual(loading.navigation.getAttribute("aria-label"), "LMU easter egg pages");
+assert.strictEqual(loading.toggle.checked, true);
 assert.strictEqual(loading.toggle.listeners.change.length, 1);
 
 const publicApi = boot();

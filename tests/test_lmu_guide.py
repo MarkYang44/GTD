@@ -16,16 +16,28 @@ HAN = re.compile(r"[\u3400-\u9fff]")
 
 
 class _EnglishVisibleCopyParser(HTMLParser):
-    VOID_ELEMENTS = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
+    VOID_ELEMENTS = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}
+    ENGLISH_METADATA_ATTRIBUTES = {
+        "data-title-en",
+        "data-i18n-alt-en",
+        "data-i18n-aria-label-en",
+    }
 
     def __init__(self):
         super().__init__()
         self.stack = []
         self.han_text = []
+        self.english_metadata = []
 
     def handle_starttag(self, tag, attrs):
+        attributes = dict(attrs)
+        self.english_metadata.extend(
+            (name, value)
+            for name, value in attributes.items()
+            if name in self.ENGLISH_METADATA_ATTRIBUTES
+        )
         if tag not in self.VOID_ELEMENTS:
-            self.stack.append((tag, dict(attrs)))
+            self.stack.append((tag, attributes))
 
     def handle_endtag(self, tag):
         for index in range(len(self.stack) - 1, -1, -1):
@@ -42,6 +54,14 @@ class _EnglishVisibleCopyParser(HTMLParser):
             return
         self.han_text.append(" ".join(data.split()))
 
+
+
+class LmuGuideParserTests(unittest.TestCase):
+    def test_english_copy_parser_treats_param_as_void(self):
+        parser = _EnglishVisibleCopyParser()
+        parser.feed("<param>")
+
+        self.assertEqual(parser.stack, [])
 
 
 def _load_asset_sync_module():
@@ -337,6 +357,20 @@ class LmuGuideRouteTests(unittest.TestCase):
         self.assertIn('data-i18n-aria-label-zh=', html)
         self.assertIn('data-i18n-aria-label-en=', html)
 
+    def test_rendered_english_metadata_is_complete_and_han_free(self):
+        parser = _EnglishVisibleCopyParser()
+        parser.feed(self.client.get("/kozekilmu").get_data(as_text=True))
+
+        self.assertTrue(parser.english_metadata)
+        self.assertEqual(
+            {name for name, _ in parser.english_metadata},
+            parser.ENGLISH_METADATA_ATTRIBUTES,
+        )
+        for name, value in parser.english_metadata:
+            with self.subTest(attribute=name, value=value):
+                self.assertTrue(value and value.strip())
+                self.assertIsNone(HAN.search(value))
+
     def test_every_dynamic_accessible_attribute_has_both_language_variants(self):
         html = self.client.get("/kozekilmu").get_data(as_text=True)
         translated_tags = [
@@ -362,6 +396,11 @@ class LmuGuideRouteTests(unittest.TestCase):
         avatar_position = html.index('class="service-status"')
         self.assertLess(toggle_position, return_position)
         self.assertLess(return_position, avatar_position)
+        self.assertIn(
+            '<span data-guide-copy="zh" lang="zh-CN">中文</span>'
+            '<span data-guide-copy="en">ZH</span>',
+            html,
+        )
         self.assertIn("资料来源：", html)
         self.assertIn("车型建议反映", html)
         self.assertIn("Sources:", html)

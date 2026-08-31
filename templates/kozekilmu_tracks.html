@@ -15,6 +15,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,400&amp;display=swap" rel="stylesheet">
 <title>LMU 赛道指南 - GTD</title>
+<script src="/static/js/lmu_guide_language.js"></script>
 <link rel="stylesheet" href="/static/css/kozekilmu_tracks.css">
 <link rel="stylesheet" href="/static/css/motion.css">
 </head>
@@ -25,7 +26,7 @@
     <div class="brand">{{ guide_copy("由 Mark Yang 设计", "Designed by Mark Yang") }}</div>
     <div class="topbar-actions">
       <label class="language-toggle" for="guide-language-toggle">
-        <span lang="zh-CN">{{ guide_copy("中文", "ZH") }}</span>
+        <span data-guide-copy="zh" lang="zh-CN">中文</span><span data-guide-copy="en">ZH</span>
         <input id="guide-language-toggle"
                type="checkbox"
                data-i18n-aria-label-zh="切换为英文"
@@ -161,6 +162,5 @@
   </p>
 </footer>
 <script defer src="/static/js/motion.js"></script>
-<script defer src="/static/js/lmu_guide_language.js"></script>
 </body>
 </html>
