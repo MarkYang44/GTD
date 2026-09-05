@@ -91,6 +91,9 @@
   window.addEventListener?.("storage", event => {
     if (event.key === STORAGE_KEY || event.key === null) apply(normalize(event.newValue));
   });
+  window.addEventListener?.("pageshow", event => {
+    if (event.persisted) apply(readStoredLanguage());
+  });
   applyRoot(readStoredLanguage());
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init, { once: true });

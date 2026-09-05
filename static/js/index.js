@@ -52,11 +52,15 @@
   function localizedError(error) {
     const raw = error.message || error.error || '';
     const entry = downloadErrors[error.error_code];
-    if (window.GtdLanguage?.language !== 'en' || !entry) return {message: raw, suggestion: error.suggestion || ''};
+    if (window.GtdLanguage?.language !== 'en') return {message: raw, suggestion: error.suggestion || ''};
+    if (!entry) return {
+      message: raw ? `Request failed. Original details: ${raw}` : 'Request failed',
+      suggestion: error.suggestion ? `Original suggestion: ${error.suggestion}` : '',
+    };
     return {
-      // Retain details on variable or unexpected server messages instead of hiding them.
-      message: raw && raw !== entry[0] ? `${entry[1]} — ${backendText(raw)}` : entry[1],
-      suggestion: error.suggestion ? (error.suggestion === entry[2] ? entry[3] : backendText(error.suggestion)) : '',
+      // Known codes carry app-owned guidance, not third-party diagnostics.
+      message: backendTranslations[raw] || entry[1],
+      suggestion: error.suggestion ? (backendTranslations[error.suggestion] || entry[3]) : '',
     };
   }
   const backendTranslations = {
@@ -116,7 +120,7 @@
       browseButton: document.getElementById("videoBrowseButton"),
       downloadDirHint: document.getElementById("videoDownloadDirHint"),
       formatInputs: [],
-      
+
     },
     audio: {
       textarea: document.getElementById("audioUrls"),
@@ -131,7 +135,7 @@
       browseButton: document.getElementById("audioBrowseButton"),
       downloadDirHint: document.getElementById("audioDownloadDirHint"),
       formatInputs: Array.from(document.querySelectorAll('input[name="audioFormat"]')),
-      
+
     },
   };
   const taskTitle = document.getElementById("task-title");
@@ -247,7 +251,7 @@
       if (paths.length === 0) {
         const empty = document.createElement("div");
         empty.className = "download-location-history-empty";
-        setLocalized(empty, "暂无最近使用的位置", "No recently used folders");
+        empty.textContent = tr("暂无最近使用的位置", "No recently used folders");
         control.historyMenu.appendChild(empty);
         return;
       }

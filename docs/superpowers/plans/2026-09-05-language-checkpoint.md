@@ -1,11 +1,18 @@
-# Language implementation checkpoint
+# Global language delivery status
 
-User approved implementation and requested local checkpoint commits to protect progress if usage runs out.
+Implementation complete. User approved the design and subsequently authorized local commits to protect progress from usage interruptions. Initial checkpoint: `8cfed67`. Do not push without a request.
 
-Implemented so far: shared language runtime/toggle, preference compatibility, static homepage, bilingual guide/archive, English README and web guide, dynamic homepage localization draft.
+Delivered: shared toggle and language runtime on all four pages; old preference compatibility, persistence, cross-tab updates and back/forward cache restoration; static and dynamic homepage localization; full English guide and archive; reciprocal Chinese/English README links and complete English documentation.
 
-Not yet complete: integrate and run dynamic harness; fix inactive-language CSS specificity (format-option span and footer rules override generic hiding); update old tests that asserted exact single-language markup or asset lists; verify all four pages in Safari. Last full test run (during edits) had 393 tests, 5 failures, 2 skips; those results are not final. Shared language and secondary-page tests passed independently.
+Verified:
 
-Temporary verification server runs at 127.0.0.1:8234 via a Codex exec session; existing user server at 8233 was preserved. A new Safari tab is open at the temporary homepage. Stop only the temporary server when done.
+- `venv/bin/python -m unittest discover -s tests`: 397 tests, OK, 2 existing Windows-only skips.
+- Node syntax checks and global, download, existing LMU, and guide TOC language harnesses passed.
+- English static text and translated accessibility attributes checked on all four rendered routes.
+- Dynamic harness covers completed/running/queued/failed/cancelled tasks, postprocessing, unknown error fallback, input and pending-control preservation, selection retention, and no extra requests on language changes.
+- README: 34 fenced blocks in each edition; executable commands and source URLs match; heading counts match at each level.
+- Safari: four-page language switching, cross-page preference, refresh, input preservation, guide TOC anchors, and desktop screenshots inspected.
+- Chrome iPhone SE emulation (375 x 667): all four page headers and English layouts inspected. No actual device test or external media download was performed.
+- `git diff --check` passed.
 
-Next steps: finish the checklist in 2026-09-05-global-language.md, run complete tests and JS harnesses, browser QA and final local commit. Do not push.
+Temporary verification used 127.0.0.1:8234. Its test tabs were closed and its server is stopped during final cleanup. Existing 8233 service was preserved; restart that service to load the new templates/Python route if it is still serving an older version.

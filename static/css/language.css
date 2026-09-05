@@ -64,3 +64,9 @@ html[data-guide-language="en"] [data-guide-copy="en"] {
   .topbar-actions { margin-left: auto; flex-wrap: wrap; }
   .language-toggle { gap: 6px; font-size: 11px; }
 }
+
+/* Inactive translations must stay hidden even inside components with display rules. */
+html[data-guide-language="zh"] [data-guide-copy="en"],
+html[data-guide-language="en"] [data-guide-copy="zh"] {
+  display: none !important;
+}

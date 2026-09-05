@@ -56,7 +56,7 @@ class WebConfigurationTests(unittest.TestCase):
         )
         self.assertEqual(
             stylesheet_urls,
-            ["/static/css/index.css", "/static/css/motion.css"],
+            ["/static/css/index.css", "/static/css/motion.css", "/static/css/language.css"],
         )
         self.assertEqual(
             script_urls,
@@ -185,7 +185,7 @@ class WebConfigurationTests(unittest.TestCase):
         readme = Path("README.md").read_text(encoding="utf-8")
 
         self.assertTrue(
-            readme.startswith("# GTD\n\n**Generalized Transmedia Downloader**\n")
+            readme.startswith("# GTD\n\n**中文** | [English](README.en.md)\n\n**Generalized Transmedia Downloader**\n")
         )
         self.assertIn("GTD stands for Generalized Transmedia Downloader.", readme)
         self.assertIn("git clone https://github.com/MarkYang44/GTD.git", readme)
@@ -400,7 +400,7 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn('id="videoTurboToggle"', html)
         self.assertIn('id="audioTurboToggle"', html)
         self.assertEqual(
-            html.count('<span class="turbo-title">极速模式</span>'),
+            html.count('<span class="turbo-title">'),
             2,
         )
         self.assertIn('fetch("/api/capabilities")', html)
@@ -637,10 +637,10 @@ assert.deepStrictEqual(
         )
         self.assertNotIn("/ DOWNLOADER", html)
         self.assertIn(
-            "<strong>最高画质视频，或最高音质音频下载。</strong><br>",
+            '<strong><span data-guide-copy="zh">最高画质视频，或最高音质音频下载。</span>',
             html,
         )
-        self.assertIn("<h3>最高画质视频</h3>", html)
+        self.assertIn('<h3><span data-guide-copy="zh">最高画质视频</span>', html)
         self.assertIn("下载源站可获取的最高画质视频，并统一输出为 MP4。", html)
         self.assertNotIn("最高质量视频", html)
         self.assertIn("粘贴链接，其余交给下载队列。", html)

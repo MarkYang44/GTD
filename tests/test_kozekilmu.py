@@ -237,14 +237,14 @@ class KozekiLmuEasterEggTests(unittest.TestCase):
         for token in ("requestAnimationFrame", "new IntersectionObserver", "pointermove", "pointerenter"):
             self.assertNotIn(token, html)
 
-    def test_hidden_page_loads_only_the_shared_motion_runtime(self):
+    def test_hidden_page_loads_shared_language_and_motion_runtimes(self):
         html = self.client.get("/kozekilmu").get_data(as_text=True)
         structure = _parse_structure(html)
         scripts = [node for node in structure.nodes if node.tag == "script"]
 
         self.assertEqual(
             [(node.attrs.get("src"), "defer" in node.attrs) for node in scripts],
-            [("/static/js/motion.js", True)],
+            [("/static/js/lmu_guide_language.js", False), ("/static/js/motion.js", True)],
         )
 
     def test_media_surfaces_have_noninteractive_sheen_below_controls(self):

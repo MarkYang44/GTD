@@ -52,6 +52,7 @@ function boot({
     "data-i18n-aria-label-en": "Switch to Chinese",
   });
   const values = new Map();
+  const dispatched = [];
   const storageWrites = [];
   if (globalStored !== null) values.set("gtd_language_v1", globalStored);
   if (stored !== null) values.set("gtd_lmu_guide_language_v1", stored);
@@ -70,6 +71,7 @@ function boot({
 
   const documentListeners = {};
   const document = {
+    dispatchEvent(event) { dispatched.push(event); },
     documentElement: root,
     readyState,
     title: "",
@@ -87,8 +89,9 @@ function boot({
   };
   const windowListeners = {};
   const window = { localStorage, addEventListener(name, listener) { windowListeners[name] = listener; } };
-  vm.runInNewContext(source, { document, window, console });
+  vm.runInNewContext(source, { document, window, console, CustomEvent: class { constructor(type, options) {this.type=type;this.detail=options.detail;} } });
   return {
+    dispatched,
     windowListeners,
     globalApi: window.GtdLanguage,
     root,
@@ -172,4 +175,11 @@ assert.strictEqual(global.globalApi.language, "en");
 assert.strictEqual(global.toggle.checked, true);
 global.windowListeners.storage({key: "unrelated", newValue: "zh"});
 assert.strictEqual(global.globalApi.language, "en");
-console.log("global language harness passed");
+
+assert.strictEqual(global.dispatched.at(-1).type, "gtd:languagechange");
+assert.strictEqual(global.dispatched.at(-1).detail.language, "en");
+global.values.set("gtd_language_v1", "zh");
+assert.strictEqual(typeof global.windowListeners.pageshow, "function");
+global.windowListeners.pageshow({persisted: true});
+assert.strictEqual(global.globalApi.language, "zh");
+console.log("Global language harness passed");

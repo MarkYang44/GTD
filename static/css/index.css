@@ -401,7 +401,7 @@
   }
   .format-option { position: relative; min-width: 0; }
   .format-option input { position: absolute; opacity: 0; pointer-events: none; }
-  .format-option span {
+  .format-option > span {
     display: grid;
     min-height: 40px;
     place-items: center;

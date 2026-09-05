@@ -30,4 +30,27 @@ language = 'zh'; listeners['gtd:languagechange']({detail:{language}});
 assert.strictEqual(vm.runInContext('JSON.stringify([...collectionSelectedIds])',context),before);
 assert.strictEqual(vm.runInContext('collectionRenderLimit',context),100);
 assert.strictEqual(requests,1);
+
+language = 'en';
+assert.doesNotMatch(vm.runInContext('formatApiError({error_code:"INVALID_REQUEST",message:"请求正文必须是 JSON 对象",suggestion:"请检查请求内容后重试"})',context), /[\u4e00-\u9fff]/);
+
+// App-owned statuses and progress stay English while source strings stay unchanged.
+for (const state of ['queued','running','running_uninterruptible','failed','cancelled']) {
+  vm.runInContext(`renderTasks({tasks:[{id:'x', url:'https://example.com/test', status:'${state}', can_cancel:true, error:{error_code:'AUTH_REQUIRED',message:'当前凭证无法访问该内容',suggestion:'请更新对应平台 Cookie 后重试'}, progress:{speed_text:'计算中',eta_text:'计算中'}}]})`, context);
+  assert.doesNotMatch(nodes.get('task-container').innerHTML, /[\u4e00-\u9fff]/);
+}
+vm.runInContext(`renderTasks({tasks:[{id:'x',url:'test',status:'running',postprocessing:{stage_text:'正在嵌入封面…',detail_text:'程序正在把封面写入最终媒体文件。'}}]})`, context);
+assert.match(nodes.get('task-container').innerHTML,/Embedding cover art/);
+assert.doesNotMatch(nodes.get('task-container').innerHTML,/[\u4e00-\u9fff]/);
+// Pending labels must change without enabling a disabled control or dropping form input.
+vm.runInContext(`downloadControls.video.textarea.value='https://example.com/keep';downloadControls.video.browseButton.disabled=true;setLocalized(downloadControls.video.browseButton,'等待选择…','Waiting for selection…');`, context);
+language = 'zh'; listeners['gtd:languagechange']({detail:{language}});
+assert.strictEqual(nodes.get('videoBrowseButton').textContent,'等待选择…');
+assert.strictEqual(nodes.get('videoBrowseButton').disabled,true);
+assert.strictEqual(nodes.get('videoUrls').value,'https://example.com/keep');
+assert.strictEqual(requests,1);
+language = 'en';
+const unknownError = vm.runInContext('formatApiError({error_code:"NEW_ERROR",message:"原始诊断"})',context);
+assert.match(unknownError,/Request failed/);
+assert.match(unknownError,/原始诊断/);
 console.log('Download language harness passed');

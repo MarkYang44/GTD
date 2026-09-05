@@ -6,13 +6,13 @@ This guide covers common operations, download formats, task statuses, and troubl
 
 Once the project web server is running, visit [http://127.0.0.1:8233](http://127.0.0.1:8233) in your browser. You can submit video and audio tasks separately.
 
-Use the **中文 / EN** switch at the top right to change languages. Your choice applies across all project pages and is remembered in this browser.
+Use the **ZH / EN** switch at the top right to change languages. Your choice applies across all project pages and is remembered in this browser.
 
 > The web interface and system folder picker are intended for the local desktop session running this project. The browser does not read or upload arbitrary local folder contents.
 
 ## Download workflow
 
-1. To download video, paste links or platform share text into **Highest-quality video**; for audio only, use **Highest-quality audio**. Put each link on its own line.
+1. To download video, paste links or platform share text into **Best-quality video**; for audio only, use **Best-quality audio**. Put each link on its own line.
 2. Audio options are **MP3 V0**, **Source FLAC**, **Original audio**, and **WAV PCM**. WAV files are larger and do not improve source quality. Source FLAC automatically falls back to MP3 V0 when the platform does not provide FLAC.
 3. Under **Download location**, enter a path or click **Choose folder** to open the Windows/macOS system picker. Leave it blank to use the default `downloads/` shown on the page.
 4. The dropdown beside the download location keeps the last 3 folders successfully used in this browser. Duplicate paths are removed, with the most recently used path first.
@@ -42,13 +42,13 @@ Use the **中文 / EN** switch at the top right to change languages. Your choice
 - All web batches share up to 3 worker slots, with at most 2 Bilibili tasks running simultaneously.
 - **Cancel**: queued tasks are canceled immediately; standard downloads stop at the next safe checkpoint.
 - **Retry**: failed or canceled tasks rejoin the same queue, keeping a record of every attempt.
-- **Retry all failed**: resubmit only failed tasks that can be retried.
-- **Download again**: create a new task for a completed download, preserving the original file.
+- **Retry all failed tasks**: resubmit only failed tasks that can be retried.
+- **Redownload**: create a new task for a completed download, preserving the original file.
 - The service keeps up to 100 batches in memory. Restarting the web server clears task history, but does not delete downloaded files.
 
-## Bilibili fast mode
+## Bilibili turbo mode
 
-- Fast mode requires `aria2c` on the system or in the project. The switch is disabled automatically when it is unavailable.
+- Turbo mode requires `aria2c` on the system or in the project. The switch is disabled automatically when it is unavailable.
 - This mode applies only to Bilibili. YouTube and Instagram do not use aria2c.
 - Selected streams larger than 50 MiB may be tested with small sample downloads across up to 4 HTTPS CDN hosts returned by Bilibili.
 - Once a task becomes non-interruptible, the cancel button is unavailable. Wait for the task to finish.
