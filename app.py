@@ -101,6 +101,7 @@ def guide():
     return render_template(
         "guide.html",
         guide_content=render_markdown_file(WEB_GUIDE_PATH),
+        guide_content_en=render_markdown_file(WEB_GUIDE_PATH.with_name("WEB_GUIDE.en.md")),
     )
 
 

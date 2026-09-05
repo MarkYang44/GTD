@@ -1,0 +1,105 @@
+# Web user guide
+
+This guide covers common operations, download formats, task statuses, and troubleshooting in the GTD — Generalized Transmedia Downloader web interface.
+
+## Getting started
+
+Once the project web server is running, visit [http://127.0.0.1:8233](http://127.0.0.1:8233) in your browser. You can submit video and audio tasks separately.
+
+Use the **中文 / EN** switch at the top right to change languages. Your choice applies across all project pages and is remembered in this browser.
+
+> The web interface and system folder picker are intended for the local desktop session running this project. The browser does not read or upload arbitrary local folder contents.
+
+## Download workflow
+
+1. To download video, paste links or platform share text into **Highest-quality video**; for audio only, use **Highest-quality audio**. Put each link on its own line.
+2. Audio options are **MP3 V0**, **Source FLAC**, **Original audio**, and **WAV PCM**. WAV files are larger and do not improve source quality. Source FLAC automatically falls back to MP3 V0 when the platform does not provide FLAC.
+3. Under **Download location**, enter a path or click **Choose folder** to open the Windows/macOS system picker. Leave it blank to use the default `downloads/` shown on the page.
+4. The dropdown beside the download location keeps the last 3 folders successfully used in this browser. Duplicate paths are removed, with the most recently used path first.
+5. Single items are submitted directly. Playlists, collections, and multipart videos first open a preview panel. You can select up to 100 items at a time.
+6. After submitting, the task area shows the queue, speed, estimated time remaining, progress, processing stage, output specifications, and save path.
+
+## Video, audio, and output files
+
+- Video downloads select the highest-quality video and audio streams available from the platform, then use FFmpeg to merge them into MP4.
+- MP3 V0 selects the highest-quality source audio and uses FFmpeg to convert it at the highest VBR quality.
+- Source FLAC produces FLAC only when the platform actually provides it. It does not disguise AAC or Opus as lossless audio.
+- Original audio preserves the source codec and corresponding file extension. WAV is decoded PCM: it takes more space without improving source quality.
+- MP3, FLAC, and some containers that support cover art attempt to embed the video thumbnail. WebM and WAV are output normally without embedded cover art.
+- Repeated downloads do not overwrite existing files. New files receive incrementing suffixes such as `(2)` and `(3)`.
+
+## Download locations and history
+
+- Blank field: save to the project's default `downloads/` folder.
+- Manual entry: enter a Windows or macOS folder path that can be created and written to.
+- System picker: click **Choose folder** to select a folder on the computer running the web server.
+- Recent locations: a path is recorded only after a download request is successfully submitted. Canceled selections, invalid paths, and failed submissions do not update history.
+- History is stored only in this browser's local storage and is never uploaded. Clearing site data also clears the history.
+- Retrying or downloading again keeps the original task's download location; it does not automatically revert to the default folder.
+
+## Task queue and actions
+
+- All web batches share up to 3 worker slots, with at most 2 Bilibili tasks running simultaneously.
+- **Cancel**: queued tasks are canceled immediately; standard downloads stop at the next safe checkpoint.
+- **Retry**: failed or canceled tasks rejoin the same queue, keeping a record of every attempt.
+- **Retry all failed**: resubmit only failed tasks that can be retried.
+- **Download again**: create a new task for a completed download, preserving the original file.
+- The service keeps up to 100 batches in memory. Restarting the web server clears task history, but does not delete downloaded files.
+
+## Bilibili fast mode
+
+- Fast mode requires `aria2c` on the system or in the project. The switch is disabled automatically when it is unavailable.
+- This mode applies only to Bilibili. YouTube and Instagram do not use aria2c.
+- Selected streams larger than 50 MiB may be tested with small sample downloads across up to 4 HTTPS CDN hosts returned by Bilibili.
+- Once a task becomes non-interruptible, the cancel button is unavailable. Wait for the task to finish.
+- If aria2c fails or a CDN returns `HTTP 403` / `HTTP 412`, the project automatically falls back to standard mode or the original CDN.
+- Acceleration does not bypass platform permissions, anti-abuse controls, or rate limits. Actual speed still depends on region, network routing, and CDN load.
+
+## Supported links
+
+| Platform | Common supported pages |
+|---|---|
+| YouTube | Standard videos, short links, Shorts, live streams/replays, embedded videos, YouTube Music, playlists |
+| Instagram | Reels, video posts, IGTV, unexpired Stories accessible to the current account |
+| Bilibili | BV, av, mobile video pages, specific parts, multipart videos, list, medialist, creator collections, b23.tv short links |
+
+Whether playlists, collections, or multipart videos can be expanded depends on public availability, yt-dlp support, and current cookie permissions. The tool does not bypass DRM, additional service APIs, or account access restrictions.
+
+## Login-protected content and cookies
+
+Public content usually does not require cookies. For private content, age-restricted content, or content that explicitly requires login, your account must already have access. Place a Netscape-format cookie file in the project root:
+
+| Platform | Filename |
+|---|---|
+| YouTube | `youtube_cookies.txt` |
+| Instagram | `instagram_cookies.txt` |
+| Bilibili | `bilibili_cookies.txt` |
+
+The open-source extension **Get cookies.txt LOCALLY** is recommended. Install it only from an official page:
+
+- [Chrome / Edge installation page](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc)
+- [Firefox installation page](https://addons.mozilla.org/en-US/firefox/addon/get-cookies-txt-locally/)
+- [Source code and privacy information](https://github.com/kairi003/Get-cookies.txt-LOCALLY)
+
+Export only the current platform's domain, select Netscape format, and confirm that the first line contains `# Netscape HTTP Cookie File`. Save the file in the project root using the filename above, then restart the web server and refresh the page.
+
+> Cookie files are login credentials. Do not upload, share, screenshot, commit them to Git, or paste them into chats, issues, or logs.
+
+## Troubleshooting
+
+| Problem | What to do |
+|---|---|
+| Page will not open | Confirm the web server is running, then visit `http://127.0.0.1:8233` |
+| FFmpeg not detected | Install FFmpeg, add it to the system PATH, reopen your terminal, and restart the web server |
+| aria2c not detected | Standard mode still works; restart the web server after installing aria2c |
+| HTTP 403 or login required | Confirm your browser account can play the content, then update the platform's cookies |
+| HTTP 429 | Requests are too frequent; pause and try again later |
+| Bilibili HTTP 412 | Reduce request frequency and retry later; also update Bilibili cookies for login-protected content |
+| Network timeout | Check your local network, proxy, or VPN settings, then retry |
+| Download has no audio or cannot be merged | Confirm FFmpeg is installed and can be found by the project |
+| Folder is not writable | Choose a folder writable by your user account; avoid protected Windows system folders |
+| Garbled progress text or outdated styling | Restart the web server and hard-refresh the page with `Ctrl+F5` |
+
+## Authorized use
+
+This tool is only for downloading video or audio you own, are authorized to use, or the platform permits you to download. Follow the terms of service of YouTube, Instagram, and Bilibili, and applicable local laws. Do not use it to bypass DRM or access controls, or to download content you have no right to use.

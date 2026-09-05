@@ -1,5 +1,7 @@
 # GTD
 
+**中文** | [English](README.en.md)
+
 **Generalized Transmedia Downloader**
 
 GTD stands for Generalized Transmedia Downloader.
@@ -25,6 +27,7 @@ YouTube + Instagram + Bilibili 视频与多格式音频批量下载工具。
 - 使用 FFmpeg 合并音视频并输出 MP4，或处理 MP3 / FLAC / WAV 音频
 - **命令行模式**：交互式输入和命令行参数两种运行方式
 - **网页模式**：视频与音频使用两个独立输入区，支持合集选择、取消、重试与重新下载，并实时显示任务状态、下载速度和预计剩余时间
+- **全站语言切换**：下载首页、使用说明、赛道指南、冠军档案共享中英文开关，浏览器记住选择并跨页面生效
 - **自定义下载位置**：CLI 与 Web 均可输入路径；Windows 使用预编译并缓存的 DPI-aware 现代资源管理器式文件夹窗口，macOS 使用系统文件夹选择器，留空保持使用 `downloads/`
 - 单个链接下载失败时继续处理后续任务
 - 错误使用稳定错误码和可执行建议；脱敏 JSONL 日志自动轮转
@@ -53,7 +56,8 @@ GTD/
 │   ├── index.html               # Web 主界面
 │   └── guide.html               # Web 使用说明页面
 ├── requirements.txt             # Python 依赖
-├── README.md
+├── README.md                    # 中文说明
+├── README.en.md                 # 英文说明
 ├── cookies.txt                  # 可选：通用 Cookie
 ├── youtube_cookies.txt          # 可选：YouTube 专用 Cookie
 ├── instagram_cookies.txt        # 可选：Instagram 专用 Cookie
@@ -378,6 +382,12 @@ python app.py
 
 主页面右上角的 **“使用说明”** 可打开 `/guide`，查看专门面向网页操作整理的精简文档。
 
+### 切换网页语言
+
+下载首页（`/`）、使用说明（`/guide`）、赛道指南（`/kozekilmu/tracks`）与冠军档案（`/kozekilmu`）共用右上角的 **中文 / EN** 开关。浏览器会保存语言偏好，跳转页面或刷新后继续使用所选语言；切换时保留已输入链接与当前下载任务。开关控制网站文案，源内容标题、文件名与第三方原始错误详情保持原样；命令行界面不受影响。
+
+README 使用独立 Markdown 文件，在顶部点击 **中文 | English** 即可切换完整中文与英文版本。
+
 ### 网页操作流程
 
 1. 下载视频时，在 **“最高画质视频”** 区块粘贴链接或分享文案；只需要音频时，在独立的 **“最高音质音频”** 区块操作。
@@ -387,7 +397,7 @@ python app.py
 5. 视频卡片与音频卡片各有独立的 **“极速模式”** 开关。检测不到 aria2c 时，开关会禁用；该开关只用于 Bilibili。
 6. 后端所有批次共用最多 3 个工作槽，其中 Bilibili 最多同时运行 2 项。超过上限的任务保持“等待中”，有空位后自动开始。
 7. 下方任务列表会显示等待、下载、不可中断的极速下载、完成、失败和已取消状态，并显示下载速度、预计剩余时间、进度、输出规格及保存路径。
-8. 失败任务显示稳定的 `error_code`、中文说明和建议；每次尝试可展开查看状态和时间。
+8. 失败任务显示稳定的 `error_code`，以及当前网页语言的说明和建议；每次尝试可展开查看状态和时间。
 9. 可取消等待中或标准下载任务；失败/取消后可重试，批次中可一次重试所有可重试失败项；完成后可重新下载并保留旧文件。
 10. 每个输入区都有独立的 **“清空输入”**。任务会保持本批次选择的下载位置，重试和重新下载不会退回默认目录。
 
@@ -468,7 +478,7 @@ https://www.youtube.com/watch?v=BaW_jenozKc
 
 ### 结构化错误码与日志
 
-网页会显示稳定的错误码、中文说明和建议，例如 `AUTH_REQUIRED`、`NETWORK_TIMEOUT`、`RATE_LIMITED`、`FORMAT_UNAVAILABLE`、`COLLECTION_EXTRACT_FAILED`、`ARIA2_FAILED` 与 `POSTPROCESS_FAILED`。CLI 下载错误使用相同格式，便于区分凭证、网络、格式、合集解析和后处理问题。
+网页会显示稳定的错误码，以及当前语言的说明和建议，例如 `AUTH_REQUIRED`、`NETWORK_TIMEOUT`、`RATE_LIMITED`、`FORMAT_UNAVAILABLE`、`COLLECTION_EXTRACT_FAILED`、`ARIA2_FAILED` 与 `POSTPROCESS_FAILED`。CLI 下载错误使用相同格式并保留中文说明，便于区分凭证、网络、格式、合集解析和后处理问题。
 
 任务事件写入 `logs/downloader.jsonl`，每行一个 JSON 对象。单个日志达到 10 MiB 后自动轮转，最多保留 5 个备份。日志仅记录任务阶段、平台、媒体/音频格式、速度模式、尝试次数、耗时与错误字段；URL 查询参数、Cookie、Authorization、Token 和密码会被脱敏。日志目录不可写时只显示一次警告，不会让下载任务失败。
 

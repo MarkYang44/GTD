@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-guide-language="zh" data-title-zh="GTD — Generalized Transmedia Downloader" data-title-en="GTD — Generalized Transmedia Downloader">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,6 +16,8 @@
 <title>GTD — Generalized Transmedia Downloader</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/motion.css') }}">
+<script src="/static/js/lmu_guide_language.js"></script>
+<link rel="stylesheet" href="/static/css/language.css">
 </head>
 <body>
 <div class="scroll-progress" id="scroll-progress" aria-hidden="true"></div>
@@ -24,8 +26,9 @@
   <div class="topbar-inner">
     <div class="brand">Designed by Mark Yang</div>
     <div class="topbar-actions">
-      <a class="topbar-link" href="{{ url_for('guide') }}">使用说明</a>
-      <div class="service-status" role="status" aria-label="服务已就绪">
+      {% include '_language_toggle.html' %}
+      <a class="topbar-link" href="{{ url_for('guide') }}"><span data-guide-copy="zh">使用说明</span><span data-guide-copy="en">User guide</span></a>
+      <div class="service-status" role="status" aria-label="服务已就绪" data-i18n-aria-label-zh="服务已就绪" data-i18n-aria-label-en="Service ready">
         <img
           class="service-avatar"
           src="{{ url_for('static', filename='icons/favicon-32x32.png', v='20260811') }}"
@@ -36,7 +39,7 @@
           aria-hidden="true"
           decoding="async"
         >
-        <span class="visually-hidden">服务已就绪</span>
+        <span class="visually-hidden"><span data-guide-copy="zh">服务已就绪</span><span data-guide-copy="en">Service ready</span></span>
       </div>
     </div>
   </div>
@@ -48,14 +51,14 @@
       <div class="hero-kicker" data-motion-reveal data-motion-group="hero" data-motion-order="0">YOUTUBE + INSTAGRAM + BILIBILI</div>
       <h1 id="hero-title" data-motion-reveal data-motion-group="hero" data-motion-order="1">Capture. Convert. Keep.</h1>
       <p class="hero-description" data-motion-reveal data-motion-group="hero" data-motion-order="2">
-        <strong>最高画质视频，或最高音质音频下载。</strong><br>
-        粘贴链接，其余交给下载队列。
+        <strong><span data-guide-copy="zh">最高画质视频，或最高音质音频下载。</span><span data-guide-copy="en">Download video or audio at the best available quality.</span></strong><br>
+        <span data-guide-copy="zh">粘贴链接，其余交给下载队列。</span><span data-guide-copy="en">Paste your links. The download queue handles the rest.</span>
       </p>
     </div>
     <div class="hero-orbit-depth" data-motion-parallax="0.55" aria-hidden="true"><div class="hero-orbit"><span class="orbit-node"></span></div></div>
   </section>
 
-  <section class="metrics-band" data-motion-reveal data-motion-group="metrics" data-motion-order="0" aria-label="运行指标">
+  <section class="metrics-band" data-motion-reveal data-motion-group="metrics" data-motion-order="0" aria-label="运行指标" data-i18n-aria-label-zh="运行指标" data-i18n-aria-label-en="Download metrics">
     <div class="metric"><span class="metric-label">ACTIVE</span><strong class="metric-value" id="metric-active" data-motion-number>00</strong></div>
     <div class="metric"><span class="metric-label">QUEUE</span><strong class="metric-value" id="metric-queue" data-motion-number>00</strong></div>
     <div class="metric"><span class="metric-label">LIMIT</span><strong class="metric-value" id="metric-limit" data-motion-number>03</strong></div>
@@ -63,8 +66,8 @@
 
   <section data-motion-reveal data-motion-group="workspace" data-motion-order="0" aria-labelledby="download-workspace-title">
     <div class="section-heading" data-motion-reveal data-motion-group="workspace" data-motion-order="1">
-      <div><span class="section-index">01 / DOWNLOAD</span><h2 id="download-workspace-title">选择你的输出</h2></div>
-      <p class="section-note">视频与音频使用独立入口，共享最多 3 个并发任务的下载队列。</p>
+      <div><span class="section-index">01 / DOWNLOAD</span><h2 id="download-workspace-title"><span data-guide-copy="zh">选择你的输出</span><span data-guide-copy="en">Choose your output</span></h2></div>
+      <p class="section-note"><span data-guide-copy="zh">视频与音频使用独立入口，共享最多 3 个并发任务的下载队列。</span><span data-guide-copy="en">Separate video and audio inputs share a queue with up to 3 concurrent tasks.</span></p>
     </div>
 
     <div class="download-grid">
@@ -75,36 +78,36 @@
             <span class="card-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="m10 9 5 3-5 3Z"/></svg>
             </span>
-            <h3>最高画质视频</h3>
+            <h3><span data-guide-copy="zh">最高画质视频</span><span data-guide-copy="en">Best-quality video</span></h3>
           </div>
-          <p>下载源站可获取的最高画质视频，并统一输出为 MP4。</p>
+          <p><span data-guide-copy="zh">下载源站可获取的最高画质视频，并统一输出为 MP4。</span><span data-guide-copy="en">Download the highest-quality video available from the source and save it as MP4.</span></p>
         </div>
-        <textarea class="url-input" id="videoUrls" aria-label="视频链接" placeholder="粘贴 YouTube / Instagram / Bilibili 链接或平台分享文案，一行一个"></textarea>
+        <textarea class="url-input" id="videoUrls" aria-label="视频链接" data-i18n-aria-label-zh="视频链接" data-i18n-aria-label-en="Video links" placeholder="粘贴 YouTube / Instagram / Bilibili 链接或平台分享文案，一行一个" data-i18n-placeholder-zh="粘贴 YouTube / Instagram / Bilibili 链接或平台分享文案，一行一个" data-i18n-placeholder-en="Paste YouTube / Instagram / Bilibili links or shared text, one per line"></textarea>
         <div class="format-control-spacer" aria-hidden="true"></div>
         <div class="download-location-control">
-          <label class="download-location-label" for="videoDownloadDir">下载位置</label>
+          <label class="download-location-label" for="videoDownloadDir"><span data-guide-copy="zh">下载位置</span><span data-guide-copy="en">Download location</span></label>
           <div class="download-location-row">
             <div class="download-location-field" id="videoDownloadDirField">
-              <input class="download-location-input" id="videoDownloadDir" type="text" autocomplete="off" placeholder="留空使用默认 downloads 文件夹" aria-haspopup="listbox" aria-controls="videoDownloadDirHistory" aria-expanded="false">
-              <button class="download-location-history-toggle" id="videoDownloadDirHistoryButton" type="button" aria-label="显示最近使用的视频下载位置" aria-controls="videoDownloadDirHistory" aria-expanded="false" onclick="toggleDownloadDirectoryHistory('video', event)">
+              <input class="download-location-input" id="videoDownloadDir" type="text" autocomplete="off" placeholder="留空使用默认 downloads 文件夹" data-i18n-placeholder-zh="留空使用默认 downloads 文件夹" data-i18n-placeholder-en="Leave blank to use the default downloads folder" aria-haspopup="listbox" aria-controls="videoDownloadDirHistory" aria-expanded="false">
+              <button class="download-location-history-toggle" id="videoDownloadDirHistoryButton" type="button" aria-label="显示最近使用的视频下载位置" data-i18n-aria-label-zh="显示最近使用的视频下载位置" data-i18n-aria-label-en="Show recent video download locations" aria-controls="videoDownloadDirHistory" aria-expanded="false" onclick="toggleDownloadDirectoryHistory('video', event)">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
               </button>
-              <div class="download-location-history-menu" id="videoDownloadDirHistory" role="listbox" aria-label="最近使用的视频下载位置" hidden></div>
+              <div class="download-location-history-menu" id="videoDownloadDirHistory" role="listbox" aria-label="最近使用的视频下载位置" data-i18n-aria-label-zh="最近使用的视频下载位置" data-i18n-aria-label-en="Recent video download locations" hidden></div>
             </div>
-            <button class="btn btn-secondary download-location-browse" id="videoBrowseButton" type="button" onclick="chooseDownloadDirectory('video')">选择文件夹</button>
+            <button class="btn btn-secondary download-location-browse" id="videoBrowseButton" type="button" onclick="chooseDownloadDirectory('video')"><span data-guide-copy="zh">选择文件夹</span><span data-guide-copy="en">Choose folder</span></button>
           </div>
-          <span class="download-location-hint" id="videoDownloadDirHint">留空时保持使用项目的 downloads 文件夹</span>
+          <span class="download-location-hint" id="videoDownloadDirHint"><span data-guide-copy="zh">留空时保持使用项目的 downloads 文件夹</span><span data-guide-copy="en">Leave blank to use the project’s downloads folder</span></span>
         </div>
         <div class="turbo-control">
-          <span class="turbo-copy"><span class="turbo-title">极速模式</span><span class="turbo-hint" id="videoTurboHint">正在检测 aria2c…</span></span>
-          <label class="turbo-switch" aria-label="视频极速模式">
+          <span class="turbo-copy"><span class="turbo-title"><span data-guide-copy="zh">极速模式</span><span data-guide-copy="en">Turbo mode</span></span><span class="turbo-hint" id="videoTurboHint"><span data-guide-copy="zh">正在检测 aria2c…</span><span data-guide-copy="en">Checking for aria2c…</span></span></span>
+          <label class="turbo-switch" aria-label="视频极速模式" data-i18n-aria-label-zh="视频极速模式" data-i18n-aria-label-en="Video turbo mode">
             <input type="checkbox" id="videoTurboToggle" disabled>
             <span class="turbo-slider" aria-hidden="true"></span>
           </label>
         </div>
         <div class="btn-row">
-          <button class="btn btn-primary" id="videoDownloadButton" onclick="startDownload('video')">下载视频 <span class="btn-arrow" aria-hidden="true">↘</span></button>
-          <button class="btn btn-secondary" id="videoClearButton" onclick="clearInput('video')">清空输入</button>
+          <button class="btn btn-primary" id="videoDownloadButton" onclick="startDownload('video')"><span data-guide-copy="zh">下载视频</span><span data-guide-copy="en">Download video</span> <span class="btn-arrow" aria-hidden="true">↘</span></button>
+          <button class="btn btn-secondary" id="videoClearButton" onclick="clearInput('video')"><span data-guide-copy="zh">清空输入</span><span data-guide-copy="en">Clear input</span></button>
         </div>
       </section>
 
@@ -115,24 +118,24 @@
             <span class="card-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24"><path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg>
             </span>
-            <h3>最高音质音频</h3>
+            <h3><span data-guide-copy="zh">最高音质音频</span><span data-guide-copy="en">Best-quality audio</span></h3>
           </div>
-          <p>可输出 MP3 V0、源 FLAC、原始音轨或 WAV PCM。</p>
+          <p><span data-guide-copy="zh">可输出 MP3 V0、源 FLAC、原始音轨或 WAV PCM。</span><span data-guide-copy="en">Save as MP3 V0, source FLAC, the original audio track, or WAV PCM.</span></p>
         </div>
-        <textarea class="url-input" id="audioUrls" aria-label="音频链接" placeholder="粘贴音频链接或平台分享文案，一行一个"></textarea>
+        <textarea class="url-input" id="audioUrls" aria-label="音频链接" data-i18n-aria-label-zh="音频链接" data-i18n-aria-label-en="Audio links" placeholder="粘贴音频链接或平台分享文案，一行一个" data-i18n-placeholder-zh="粘贴音频链接或平台分享文案，一行一个" data-i18n-placeholder-en="Paste audio links or shared text, one per line"></textarea>
         <fieldset class="format-control" id="audioFormatControl">
-          <legend>音频输出格式</legend>
+          <legend><span data-guide-copy="zh">音频输出格式</span><span data-guide-copy="en">Audio output format</span></legend>
           <label class="format-option">
             <input type="radio" name="audioFormat" id="audioFormatMp3" value="mp3" checked>
             <span>MP3 V0</span>
           </label>
           <label class="format-option">
             <input type="radio" name="audioFormat" id="audioFormatFlac" value="flac">
-            <span>源 FLAC</span>
+            <span><span data-guide-copy="zh">源 FLAC</span><span data-guide-copy="en">Source FLAC</span></span>
           </label>
           <label class="format-option">
             <input type="radio" name="audioFormat" id="audioFormatSource" value="source">
-            <span>原始音轨</span>
+            <span><span data-guide-copy="zh">原始音轨</span><span data-guide-copy="en">Original audio</span></span>
           </label>
           <label class="format-option">
             <input type="radio" name="audioFormat" id="audioFormatWav" value="wav">
@@ -140,29 +143,29 @@
           </label>
         </fieldset>
         <div class="download-location-control">
-          <label class="download-location-label" for="audioDownloadDir">下载位置</label>
+          <label class="download-location-label" for="audioDownloadDir"><span data-guide-copy="zh">下载位置</span><span data-guide-copy="en">Download location</span></label>
           <div class="download-location-row">
             <div class="download-location-field" id="audioDownloadDirField">
-              <input class="download-location-input" id="audioDownloadDir" type="text" autocomplete="off" placeholder="留空使用默认 downloads 文件夹" aria-haspopup="listbox" aria-controls="audioDownloadDirHistory" aria-expanded="false">
-              <button class="download-location-history-toggle" id="audioDownloadDirHistoryButton" type="button" aria-label="显示最近使用的音频下载位置" aria-controls="audioDownloadDirHistory" aria-expanded="false" onclick="toggleDownloadDirectoryHistory('audio', event)">
+              <input class="download-location-input" id="audioDownloadDir" type="text" autocomplete="off" placeholder="留空使用默认 downloads 文件夹" data-i18n-placeholder-zh="留空使用默认 downloads 文件夹" data-i18n-placeholder-en="Leave blank to use the default downloads folder" aria-haspopup="listbox" aria-controls="audioDownloadDirHistory" aria-expanded="false">
+              <button class="download-location-history-toggle" id="audioDownloadDirHistoryButton" type="button" aria-label="显示最近使用的音频下载位置" data-i18n-aria-label-zh="显示最近使用的音频下载位置" data-i18n-aria-label-en="Show recent audio download locations" aria-controls="audioDownloadDirHistory" aria-expanded="false" onclick="toggleDownloadDirectoryHistory('audio', event)">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
               </button>
-              <div class="download-location-history-menu" id="audioDownloadDirHistory" role="listbox" aria-label="最近使用的音频下载位置" hidden></div>
+              <div class="download-location-history-menu" id="audioDownloadDirHistory" role="listbox" aria-label="最近使用的音频下载位置" data-i18n-aria-label-zh="最近使用的音频下载位置" data-i18n-aria-label-en="Recent audio download locations" hidden></div>
             </div>
-            <button class="btn btn-secondary download-location-browse" id="audioBrowseButton" type="button" onclick="chooseDownloadDirectory('audio')">选择文件夹</button>
+            <button class="btn btn-secondary download-location-browse" id="audioBrowseButton" type="button" onclick="chooseDownloadDirectory('audio')"><span data-guide-copy="zh">选择文件夹</span><span data-guide-copy="en">Choose folder</span></button>
           </div>
-          <span class="download-location-hint" id="audioDownloadDirHint">留空时保持使用项目的 downloads 文件夹</span>
+          <span class="download-location-hint" id="audioDownloadDirHint"><span data-guide-copy="zh">留空时保持使用项目的 downloads 文件夹</span><span data-guide-copy="en">Leave blank to use the project’s downloads folder</span></span>
         </div>
         <div class="turbo-control">
-          <span class="turbo-copy"><span class="turbo-title">极速模式</span><span class="turbo-hint" id="audioTurboHint">正在检测 aria2c…</span></span>
-          <label class="turbo-switch" aria-label="音频极速模式">
+          <span class="turbo-copy"><span class="turbo-title"><span data-guide-copy="zh">极速模式</span><span data-guide-copy="en">Turbo mode</span></span><span class="turbo-hint" id="audioTurboHint"><span data-guide-copy="zh">正在检测 aria2c…</span><span data-guide-copy="en">Checking for aria2c…</span></span></span>
+          <label class="turbo-switch" aria-label="音频极速模式" data-i18n-aria-label-zh="音频极速模式" data-i18n-aria-label-en="Audio turbo mode">
             <input type="checkbox" id="audioTurboToggle" disabled>
             <span class="turbo-slider" aria-hidden="true"></span>
           </label>
         </div>
         <div class="btn-row">
-          <button class="btn btn-audio" id="audioDownloadButton" onclick="startDownload('audio')">下载音频 <span class="btn-arrow" aria-hidden="true">↘</span></button>
-          <button class="btn btn-secondary" id="audioClearButton" onclick="clearInput('audio')">清空输入</button>
+          <button class="btn btn-audio" id="audioDownloadButton" onclick="startDownload('audio')"><span data-guide-copy="zh">下载音频</span><span data-guide-copy="en">Download audio</span> <span class="btn-arrow" aria-hidden="true">↘</span></button>
+          <button class="btn btn-secondary" id="audioClearButton" onclick="clearInput('audio')"><span data-guide-copy="zh">清空输入</span><span data-guide-copy="en">Clear input</span></button>
         </div>
       </section>
     </div>
@@ -171,36 +174,36 @@
       <div class="collection-preview-header">
         <div>
           <span class="section-index">01 / PREVIEW</span>
-          <h3 class="collection-preview-title" id="collectionPreviewTitle">选择合集条目</h3>
+          <h3 class="collection-preview-title" id="collectionPreviewTitle"><span data-guide-copy="zh">选择合集条目</span><span data-guide-copy="en">Select collection items</span></h3>
         </div>
         <div class="collection-preview-tools">
           <label class="collection-select-all">
             <input type="checkbox" id="collectionSelectAll" onchange="toggleCollectionSelectAll()">
-            <span id="collectionSelectAllLabel">全选</span>
+            <span id="collectionSelectAllLabel"><span data-guide-copy="zh">全选</span><span data-guide-copy="en">Select all</span></span>
           </label>
-          <span class="collection-preview-count" id="collectionPreviewCount">最多选择 100 项</span>
+          <span class="collection-preview-count" id="collectionPreviewCount"><span data-guide-copy="zh">最多选择 100 项</span><span data-guide-copy="en">Select up to 100 items</span></span>
         </div>
       </div>
       <div class="collection-list" id="collectionPreviewList"></div>
-      <button class="btn btn-secondary collection-load-more" id="collectionLoadMoreButton" onclick="loadMoreCollectionEntries()" hidden>显示更多条目</button>
+      <button class="btn btn-secondary collection-load-more" id="collectionLoadMoreButton" onclick="loadMoreCollectionEntries()" hidden><span data-guide-copy="zh">显示更多条目</span><span data-guide-copy="en">Show more items</span></button>
       <div class="collection-actions">
-        <button class="btn btn-primary" id="collectionSubmitButton" onclick="submitPreview()">下载所选条目 <span class="btn-arrow" aria-hidden="true">↘</span></button>
-        <button class="btn btn-secondary" onclick="cancelCollectionPreview()">返回修改</button>
+        <button class="btn btn-primary" id="collectionSubmitButton" onclick="submitPreview()"><span data-guide-copy="zh">下载所选条目</span><span data-guide-copy="en">Download selected items</span> <span class="btn-arrow" aria-hidden="true">↘</span></button>
+        <button class="btn btn-secondary" onclick="cancelCollectionPreview()"><span data-guide-copy="zh">返回修改</span><span data-guide-copy="en">Back to editing</span></button>
       </div>
     </section>
   </section>
 
   <section class="task-panel" id="task-card" data-motion-reveal data-motion-group="tasks" data-motion-order="0" data-motion-surface aria-labelledby="task-title">
     <div class="task-header">
-      <div class="task-heading-group"><span class="section-index">02 / OPERATIONS</span><span class="task-title" id="task-title">下载任务</span></div>
+      <div class="task-heading-group"><span class="section-index">02 / OPERATIONS</span><span class="task-title" id="task-title"><span data-guide-copy="zh">下载任务</span><span data-guide-copy="en">Download tasks</span></span></div>
       <div class="task-header-actions">
-        <button class="task-action" id="retryFailedButton" onclick="retryFailedTasks()" hidden>重试全部失败项</button>
-        <span class="task-count" id="task-summary">等待链接输入</span>
+        <button class="task-action" id="retryFailedButton" onclick="retryFailedTasks()" hidden><span data-guide-copy="zh">重试全部失败项</span><span data-guide-copy="en">Retry all failed tasks</span></button>
+        <span class="task-count" id="task-summary"><span data-guide-copy="zh">等待链接输入</span><span data-guide-copy="en">Waiting for links</span></span>
       </div>
     </div>
     <div id="task-container" aria-live="polite">
       <div class="empty-state">
-        <a class="icon" href="{{ url_for('kozekilmu_tracks') }}" aria-label="打开隐藏的 LMU 赛道指南">
+        <a class="icon" href="{{ url_for('kozekilmu_tracks') }}" aria-label="打开隐藏的 LMU 赛道指南" data-i18n-aria-label-zh="打开隐藏的 LMU 赛道指南" data-i18n-aria-label-en="Open the hidden LMU circuit guide">
           <img
             src="{{ url_for('static', filename='icons/favicon-64x64.png', v='20260811') }}"
             srcset="{{ url_for('static', filename='icons/favicon-64x64.png', v='20260811') }} 1x, {{ url_for('static', filename='icons/character-icon-128x128.png', v='20260811') }} 2x, {{ url_for('static', filename='icons/character-icon-192x192.png', v='20260811') }} 3x"
@@ -211,15 +214,15 @@
             decoding="async"
           >
         </a>
-        <p>在上方对应区块粘贴链接并开始下载</p>
+        <p><span data-guide-copy="zh">在上方对应区块粘贴链接并开始下载</span><span data-guide-copy="en">Paste links in the appropriate section above to start downloading</span></p>
       </div>
     </div>
   </section>
 </main>
 
 <footer class="footer">
-  <span class="footer-line footer-line-zh">请仅下载自己拥有权利、获得授权或平台允许下载的视频或音频。 -- Kozeki Ui</span>
-  <span class="footer-line footer-line-en" lang="en">Please only download videos or audio that you own, are authorized to use, or the platform permits you to download. -- Kozeki Ui</span>
+  <span class="footer-line footer-line-zh" data-guide-copy="zh">请仅下载自己拥有权利、获得授权或平台允许下载的视频或音频。 -- Kozeki Ui</span>
+  <span class="footer-line footer-line-en" data-guide-copy="en" lang="en">Please only download videos or audio that you own, are authorized to use, or the platform permits you to download. -- Kozeki Ui</span>
 </footer>
 
 <script defer src="{{ url_for('static', filename='js/motion.js') }}"></script>

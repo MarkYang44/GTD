@@ -18,6 +18,7 @@
 <script src="/static/js/lmu_guide_language.js"></script>
 <link rel="stylesheet" href="/static/css/kozekilmu_tracks.css">
 <link rel="stylesheet" href="/static/css/motion.css">
+<link rel="stylesheet" href="/static/css/language.css">
 </head>
 <body>
 <div class="scroll-progress" id="scroll-progress" aria-hidden="true"></div>
@@ -25,18 +26,7 @@
   <div class="topbar-inner">
     <div class="brand">Designed by Mark Yang</div>
     <div class="topbar-actions">
-      <label class="language-toggle" for="guide-language-toggle">
-        <span data-guide-copy="zh" lang="zh-CN">中文</span><span data-guide-copy="en">ZH</span>
-        <input id="guide-language-toggle"
-               type="checkbox"
-               data-i18n-aria-label-zh="切换为英文"
-               data-i18n-aria-label-en="Switch to Chinese"
-               aria-label="切换为英文">
-        <span class="language-toggle-track" aria-hidden="true">
-          <span class="language-toggle-thumb"></span>
-        </span>
-        <span lang="en">EN</span>
-      </label>
+      {% include '_language_toggle.html' %}
       <a class="topbar-link" href="{{ url_for('index') }}#task-card">{{ guide_copy("返回下载", "Back to downloads") }}</a>
       <div class="service-status"
            role="img"

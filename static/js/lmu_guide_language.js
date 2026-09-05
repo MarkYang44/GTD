@@ -1,9 +1,10 @@
 (() => {
   "use strict";
 
-  const STORAGE_KEY = "gtd_lmu_guide_language_v1";
+  const STORAGE_KEY = "gtd_language_v1";
+  const LEGACY_KEY = "gtd_lmu_guide_language_v1";
   const VALID_LANGUAGES = new Set(["zh", "en"]);
-  const ATTRIBUTE_NAMES = ["alt", "aria-label"];
+  const ATTRIBUTE_NAMES = ["alt", "aria-label", "title", "placeholder"];
   const root = document.documentElement;
 
   function normalize(language) {
@@ -12,7 +13,7 @@
 
   function readStoredLanguage() {
     try {
-      return normalize(window.localStorage.getItem(STORAGE_KEY));
+      return normalize(window.localStorage.getItem(STORAGE_KEY) ?? window.localStorage.getItem(LEGACY_KEY));
     } catch (_error) {
       return "zh";
     }
@@ -21,6 +22,7 @@
   function storeLanguage(language) {
     try {
       window.localStorage.setItem(STORAGE_KEY, language);
+      window.localStorage.setItem(LEGACY_KEY, language);
     } catch (_error) {
       // Storage is optional; the visible language has already changed.
     }
@@ -30,7 +32,8 @@
     const selected = normalize(language);
     root.dataset.guideLanguage = selected;
     root.lang = selected === "zh" ? "zh-CN" : "en";
-    document.title = root.getAttribute(`data-title-${selected}`);
+    const title = root.getAttribute(`data-title-${selected}`);
+    if (title) document.title = title;
     return selected;
   }
 
@@ -57,6 +60,9 @@
     if (persist) {
       storeLanguage(selected);
     }
+    if (typeof document.dispatchEvent === "function") {
+      document.dispatchEvent(new CustomEvent("gtd:languagechange", {detail: {language: selected}}));
+    }
     return selected;
   }
 
@@ -72,7 +78,19 @@
     });
   }
 
-  window.LmuGuideLanguage = { apply, init };
+  const api = {
+    apply, init,
+    get language() { return normalize(root.dataset.guideLanguage); },
+    t(zh, en, params = {}) {
+      const text = api.language === "en" ? en : zh;
+      return text.replace(/\{(\w+)\}/g, (match, key) => Object.hasOwn(params, key) ? String(params[key]) : match);
+    },
+  };
+  window.GtdLanguage = api;
+  window.LmuGuideLanguage = api;
+  window.addEventListener?.("storage", event => {
+    if (event.key === STORAGE_KEY || event.key === null) apply(normalize(event.newValue));
+  });
   applyRoot(readStoredLanguage());
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init, { once: true });

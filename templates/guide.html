@@ -1,6 +1,8 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-guide-language="zh" data-title-zh="使用说明 - GTD" data-title-en="User Guide - GTD">
 <head>
+<script src="{{ url_for('static', filename='js/lmu_guide_language.js') }}"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/language.css') }}">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0f172a">
@@ -394,7 +396,8 @@
   <div class="topbar-inner">
     <div class="brand">Designed by Mark Yang</div>
     <div class="topbar-actions">
-      <a class="topbar-link" href="{{ url_for('index') }}">返回下载</a>
+      {% include '_language_toggle.html' %}
+      <a class="topbar-link" href="{{ url_for('index') }}"><span data-guide-copy="zh">返回下载</span><span data-guide-copy="en" lang="en">Back to downloads</span></a>
       <div class="service-status" role="img" aria-label="GTD — Generalized Transmedia Downloader">
         <img
           class="service-avatar"
@@ -414,29 +417,30 @@
 <main class="guide-main">
   <header class="guide-heading" data-motion-group="guide-hero">
     <div>
-      <p class="guide-kicker" data-motion-reveal data-motion-group="guide-hero" data-motion-order="0">03 / DOCUMENTATION</p>
-      <h1 data-motion-reveal data-motion-group="guide-hero" data-motion-order="1">Read. Inspect. Execute.</h1>
+      <p class="guide-kicker" data-motion-reveal data-motion-group="guide-hero" data-motion-order="0"><span data-guide-copy="zh">03 / 使用说明</span><span data-guide-copy="en" lang="en">03 / DOCUMENTATION</span></p>
+      <h1 data-motion-reveal data-motion-group="guide-hero" data-motion-order="1"><span data-guide-copy="zh">阅读、了解、执行。</span><span data-guide-copy="en" lang="en">Read. Inspect. Execute.</span></h1>
     </div>
-    <p class="guide-intro" data-motion-reveal data-motion-group="guide-hero" data-motion-order="2">项目功能介绍，格式与位置选择、任务提交、查看进度，以及常见问题处理</p>
+    <p class="guide-intro" data-motion-reveal data-motion-group="guide-hero" data-motion-order="2"><span data-guide-copy="zh">项目功能介绍，格式与位置选择、任务提交、查看进度，以及常见问题处理</span><span data-guide-copy="en" lang="en">Features, formats, folders, task submission, progress, and troubleshooting</span></p>
   </header>
 
   <div class="guide-layout">
-    <nav class="guide-toc" aria-label="使用说明目录">
+    <nav class="guide-toc" aria-label="使用说明目录" data-i18n-aria-label-zh="使用说明目录" data-i18n-aria-label-en="User guide contents">
       <div class="guide-toc-inner" data-motion-surface data-motion-tilt-strength="0.4">
-        <span class="guide-toc-label">Contents / 目录</span>
+        <span class="guide-toc-label"><span data-guide-copy="zh">目录</span><span data-guide-copy="en" lang="en">Contents</span></span>
         <ol class="guide-toc-list" id="guide-toc-list"></ol>
       </div>
     </nav>
-    <section class="guide-document" data-motion-surface data-motion-tilt-strength="0.4" aria-label="网页使用说明正文">
-      <div class="markdown-source-label">Rendered from docs/WEB_GUIDE.md</div>
-      <article class="guide-markdown" id="guide-markdown">{{ guide_content }}</article>
+    <section class="guide-document" data-motion-surface data-motion-tilt-strength="0.4" aria-label="网页使用说明正文" data-i18n-aria-label-zh="网页使用说明正文" data-i18n-aria-label-en="Web user guide">
+      <div class="markdown-source-label"><span data-guide-copy="zh">使用说明</span><span data-guide-copy="en" lang="en">User guide</span><!-- Rendered from docs/WEB_GUIDE.md --></div>
+      <article class="guide-markdown" id="guide-markdown" data-guide-copy="zh">{{ guide_content }}</article>
+      <article class="guide-markdown" id="guide-markdown-en" data-guide-copy="en" lang="en">{{ guide_content_en }}</article>
     </section>
   </div>
 </main>
 
 <footer class="footer">
-  <span class="footer-line">请仅下载自己拥有权利、获得授权或平台允许下载的视频或音频。 -- Kozeki Ui</span>
-  <span class="footer-line footer-line-en" lang="en">Please only download videos or audio that you own, are authorized to use, or the platform permits you to download. -- Kozeki Ui</span>
+  <span class="footer-line" data-guide-copy="zh">请仅下载自己拥有权利、获得授权或平台允许下载的视频或音频。 -- Kozeki Ui</span>
+  <span class="footer-line footer-line-en" data-guide-copy="en" lang="en">Please only download videos or audio that you own, are authorized to use, or the platform permits you to download. -- Kozeki Ui</span>
 </footer>
 
 <script defer src="{{ url_for('static', filename='js/motion.js') }}"></script>
@@ -444,24 +448,44 @@
   (() => {
     const initializeGuide = () => {
       const tocList = document.getElementById("guide-toc-list");
-      const markdown = document.getElementById("guide-markdown");
+      let markdown = document.getElementById("guide-markdown");
       if (!tocList || !markdown) return;
 
-      const headings = Array.from(markdown.querySelectorAll("h2"));
-      headings.forEach((heading, index) => {
-        heading.setAttribute("data-motion-reveal", "");
-        heading.setAttribute("data-motion-group", "guide-sections");
-        heading.setAttribute("data-motion-order", String(index % 2));
+      let headings = [];
+      let tocLinks = [];
+      const rebuildContents = () => {
+        let currentHash = window.location?.hash || "";
+        try { currentHash = decodeURIComponent(currentHash); } catch (_) { /* Keep malformed hashes unchanged. */ }
+        let previousIndex = -1;
+        ["guide-markdown", "guide-markdown-en"].forEach(id => {
+          const articleHeadings = Array.from(document.getElementById(id)?.querySelectorAll("h2") || []);
+          const index = articleHeadings.findIndex(heading => `#${heading.id}` === currentHash);
+          if (index >= 0) previousIndex = index;
+        });
+        markdown = document.getElementById(window.GtdLanguage?.language === "en" ? "guide-markdown-en" : "guide-markdown");
+        if (!markdown) return;
+        tocList.textContent = "";
+        headings = Array.from(markdown.querySelectorAll("h2"));
+        headings.forEach((heading, index) => {
+          heading.setAttribute("data-motion-reveal", "");
+          heading.setAttribute("data-motion-group", "guide-sections");
+          heading.setAttribute("data-motion-order", String(index % 2));
 
-        const item = document.createElement("li");
-        const link = document.createElement("a");
-        link.href = `#${heading.id}`;
-        link.textContent = heading.textContent;
-        item.appendChild(link);
-        tocList.appendChild(item);
-      });
+          const item = document.createElement("li");
+          const link = document.createElement("a");
+          link.href = `#${heading.id}`;
+          link.textContent = heading.textContent;
+          item.appendChild(link);
+          tocList.appendChild(item);
+        });
 
-      const tocLinks = Array.from(tocList.querySelectorAll("a"));
+        tocLinks = Array.from(tocList.querySelectorAll("a"));
+        if (previousIndex >= 0 && headings[previousIndex]) {
+          window.history.replaceState(null, "", `#${headings[previousIndex].id}`);
+        }
+        updateCurrentSection();
+        window.MotionSystem?.refresh?.(markdown);
+      };
       const updateCurrentSection = () => {
         let currentId = "";
         headings.forEach(heading => {
@@ -471,8 +495,8 @@
       };
 
       document.addEventListener("motion:scroll-frame", updateCurrentSection);
-      updateCurrentSection();
-      window.MotionSystem?.refresh?.(markdown);
+      document.addEventListener("gtd:languagechange", rebuildContents);
+      rebuildContents();
     };
 
     if (document.readyState === "loading") {
