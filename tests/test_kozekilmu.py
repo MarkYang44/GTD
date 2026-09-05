@@ -146,6 +146,17 @@ class KozekiLmuEasterEggTests(unittest.TestCase):
             html,
         )
 
+    def test_circuit_guide_precedes_victory_archive_in_both_navigations(self):
+        for route in ("/kozekilmu", "/kozekilmu/tracks"):
+            with self.subTest(route=route):
+                html = self.client.get(route).get_data(as_text=True)
+                navigation = re.search(
+                    r'<nav class="easter-nav".*?</nav>', html, re.DOTALL
+                ).group(0)
+                hrefs = re.findall(r'href="([^"]+)"', navigation)
+
+                self.assertEqual(hrefs[:2], ["/kozekilmu/tracks", "/kozekilmu"])
+
     def test_all_supplied_images_are_project_local_and_rendered(self):
         html = self.client.get("/kozekilmu").get_data(as_text=True)
         expected_assets = {
