@@ -13,3 +13,4 @@ bilibili_cookies.txt
 logs/
 /tools/aria2/
 /tools/folder-picker-runtime/
+state/

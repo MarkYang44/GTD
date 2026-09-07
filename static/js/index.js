@@ -25,6 +25,7 @@
     return labels[status] ? tr(...labels[status]) : status;
   }
   const downloadErrors = {
+    INTERRUPTED: ['服务重启导致任务中断', 'The task was interrupted by a server restart', '请手动重试', 'Retry this task manually'],
     CANCELLED: ['任务已取消', 'Task cancelled', '可以点击重试重新加入队列', 'Click Retry to rejoin the queue'],
     NETWORK_TIMEOUT: ['网络连接源站超时', 'The connection to the source timed out', '请检查网络或代理设置后重试', 'Check your network or proxy settings and retry'],
     NETWORK_CONNECTION_RESET: ['媒体传输连接被远端中断', 'The remote server interrupted the media transfer', '程序会尝试备用线路；如仍失败，请检查网络或代理后重试', 'The app will try an alternate connection. If it fails again, check your network or proxy and retry'],
@@ -95,9 +96,9 @@
     for (const [element, label] of localizedLabels) setLocalized(element, label.zh, label.en, label.params);
     if (taskHeading) setTaskHeading(taskHeading.type, taskHeading.format);
     renderDownloadDirectoryHistories();
+    renderBatchHistory();
     if (pendingPreview) {
-      collectionPreviewTitle.textContent = pendingPreview.is_single ? tr('确认下载内容', 'Confirm downloads')
-        : `${pendingPreview.title || tr('下载合集', 'Download collection')} · ${tr('选择条目', 'Select items')}`;
+      collectionPreviewTitle.textContent = previewHeading(pendingPreview);
       renderCollectionEntries(pendingDownloadSettings?.mediaType);
       updateCollectionSelection();
     }
@@ -158,6 +159,12 @@
   const VISIBLE_POLL_INTERVAL_MS = 800;
   const HIDDEN_POLL_INTERVAL_MS = 3000;
 
+  const CURRENT_BATCH_KEY = "gtd_current_batch_v1";
+  const batchHistory = document.getElementById("batchHistory");
+  const historyFeedback = document.getElementById("historyFeedback");
+  let historyBatches = [];
+  let historyLoading = false;
+  let pollFailureCount = 0;
   let pollingTimer = null;
   let pollInFlight = false;
   let pollingActive = false;
@@ -315,6 +322,7 @@
   }
 
   function setControlsDisabled(disabled) {
+    if (batchHistory) batchHistory.disabled = disabled;
     Object.values(downloadControls).forEach(control => {
       control.textarea.disabled = disabled;
       control.downloadButton.disabled = disabled;
@@ -494,11 +502,16 @@
     }
   }
 
+  function previewHeading(preview) {
+    if (preview.is_single) return tr("确认下载内容", "Confirm downloads");
+    const title = !preview.title_is_generated && preview.title ? preview.title
+      : tr("下载预览（{n} 项）", "Download preview ({n} items)", {n: preview.entries?.length || 0});
+    return `${title} · ${tr("选择条目", "Select items")}`;
+  }
+
   function renderCollectionPreview(preview, mediaType) {
     const entries = Array.isArray(preview.entries) ? preview.entries : [];
-    collectionPreviewTitle.textContent = preview.is_single
-      ? tr("确认下载内容", "Confirm downloads")
-      : `${preview.title || tr("下载合集", "Download collection")} · ${tr("选择条目", "Select items")}`;
+    collectionPreviewTitle.textContent = previewHeading(preview);
     collectionRenderLimit = COLLECTION_PAGE_SIZE;
     collectionSelectedIds = new Set(
       entries.filter(entry => entry.selectable === true).slice(0, 100).map(entry => entry.id)
@@ -525,7 +538,7 @@
           <input type="checkbox" class="collection-entry-checkbox" data-entry-id="${escHtml(entry.id)}" data-selectable="${selectable}" ${checked ? "checked" : ""} ${selectable ? "" : "disabled"} onchange="updateCollectionSelection(this)">
           ${thumbnail}
           <span class="collection-entry-copy">
-            <span class="collection-entry-title">${escHtml(entry.title || tr("第 {n} 项", "Item {n}", {n: index + 1}))}</span>
+            <span class="collection-entry-title">${escHtml(!entry.title_is_generated && entry.title ? entry.title : tr("第 {n} 项", "Item {n}", {n: entry.position || index + 1}))}</span>
             <span class="collection-entry-meta">${selectable ? tr("第 {n} 项 · {type}", "Item {n} · {type}", {n: entry.position || index + 1, type: mediaName(mediaType)}) : escHtml(backendText(entry.unavailable_reason) || tr("不可下载", "Unavailable"))}</span>
           </span>
         </label>`;
@@ -643,6 +656,7 @@
       }
       rememberDownloadDirectory(data.download_dir);
       currentBatchId = data.batch_id;
+      rememberCurrentBatch(currentBatchId);
       pendingPreview = null;
       pendingDownloadSettings = null;
       setLocalized(taskSummary, "共 {n} 个任务 · 保存到 {path}", "{n} tasks · Save to {path}", {n: data.task_count, path: data.download_dir || defaultDownloadDir});
@@ -657,6 +671,7 @@
   function startPolling() {
     stopPolling();
     pollingActive = true;
+    pollFailureCount = 0;
     pollStatus();
   }
 
@@ -712,10 +727,29 @@
     const requestedBatchId = currentBatchId;
     pollInFlight = true;
     try {
-      const resp = await fetch("/api/batch/" + requestedBatchId);
-      if (!resp.ok) return;
-      const batch = await resp.json();
+      const resp = await fetchJsonWithTimeout("/api/batch/" + requestedBatchId);
       if (currentBatchId !== requestedBatchId) return;
+      if (resp.status === 404 || resp.status === 410) {
+        stopPolling();
+        currentBatchId = null;
+        rememberCurrentBatch(null);
+        isDownloading = false;
+        setControlsDisabled(false);
+        setOperationalMetrics(0, 0);
+        pendingSkeletonCount = null;
+        lastRenderedBatch = null;
+        lastTaskRenderSignature = null;
+        retryFailedButton.hidden = true;
+        taskHeading = null;
+        setLocalized(taskTitle, "下载任务", "Download tasks");
+        setLocalized(taskSummary, "任务不存在或已过期，请重新提交或选择历史记录。", "This batch is missing or expired. Submit again or select a saved batch.");
+        taskContainer.innerHTML = '<div class="empty-state"><span data-guide-copy="zh">原任务已无法查询，已下载文件不会被删除。</span><span data-guide-copy="en">This batch is no longer available. Downloaded files are kept.</span></div>';
+        return;
+      }
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const batch = resp.data;
+      if (currentBatchId !== requestedBatchId) return;
+      pollFailureCount = 0;
       updateOperationalMetrics(batch);
       const renderSignature = taskRenderSignature(batch);
       if (renderSignature !== lastTaskRenderSignature) {
@@ -732,10 +766,14 @@
         isDownloading = false;
         setControlsDisabled(false);
       }
-    } catch (_) { /* retry on next tick */
+    } catch (_) {
+      if (currentBatchId !== requestedBatchId) return;
+      pollFailureCount = Math.min(pollFailureCount + 1, 6);
+      setLocalized(taskSummary, "连接暂不可用，正在自动重试…", "Connection unavailable. Retrying automatically…");
     } finally {
       pollInFlight = false;
-      scheduleNextPoll(document.hidden ? HIDDEN_POLL_INTERVAL_MS : VISIBLE_POLL_INTERVAL_MS);
+      const normalDelay = document.hidden ? HIDDEN_POLL_INTERVAL_MS : VISIBLE_POLL_INTERVAL_MS;
+      scheduleNextPoll(pollFailureCount ? Math.min(30000, normalDelay * 2 ** pollFailureCount) : normalDelay);
     }
   }
 
@@ -932,7 +970,72 @@
     return div.innerHTML;
   }
 
+  async function fetchJsonWithTimeout(url, timeoutMs = 15000) {
+    const controller = typeof AbortController === "undefined" ? null : new AbortController();
+    const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+    try {
+      const response = await fetch(url, controller ? {signal: controller.signal} : undefined);
+      const data = response.ok ? await response.json() : null;
+      return {ok: response.ok, status: response.status, data};
+    } finally { if (timer !== null) clearTimeout(timer); }
+  }
+
+  function rememberCurrentBatch(batchId) {
+    try {
+      if (batchId) localStorage.setItem(CURRENT_BATCH_KEY, batchId);
+      else localStorage.removeItem(CURRENT_BATCH_KEY);
+    } catch (_) { /* Persistence is optional; current-page controls still work. */ }
+  }
+
+  function renderBatchHistory() {
+    if (!batchHistory) return;
+    const selected = currentBatchId || batchHistory.value;
+    batchHistory.innerHTML = `<option value="">${tr("选择历史任务", "Select a saved batch")}</option>` + historyBatches.map(batch => {
+      const date = new Date(batch.created_at * 1000).toLocaleString(window.GtdLanguage?.language === "en" ? "en-US" : "zh-CN", {hour12: false});
+      const description = tr("{date} · {n} 项 · 完成 {done} · 失败 {failed}", "{date} · {n} items · {done} completed · {failed} failed", {date, n: batch.total, done: batch.completed, failed: batch.failed});
+      return `<option value="${escHtml(batch.id)}">${escHtml(description)}</option>`;
+    }).join("");
+    batchHistory.value = selected || "";
+  }
+
+  async function refreshBatchHistory() {
+    if (!batchHistory || historyLoading) return;
+    historyLoading = true;
+    try {
+      const response = await fetchJsonWithTimeout("/api/batches");
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = response.data;
+      historyBatches = Array.isArray(data.batches) ? data.batches : [];
+      renderBatchHistory();
+      if (historyFeedback) setLocalized(historyFeedback, "已保存 {n} 个批次；重启后中断的任务可手动重试。", "{n} saved batches. Tasks interrupted by a restart can be retried manually.", {n: historyBatches.length});
+    } catch (_) {
+      if (historyFeedback) setLocalized(historyFeedback, "暂时无法读取历史，请点击刷新重试。", "History is unavailable. Click Refresh to try again.");
+    } finally { historyLoading = false; }
+  }
+
+  function selectHistoryBatch(batchId) {
+    if (!batchId || isDownloading || pendingPreview) return;
+    stopPolling();
+    currentBatchId = batchId;
+    rememberCurrentBatch(batchId);
+    lastTaskRenderSignature = null;
+    isDownloading = true;
+    setControlsDisabled(true);
+    setLocalized(taskSummary, "正在恢复任务状态…", "Restoring task status…");
+    startPolling();
+  }
+
+  function initializeBatchHistory() {
+    refreshBatchHistory();
+    try {
+      const saved = localStorage.getItem(CURRENT_BATCH_KEY);
+      if (saved && /^[a-f0-9]{32}$/.test(saved)) selectHistoryBatch(saved);
+    } catch (_) { /* Storage may be blocked. */ }
+  }
+
   Object.assign(window, {
+    refreshBatchHistory,
+    selectHistoryBatch,
     cancelCollectionPreview,
     chooseDownloadDirectory,
     clearInput,
@@ -948,3 +1051,4 @@
   document.addEventListener("gtd:languagechange", refreshDownloadLanguage);
   initializeDownloadDirectoryHistory();
   loadCapabilities();
+  initializeBatchHistory();

@@ -1,0 +1,3 @@
+# Optional upstream extractor fixes; this moving channel is not the baseline.
+# Install AFTER requirements.txt with --upgrade --force-reinstall --no-cache-dir.
+yt-dlp[curl-cffi] @ https://github.com/yt-dlp/yt-dlp/archive/master.tar.gz

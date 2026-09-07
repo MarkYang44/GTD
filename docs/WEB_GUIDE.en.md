@@ -2,6 +2,8 @@
 
 This guide covers common operations, download formats, task statuses, and troubleshooting in the GTD — Generalized Transmedia Downloader web interface.
 
+Use Python 3.10 or later and install the pinned direct dependency baseline in the [README](../README.en.md). To obtain upstream yt-dlp extractor fixes, follow its opt-in update instructions.
+
 ## Getting started
 
 Once the project web server is running, visit [http://127.0.0.1:8233](http://127.0.0.1:8233) in your browser. You can submit video and audio tasks separately.
@@ -34,7 +36,7 @@ Use the **ZH / EN** switch at the top right to change languages. Your choice app
 - Manual entry: enter a Windows or macOS folder path that can be created and written to.
 - System picker: click **Choose folder** to select a folder on the computer running the web server.
 - Recent locations: a path is recorded only after a download request is successfully submitted. Canceled selections, invalid paths, and failed submissions do not update history.
-- History is stored only in this browser's local storage and is never uploaded. Clearing site data also clears the history.
+- Recent download locations are stored only in this browser's local storage and is never uploaded. Clearing site data also clears the history.
 - Retrying or downloading again keeps the original task's download location; it does not automatically revert to the default folder.
 
 ## Task queue and actions
@@ -44,7 +46,7 @@ Use the **ZH / EN** switch at the top right to change languages. Your choice app
 - **Retry**: failed or canceled tasks rejoin the same queue, keeping a record of every attempt.
 - **Retry all failed tasks**: resubmit only failed tasks that can be retried.
 - **Redownload**: create a new task for a completed download, preserving the original file.
-- The service keeps up to 100 batches in memory. Restarting the web server clears task history, but does not delete downloaded files.
+- Task history is saved locally in `state/tasks.sqlite3` (override with the `GTD_HISTORY_PATH` environment variable), including source URLs, output paths, and task results, but excluding cookie files and downloader internals. Up to 100 batches are retained by pruning the oldest finished batches; active batches are never pruned. Refreshing the page restores the current batch, and Task history lets you select older batches. After a server restart, unfinished tasks become retryable `INTERRUPTED` failures and require a manual retry; no downloads start automatically, and downloaded files are kept.
 
 ## Bilibili turbo mode
 

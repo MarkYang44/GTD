@@ -1,0 +1,2 @@
+# Optional browser regression tests; install requirements.txt first.
+playwright==1.62.0

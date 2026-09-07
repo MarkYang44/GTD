@@ -72,7 +72,7 @@ Cookie 文件均为可选文件，不配置时无需创建。平台专用 Cookie
 
 需要安装：
 
-- Python 3.9 或更高版本
+- Python 3.10 或更高版本
 - pip
 - FFmpeg
 
@@ -152,6 +152,16 @@ Windows PowerShell（无需激活虚拟环境）：
 ```
 
 `requirements.txt` 会同时安装 yt-dlp 和 `mutagen`；后者用于检测并写入 MP3、FLAC、M4A/MP4、OGG 与 Opus 的封面元数据。请通过依赖文件安装，不要只单独安装 yt-dlp。
+
+默认依赖固定为 yt-dlp `2026.7.4`、Flask `3.1.3` 和 Mutagen `1.48.1`。这是直接依赖的版本基线；间接依赖仍由 pip 按 Python 版本与操作系统解析，不是完整的跨平台锁文件。Python 低于 3.10 时，Web 和命令行入口会提示升级；升级后请重新创建虚拟环境。
+
+如果平台改版导致解析失败，可主动安装 yt-dlp 的上游开发版本：
+
+```bash
+python -m pip install --upgrade --force-reinstall --no-cache-dir -r requirements-update.txt
+```
+
+该通道会随上游变化，可能与基线行为不同。恢复基线可运行 `python -m pip install --force-reinstall -r requirements.txt`。更新或恢复后需重启 Web 服务。
 
 后续示例默认虚拟环境已经启用，因此统一使用 `python`。如果 Windows PowerShell 未启用虚拟环境，请将示例开头的 `python` 替换为 `.\venv\Scripts\python.exe`，例如使用 `.\venv\Scripts\python.exe app.py` 启动网站。
 
@@ -407,9 +417,9 @@ README 使用独立 Markdown 文件，在顶部点击 **中文 | English** 即�
 
 - **取消**：等待任务立即取消；正在运行的标准任务在下载器的下一个协作检查点停止，并清理本次新生成的临时文件。
 - **aria2c 极速任务**：进入“不可中断”状态后不提供取消按钮，必须等待该任务完成；这是已确认的极速模式行为。
-- **重试**：失败或取消任务重新进入同一队列，并保留每一次尝试记录。不可重试错误不会显示重试操作。
+- **重试**：失败或取消任务重新进入同一队列，并保留尝试记录（重启后恢复最近 20 次）。不可重试错误不会显示重试操作。
 - **重新下载**：只针对已完成任务，生成新任务且不覆盖原文件；新文件使用 `(2)`、`(3)` 等递增后缀。
-- **批次保留**：服务在内存中最多保留 100 个批次，重启 Web 服务后历史任务状态清空，但已经下载的文件不会被删除。
+- **批次保留**：任务历史保存在本机 `state/tasks.sqlite3`（可用环境变量 `GTD_HISTORY_PATH` 指定路径），记录源链接、输出路径与任务结果，不存储 Cookie 文件或下载器内部对象。最多保留 100 个批次，优先清理最旧的已结束批次；进行中的批次不会被清理。刷新页面会恢复当前批次，也可在“任务历史”中选择旧批次。服务重启后，未完成任务标记为可重试的 `INTERRUPTED`，需手动点击重试，不会自动重新下载；已下载文件不会删除。
 
 ### 测试批量下载
 
@@ -557,7 +567,7 @@ Cookie 文件等同于登录凭证。不要上传、分享、截图或提交到 
 | 网络连接超时 | 检查本机网络、代理或 VPN 配置后重试 |
 | 下载后没有声音或无法合并 | 确认 FFmpeg 已安装并位于系统 `PATH` 中 |
 | MP3 下载失败或提示没有音频流 | 确认 FFmpeg 可用；再在浏览器中确认源内容确实包含可播放的音频 |
-| yt-dlp 突然无法解析平台 | 在虚拟环境中运行 `python -m pip install -U yt-dlp` 后重试 |
+| yt-dlp 突然无法解析平台 | 按安装章节主动切换 `requirements-update.txt` 上游通道并重启服务后重试 |
 | Web 页面打不开 | 确认 `python app.py` 已启动且终端无报错，访问 `http://127.0.0.1:8233` |
 | Web 进度出现控制码或乱码 | 重启 Web 服务并强制刷新页面；新版会在后端清除 yt-dlp 的终端颜色控制码 |
 | Web 端口被占用 | 修改 `app.py` 中的 `WEB_PORT = 8233` 后重新启动服务 |
@@ -567,6 +577,24 @@ Cookie 文件等同于登录凭证。不要上传、分享、截图或提交到 
 - 所有任务成功：退出码 `0`
 - 任一任务失败或没有合法链接：退出码 `1`
 - 用户通过快捷键取消交互：退出码 `130`
+
+## 开发验证
+
+使用 Python 3.10+ 和 Node.js 22（JavaScript 回归脚本需要 Node），在项目根目录运行：
+
+```bash
+python -m unittest discover -s tests -p "test_*.py"
+```
+
+真实 Chromium 浏览器回归另行安装开发依赖与浏览器：
+
+```bash
+python -m pip install -r requirements-dev.txt
+python -m playwright install chromium
+python -m unittest discover -s tests/browser -p "test_*.py"
+```
+
+GitHub Actions 配置覆盖 macOS / Windows 与 Python 3.10 / 3.13，运行单元测试、JavaScript 回归和浏览器测试。测试使用模拟下载响应，不验证真实平台连通性或下载速度。
 
 ## 合规说明
 

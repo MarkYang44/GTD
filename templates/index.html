@@ -201,6 +201,14 @@
         <span class="task-count" id="task-summary"><span data-guide-copy="zh">等待链接输入</span><span data-guide-copy="en">Waiting for links</span></span>
       </div>
     </div>
+    <div class="batch-history-controls">
+      <label for="batchHistory"><span data-guide-copy="zh">任务历史</span><span data-guide-copy="en">Task history</span></label>
+      <select id="batchHistory" onchange="selectHistoryBatch(this.value)">
+        <option value="">—</option>
+      </select>
+      <button class="task-action" type="button" onclick="refreshBatchHistory()"><span data-guide-copy="zh">刷新历史</span><span data-guide-copy="en">Refresh history</span></button>
+      <span id="historyFeedback" role="status"></span>
+    </div>
     <div id="task-container" aria-live="polite">
       <div class="empty-state">
         <a class="icon" href="{{ url_for('kozekilmu_tracks') }}" aria-label="打开隐藏的 LMU 赛道指南" data-i18n-aria-label-zh="打开隐藏的 LMU 赛道指南" data-i18n-aria-label-en="Open the hidden LMU circuit guide">

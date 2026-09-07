@@ -43,6 +43,7 @@ class CollectionEntry:
     thumbnail: str | None
     selectable: bool
     unavailable_reason: str | None
+    title_is_generated: bool = False
 
 
 @dataclass(frozen=True)
@@ -54,11 +55,13 @@ class CollectionPreview:
     is_single: bool
     requires_selection: bool = False
     truncated: bool = False
+    title_is_generated: bool = False
 
     def to_dict(self) -> dict[str, object]:
         return {
             "preview_id": self.id,
             "title": self.title,
+            "title_is_generated": self.title_is_generated,
             "platform": self.platform,
             "is_single": self.is_single,
             "requires_selection": self.requires_selection,
@@ -227,18 +230,25 @@ def resolve_collection(
                 ),
                 selectable=selectable,
                 unavailable_reason=unavailable_reason,
+                title_is_generated=not bool(entry.get("title")),
             )
         )
 
     is_single = not is_expanded and len(entries) == 1
+    title = info.get("title")
+    title_is_generated = False
+    if not title:
+        title = entries[0].title if entries else "未命名合集"
+        title_is_generated = entries[0].title_is_generated if entries else True
     return CollectionPreview(
         id=uuid.uuid4().hex,
-        title=str(info.get("title") or entries[0].title if entries else "未命名合集"),
+        title=str(title),
         platform=platform,
         entries=tuple(entries),
         is_single=is_single,
         requires_selection=(not is_single or any(not entry.selectable for entry in entries)),
         truncated=truncated,
+        title_is_generated=title_is_generated,
     )
 
 
@@ -290,6 +300,7 @@ def resolve_inputs(
     return CollectionPreview(
         id=uuid.uuid4().hex,
         title=(previews[0].title if is_single else f"下载预览（{len(merged_entries)} 项）"),
+        title_is_generated=(previews[0].title_is_generated if is_single else True),
         platform=platform,
         entries=tuple(merged_entries),
         is_single=is_single,

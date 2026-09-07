@@ -5,6 +5,11 @@ GTD — Generalized Transmedia Downloader — Web 界面入口。
 启动本地 Flask 服务，通过浏览器访问网页界面进行批量下载操作。
 """
 
+from runtime_requirements import require_supported_python
+
+require_supported_python()
+
+import os
 import mimetypes
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlparse
@@ -46,6 +51,7 @@ from folder_picker import (
 from guide_renderer import render_markdown_file
 from lmu_guide_data import CARS, CIRCUITS, GUIDE_UPDATED
 from task_control import TaskManager, TaskSeed
+from task_history import TaskHistoryStore
 
 app = Flask(__name__)
 WEB_HOST = "0.0.0.0"
@@ -84,6 +90,7 @@ task_manager = TaskManager(
     max_batches=MAX_STORED_BATCHES,
     capability_aware_runner=True,
     directory_preparer=_prepare_output_dir,
+    history_store=TaskHistoryStore(os.environ.get("GTD_HISTORY_PATH", str(Path(__file__).resolve().parent / "state" / "tasks.sqlite3"))),
 )
 
 # ---------------------------------------------------------------------------
@@ -374,6 +381,12 @@ def api_download():
     )
 
 
+@app.get("/api/batches")
+def api_batches():
+    """List locally saved batch summaries, newest first."""
+    return jsonify({"batches": task_manager.list_batches()})
+
+
 @app.route("/api/batch/<batch_id>")
 def api_batch_status(batch_id: str):
     """轮询接口：返回指定 batch 的当前状态。"""
@@ -432,6 +445,13 @@ def api_retry_failed(batch_id: str):
             "任务批次不存在或已过期",
             "请刷新任务列表后重试",
             404,
+        )
+    except ValueError as error:
+        return _api_error(
+            "TASK_STATE_CONFLICT",
+            str(error),
+            "请检查下载目录并刷新任务状态后重试",
+            409,
         )
 
 

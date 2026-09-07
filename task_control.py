@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import sqlite3
 import threading
 import time
 import uuid
@@ -76,6 +77,7 @@ class TaskManager:
         directory_preparer: Callable[
             [str | Path | None], _PreparedOutputDir
         ] = prepare_output_dir,
+        history_store=None,
     ) -> None:
         if max_workers < 1 or max_bilibili < 1 or max_batches < 1:
             raise ValueError("任务管理器容量必须大于零")
@@ -101,6 +103,9 @@ class TaskManager:
         self._generations: dict[str, int] = {}
         self._version_reservations: dict[str, set[int]] = {}
         self._logger = logger if logger is not None else get_download_logger()
+        self._history_store = history_store
+        if history_store is not None:
+            self._restore_history_locked()
 
     def create_batch(
         self,
@@ -167,10 +172,22 @@ class TaskManager:
                 audio_format=audio_format,
                 speed_mode=speed_mode,
             )
+            self._persist_batch_locked(batch_id)
             for task in tasks:
                 self._submit_locked(batch_id, task)
             self._prune_locked()
             return self._public_batch(batch)
+
+    def list_batches(self) -> list[dict[str, object]]:
+        """Newest-first summaries without task payloads."""
+        with self._lock:
+            summaries = []
+            for batch in sorted(self._batches.values(), key=lambda item: item["created_at"], reverse=True):
+                summary = self._public_batch(batch)
+                summary.pop("tasks")
+                summary["created_at"] = batch["created_at"]
+                summaries.append(summary)
+            return summaries
 
     def snapshot(self, batch_id: str) -> dict[str, object]:
         with self._lock:
@@ -213,6 +230,7 @@ class TaskManager:
                     platform=task["platform"],
                     attempt_number=task["attempt_count"],
                 )
+            self._persist_batch_locked(batch_id)
             return self._public_task(task)
 
     def retry(self, batch_id: str, task_id: str) -> dict[str, object]:
@@ -227,6 +245,7 @@ class TaskManager:
                 and not error.get("retryable")
             ):
                 raise ValueError("该错误不支持重试")
+            self._prepare_restored_task_locked(task)
             task.update(
                 {
                     "status": "queued",
@@ -245,6 +264,7 @@ class TaskManager:
                 platform=task["platform"],
                 attempt_number=task["attempt_count"] + 1,
             )
+            self._persist_batch_locked(batch_id)
             self._submit_locked(batch_id, task)
             return self._public_task(task)
 
@@ -273,6 +293,7 @@ class TaskManager:
             if not isinstance(filepath, str) or not filepath:
                 raise ValueError("已完成任务缺少输出文件信息")
 
+            self._prepare_restored_task_locked(source)
             reservation_key = str(source.get("version_key") or filepath)
             base_filepath = str(source.get("base_filepath") or filepath)
             version = self._reserve_version_locked(
@@ -308,6 +329,7 @@ class TaskManager:
                 platform=task["platform"],
                 output_version=version,
             )
+            self._persist_batch_locked(batch_id)
             self._submit_locked(batch_id, task)
             return self._public_task(task)
 
@@ -426,6 +448,7 @@ class TaskManager:
                 "error": None,
             }
             task["attempts"].append(attempt)
+            self._persist_batch_locked(batch_id)
             started_at = time.monotonic()
             runner_fields = {
                 "platform": task["platform"],
@@ -469,6 +492,7 @@ class TaskManager:
                         speed_mode=data.get("speed_mode"),
                         turbo_fallback=bool(data.get("turbo_fallback")),
                     )
+                    self._persist_batch_locked(batch_id)
                 elif event == "progress":
                     current.pop("postprocessing", None)
                     current["progress"] = deepcopy(data)
@@ -634,6 +658,7 @@ class TaskManager:
             self._clear_progress_fields(task)
             log_download_event(self._logger, status, **event_fields)
             self._release_execution_handles_locked(task_id)
+            self._persist_batch_locked(batch_id)
             self._prune_locked()
 
     def _public_batch(self, batch: dict[str, object]) -> dict[str, object]:
@@ -716,6 +741,11 @@ class TaskManager:
             )
             if removable is None:
                 return
+            if self._history_store is not None:
+                try:
+                    self._history_store.delete_batch(removable)
+                except (sqlite3.Error, OSError):
+                    self._logger.warning("Could not prune local task history")
             batch = self._batches.pop(removable)
             for task in batch["tasks"]:
                 task_id = str(task["id"])
@@ -723,6 +753,44 @@ class TaskManager:
                 self._futures.pop(task_id, None)
                 self._generations.pop(task_id, None)
             self._rebuild_version_reservations_locked()
+
+    def _persist_batch_locked(self, batch_id: str) -> None:
+        if self._history_store is not None and batch_id in self._batches:
+            try:
+                self._history_store.save_batch(self._batches[batch_id])
+            except (sqlite3.Error, OSError):
+                # A full or temporarily locked disk must not strand live tasks.
+                self._logger.warning("Could not save local task history")
+
+    def _prepare_restored_task_locked(self, task: dict[str, object]) -> None:
+        if task.get("_prepared_output_dir") is None:
+            prepared = self._directory_preparer(task.get("download_dir"))
+            prepared_output_dir(prepared)
+            task["_prepared_output_dir"] = prepared
+            task["download_dir"] = str(prepared)
+
+    def _restore_history_locked(self) -> None:
+        for batch in self._history_store.load_batches():
+            for task in batch["tasks"]:
+                task["_prepared_output_dir"] = None
+                task["progress"] = None
+                task["cancel_requested"] = False
+                if task["status"] not in self.TERMINAL_STATES:
+                    error = {
+                        "error_code": "INTERRUPTED",
+                        "message": "服务停止，任务已中断",
+                        "suggestion": "可以点击重试重新加入队列",
+                        "retryable": True,
+                    }
+                    task["status"] = "failed"
+                    task["error"] = error
+                    for attempt in task["attempts"]:
+                        if attempt["status"] not in self.TERMINAL_STATES:
+                            attempt.update(status="failed", finished_at=time.time(), error=deepcopy(error))
+            self._batches[batch["id"]] = batch
+            self._persist_batch_locked(batch["id"])
+        self._rebuild_version_reservations_locked()
+        self._prune_locked()
 
     def _release_execution_handles_locked(self, task_id: str) -> None:
         self._tokens.pop(task_id, None)

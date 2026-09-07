@@ -8,6 +8,10 @@ GTD — Generalized Transmedia Downloader — 命令行入口。
 核心下载逻辑位于 downloader.py，本文件仅保留命令行交互与结果展示。
 """
 
+from runtime_requirements import require_supported_python
+
+require_supported_python()
+
 import re
 import sys
 from pathlib import Path

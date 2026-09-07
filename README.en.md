@@ -72,7 +72,7 @@ All cookie files are optional; there is no need to create them unless you use co
 
 Install:
 
-- Python 3.9 or later
+- Python 3.10 or later
 - pip
 - FFmpeg
 
@@ -152,6 +152,16 @@ Windows PowerShell (activation not required):
 ```
 
 `requirements.txt` installs both yt-dlp and `mutagen`. The latter detects and writes artwork metadata for MP3, FLAC, M4A/MP4, OGG, and Opus. Install from the dependency file rather than installing only yt-dlp.
+
+The default direct dependency baseline pins yt-dlp `2026.7.4`, Flask `3.1.3`, and Mutagen `1.48.1`. pip still resolves transitive dependencies for your Python version and operating system; this is not a complete cross-platform lock file. Both entrypoints show an upgrade message below Python 3.10. Recreate your virtual environment after upgrading Python.
+
+If platform changes break extraction, you can explicitly opt into yt-dlp's upstream development version:
+
+```bash
+python -m pip install --upgrade --force-reinstall --no-cache-dir -r requirements-update.txt
+```
+
+This channel changes with upstream and may behave differently from the baseline. Restore the baseline with `python -m pip install --force-reinstall -r requirements.txt`. Restart the web server after updating or restoring dependencies.
 
 The examples below assume the virtual environment is active and use `python`. If it is not active in Windows PowerShell, replace the initial `python` with `.\venv\Scripts\python.exe`; for example, start the website with `.\venv\Scripts\python.exe app.py`.
 
@@ -411,9 +421,9 @@ This README uses separate Markdown files: follow **中文 | English** at the top
 
 - **Cancel**: queued tasks are canceled immediately. Running standard tasks stop at the downloader's next cooperative checkpoint and clean up temporary files created by that attempt.
 - **aria2c turbo tasks**: once a task becomes non-interruptible, no cancel button is available; wait for it to finish. This is the intended Turbo Mode behavior.
-- **Retry**: failed or canceled tasks reenter the same queue, preserving every attempt record. Non-retryable errors do not offer a retry action.
+- **Retry**: failed or canceled tasks reenter the same queue, preserving attempt records (the latest 20 are restored after a restart). Non-retryable errors do not offer a retry action.
 - **Download again**: available only for completed tasks; creates a new task without overwriting the original file. New files use increasing suffixes such as `(2)` and `(3)`.
-- **Batch retention**: the server retains up to 100 batches in memory. Restarting the web server clears task history but does not delete downloaded files.
+- **Batch retention**: Task history is saved locally in `state/tasks.sqlite3` (override with the `GTD_HISTORY_PATH` environment variable), including source URLs, output paths, and task results, but excluding cookie files and downloader internals. Up to 100 batches are retained by pruning the oldest finished batches; active batches are never pruned. Refreshing the page restores the current batch, and Task history lets you select older batches. After a server restart, unfinished tasks become retryable `INTERRUPTED` failures and require a manual retry; no downloads start automatically, and downloaded files are kept.
 
 ### Test Batch Downloads
 
@@ -561,7 +571,7 @@ Cookie files are login credentials. Do not upload, share, screenshot, or commit 
 | Network timeout | Check your network, proxy, or VPN configuration and retry |
 | No sound after download or merging fails | Ensure FFmpeg is installed and available in the system `PATH` |
 | MP3 download fails or no audio stream found | Confirm that FFmpeg works, then check in your browser that the source contains playable audio |
-| yt-dlp suddenly fails to parse a platform | Run `python -m pip install -U yt-dlp` in the virtual environment and retry |
+| yt-dlp suddenly fails to parse a platform | Opt into `requirements-update.txt` as described in Installation, restart the server, and retry |
 | Web page will not open | Confirm that `python app.py` is running without terminal errors, then open `http://127.0.0.1:8233` |
 | Web progress contains control codes or garbled text | Restart the web server and force-refresh the page; the current backend strips yt-dlp terminal color codes |
 | Web port already in use | Change `WEB_PORT = 8233` in `app.py` and restart the server |
@@ -571,6 +581,24 @@ Cookie files are login credentials. Do not upload, share, screenshot, or commit 
 - All tasks succeed: exit code `0`
 - Any task fails or no valid links are provided: exit code `1`
 - The user cancels interactive input with a keyboard shortcut: exit code `130`
+
+## Development checks
+
+With Python 3.10+ and Node.js 22 (required by the JavaScript regression harnesses), run from the project root:
+
+```bash
+python -m unittest discover -s tests -p "test_*.py"
+```
+
+Install the optional development dependencies and Chromium for browser regression tests:
+
+```bash
+python -m pip install -r requirements-dev.txt
+python -m playwright install chromium
+python -m unittest discover -s tests/browser -p "test_*.py"
+```
+
+The GitHub Actions configuration covers macOS / Windows and Python 3.10 / 3.13, running unit tests, JavaScript harnesses, and browser tests. Tests mock download responses; they do not validate live platform connectivity or download speed.
 
 ## Acceptable Use
 

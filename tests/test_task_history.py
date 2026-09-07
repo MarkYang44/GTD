@@ -2,6 +2,7 @@
 import importlib.util
 import json
 import tempfile
+import sqlite3
 import threading
 import unittest
 from pathlib import Path
@@ -18,7 +19,7 @@ class TaskHistoryTests(unittest.TestCase):
         from task_history import TaskHistoryStore
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name)
+        self.root = Path(self.temp.name).resolve()
         self.store = TaskHistoryStore(self.root / 'state' / 'tasks.sqlite3')
 
     def manager(self, runner=None, **kwargs):
@@ -106,6 +107,44 @@ class TaskHistoryTests(unittest.TestCase):
         self.assertIn('created_at', summaries[0])
         with self.assertRaises(KeyError):
             restored.snapshot(ids[0])
+
+    def test_history_write_failure_does_not_strand_downloads(self):
+        self.store.save_batch = Mock(side_effect=sqlite3.OperationalError('disk full'))
+        manager = self.manager()
+        with self.assertLogs(manager._logger, level='WARNING'):
+            batch = self.create(manager)
+            self.assertTrue(manager.wait_for_idle())
+        self.assertEqual(manager.snapshot(batch['id'])['completed'], 1)
+
+    def test_progress_ticks_do_not_write_history_and_cancellation_is_saved(self):
+        entered, release = threading.Event(), threading.Event()
+        def runner(url, **kw):
+            for number in range(50):
+                kw['progress_callback']('progress', {'percent_text': str(number)})
+            entered.set()
+            release.wait(5)
+            return {'filepath': str(self.root / 'out.mp4')}
+        self.store.save_batch = Mock(wraps=self.store.save_batch)
+        manager = self.manager(runner, max_workers=1)
+        self.addCleanup(release.set)
+        batch = manager.create_batch([TaskSeed('youtube', 'one'), TaskSeed('youtube', 'two')],
+                                     'video', 'mp3', 'normal', str(self.root / 'media'))
+        self.assertTrue(entered.wait(2))
+        self.assertEqual(self.store.save_batch.call_count, 2)
+        manager.cancel(batch['id'], batch['tasks'][1]['id'])
+        self.assertEqual(self.store.load_batches()[0]['tasks'][1]['status'], 'cancelled')
+        release.set()
+
+    def test_failed_directory_revalidation_preserves_restored_task(self):
+        first = self.manager()
+        batch = self.create(first)
+        self.assertTrue(first.wait_for_idle())
+        first.shutdown()
+        restored = self.manager(directory_preparer=Mock(side_effect=ValueError('directory unavailable')))
+        with self.assertRaisesRegex(ValueError, 'directory unavailable'):
+            restored.redownload(batch['id'], batch['tasks'][0]['id'])
+        self.assertEqual(restored.snapshot(batch['id'])['total'], 1)
+        self.assertEqual(restored.snapshot(batch['id'])['completed'], 1)
 
     def test_store_omits_credentials_private_diagnostics_and_capabilities(self):
         first = self.manager(lambda url, **kw: {'filepath': str(self.root / 'out.mp4'),
