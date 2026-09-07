@@ -15,4 +15,6 @@ Verified:
 - Chrome iPhone SE emulation (375 x 667): all four page headers and English layouts inspected. No actual device test or external media download was performed.
 - `git diff --check` passed.
 
-Temporary verification used 127.0.0.1:8234. Its test tabs were closed and its server is stopped during final cleanup. Existing 8233 service was preserved; restart that service to load the new templates/Python route if it is still serving an older version.
+Temporary verification used 127.0.0.1:8234. Its test tabs were closed. On 2026-09-07 the remaining temporary process was verified by command and working directory, then stopped. No service was listening on 8233 at final verification; run `venv/bin/python app.py` to view the updated site.
+
+Final recheck on 2026-09-07: the full 397-test suite passed (2 Windows-only skips), all four JavaScript language harnesses and syntax checks passed, and the working tree was clean before this verification-record update. Feature implementation is saved in local commit `c318c64`; no changes were pushed.
