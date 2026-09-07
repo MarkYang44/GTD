@@ -135,3 +135,60 @@ class BrowserReliabilityTests(unittest.TestCase):
         expect(self.page.locator('#videoDownloadButton')).to_be_enabled()
         self.assertIsNone(self.page.evaluate("localStorage.getItem('gtd_current_batch_v1')"))
         self.assertEqual(self.posts, [])
+
+    def test_refined_theme_on_all_pages_in_both_languages_and_mobile(self):
+        for width in (1280, 375):
+            self.page.set_viewport_size({'width': width, 'height': 800})
+            for route in ('/', '/guide', '/kozekilmu/tracks', '/kozekilmu'):
+                with self.subTest(width=width, route=route):
+                    self.page.goto(self.url + route)
+                    styles = self.page.locator('body').evaluate("el => {const s=getComputedStyle(el); return {font:s.fontFamily, accent:s.getPropertyValue('--accent').trim(), primary:s.getPropertyValue('--primary').trim()}}")
+                    self.assertTrue(styles['font'].startswith('-apple-system'), styles)
+                    heading_font = self.page.locator('h1').first.evaluate("el=>getComputedStyle(el).fontFamily")
+                    if route == '/guide':
+                        self.assertTrue(heading_font.startswith('-apple-system'))
+                    elif route == '/':
+                        self.assertIn('Cormorant Garamond', heading_font)
+                        self.assertEqual(self.page.locator('h1').first.evaluate("el=>getComputedStyle(el).fontStyle"), 'italic')
+                    else:
+                        self.assertIn('Palatino UI Italic', heading_font)
+                    if route == '/kozekilmu/tracks':
+                        self.assertIn('Palatino UI Italic', self.page.locator('.circuit-content h2').first.evaluate("el=>getComputedStyle(el).fontFamily"))
+                    if route == '/':
+                        for selector in ('.hero-kicker', '.hero-description', '.metric-value', '.footer'):
+                            self.assertIn('Palatino UI Italic', self.page.locator(selector).first.evaluate("el=>getComputedStyle(el).fontFamily"))
+                        self.assertTrue(self.page.locator('#videoUrls').evaluate("el=>getComputedStyle(el).fontFamily").startswith('-apple-system'))
+                    self.assertEqual(styles['accent'], '#00a19b')
+                    self.assertEqual(styles['primary'], '#009b95')
+                    self.assertEqual(self.page.locator('html').get_attribute('data-motion-profile'), 'calm')
+                    for language in ('zh', 'en'):
+                        if self.page.locator('html').get_attribute('data-guide-language') != language:
+                            self.page.locator('label[for="guide-language-toggle"]').click()
+                        expect(self.page.locator('html')).to_have_attribute('data-guide-language', language)
+                        self.assertLessEqual(self.page.evaluate('document.documentElement.scrollWidth'), width)
+                        box = self.page.locator('.topbar-actions').bounding_box()
+                        self.assertLessEqual(box['x'] + box['width'], width)
+
+    def test_download_workspace_is_immediate_and_stable_on_hover(self):
+        self.page.goto(self.url)
+        card = self.page.locator('#video-download-card')
+        self.assertLess(self.page.locator('#videoUrls').bounding_box()['y'], 800)
+        self.assertEqual(card.evaluate("el=>getComputedStyle(el).filter"), 'none')
+        card.scroll_into_view_if_needed()
+        before = card.bounding_box()
+        before['y'] += self.page.evaluate('window.scrollY')
+        card.hover()
+        self.page.wait_for_timeout(350)
+        after = card.bounding_box()
+        after['y'] += self.page.evaluate('window.scrollY')
+        self.assertAlmostEqual(before['y'], after['y'], delta=0.5)
+        self.assertEqual(card.evaluate("el=>getComputedStyle(el).transform"), 'none')
+        self.assertFalse(card.evaluate("el=>!!el.closest('[data-motion-reveal]')"))
+        expect(self.page.locator('#videoUrls')).to_be_editable()
+
+    def test_reduced_motion_remains_readable(self):
+        self.page.emulate_media(reduced_motion='reduce')
+        self.page.goto(self.url + '/kozekilmu/tracks')
+        self.assertEqual(self.page.locator('h1').evaluate("el=>getComputedStyle(el).opacity"), '1')
+        self.assertEqual(self.page.locator('h1').evaluate("el=>getComputedStyle(el).filter"), 'none')
+        self.assertEqual(self.page.locator('h1').evaluate("el=>getComputedStyle(el).transform"), 'none')

@@ -2,6 +2,7 @@
   "use strict";
 
   const root = document.documentElement;
+  const calm = root.dataset?.motionProfile === "calm";
   let reduced = true;
   let finePointer = false;
   const REVEAL_SELECTOR = "[data-motion-reveal]";
@@ -107,7 +108,7 @@
     const scrollRange = Math.max(0, documentHeight - window.innerHeight);
     const progress = scrollRange ? clamp(scrollY / scrollRange, 0, 1) : 0;
 
-    if (enabled) {
+    if (enabled && !calm) {
       for (const element of select(document, PARALLAX_SELECTOR)) {
         const strength = clamp(Number.parseFloat(element.getAttribute("data-motion-parallax")) || 0, 0, 1);
         const offset = (progress * 2 - 1) * strength * MAX_PARALLAX;
@@ -197,7 +198,7 @@
   }
 
   function addSurfaceListeners(rootNode) {
-    if (!finePointer || reduced) return;
+    if (calm || !finePointer || reduced) return;
     for (const surface of select(rootNode, SURFACE_SELECTOR)) {
       if (surfaceListeners.has(surface) || isTaskItem(surface)) continue;
       const enter = (event) => {
@@ -306,6 +307,7 @@
   }
 
   function resetParallax() {
+    if (calm) return;
     for (const element of select(document, PARALLAX_SELECTOR)) {
       element.style.setProperty("--motion-parallax-offset", "0px");
     }
@@ -409,7 +411,7 @@
       enabled = true;
       root.classList.add("motion-ready");
       root.classList.add("motion-enabled");
-      if (finePointer) root.classList.add("motion-fine-pointer");
+      if (finePointer && !calm) root.classList.add("motion-fine-pointer");
     } else {
       for (const element of select(document, REVEAL_SELECTOR)) revealElement(element);
     }

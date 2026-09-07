@@ -56,7 +56,7 @@ class WebConfigurationTests(unittest.TestCase):
         )
         self.assertEqual(
             stylesheet_urls,
-            ["/static/css/index.css", "/static/css/motion.css", "/static/css/language.css"],
+            ["/static/css/index.css", "/static/css/motion.css", "/static/css/language.css", "/static/css/refined.css"],
         )
         self.assertEqual(
             script_urls,
@@ -497,7 +497,7 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn("margin-right: -.08em", metric_value_rule)
         self.assertIn("font-variant-numeric: tabular-nums", metric_value_rule)
 
-    def test_homepage_opts_only_stable_surfaces_into_shared_motion(self):
+    def test_homepage_keeps_interactive_workspace_out_of_entrance_and_tilt_motion(self):
         template = frontend_template_source()
 
         self.assertIn('id="hero-title" data-motion-reveal', template)
@@ -510,7 +510,7 @@ class WebProgressStateTests(unittest.TestCase):
             "collectionPreview",
             "task-card",
         ):
-            self.assertRegex(template, rf'id="{surface_id}"[^>]*data-motion-surface')
+            self.assertNotRegex(template, rf'id="{surface_id}"[^>]*data-motion-(?:surface|reveal)')
         self.assertNotRegex(
             template,
             r'class="[^"]*task-item[^"]*"[^>]*data-motion-reveal',

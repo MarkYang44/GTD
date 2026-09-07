@@ -239,7 +239,8 @@ assert.strictEqual(failingNumber.textContent, "09");
 
         homepage = web_app.app.test_client().get("/").get_data(as_text=True)
         kozeki = web_app.app.test_client().get("/kozekilmu").get_data(as_text=True)
-        self.assertRegex(homepage, r'data-motion-reveal[^>]*data-motion-surface')
+        self.assertIn('data-motion-profile="calm"', homepage)
+        self.assertNotRegex(homepage, r'id="video-download-card"[^>]*data-motion-(?:reveal|surface)')
         self.assertRegex(homepage, r'data-motion-parallax="0\.55"')
         self.assertRegex(kozeki, r'data-motion-reveal[^>]*data-motion-surface')
         self.assertRegex(kozeki, r'data-motion-reveal[^>]*data-motion-parallax')

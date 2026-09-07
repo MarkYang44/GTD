@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-guide-language="zh" data-title-zh="GTD — Generalized Transmedia Downloader" data-title-en="GTD — Generalized Transmedia Downloader">
+<html lang="zh-CN" data-guide-language="zh" data-motion-profile="calm" class="download-page" data-title-zh="GTD — Generalized Transmedia Downloader" data-title-en="GTD — Generalized Transmedia Downloader">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -18,6 +18,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/motion.css') }}">
 <script src="/static/js/lmu_guide_language.js"></script>
 <link rel="stylesheet" href="/static/css/language.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/refined.css') }}">
 </head>
 <body>
 <div class="scroll-progress" id="scroll-progress" aria-hidden="true"></div>
@@ -64,14 +65,14 @@
     <div class="metric"><span class="metric-label">LIMIT</span><strong class="metric-value" id="metric-limit" data-motion-number>03</strong></div>
   </section>
 
-  <section data-motion-reveal data-motion-group="workspace" data-motion-order="0" aria-labelledby="download-workspace-title">
-    <div class="section-heading" data-motion-reveal data-motion-group="workspace" data-motion-order="1">
+  <section aria-labelledby="download-workspace-title">
+    <div class="section-heading">
       <div><span class="section-index">01 / DOWNLOAD</span><h2 id="download-workspace-title"><span data-guide-copy="zh">选择你的输出</span><span data-guide-copy="en">Choose your output</span></h2></div>
       <p class="section-note"><span data-guide-copy="zh">视频与音频使用独立入口，共享最多 3 个并发任务的下载队列。</span><span data-guide-copy="en">Separate video and audio inputs share a queue with up to 3 concurrent tasks.</span></p>
     </div>
 
     <div class="download-grid">
-      <section class="card" id="video-download-card" data-motion-reveal data-motion-group="workspace" data-motion-order="2" data-motion-surface>
+      <section class="card" id="video-download-card">
         <div class="download-card-header">
           <span class="card-index">01 / VIDEO</span>
           <div class="card-title-row">
@@ -111,7 +112,7 @@
         </div>
       </section>
 
-      <section class="card audio-card" id="audio-download-card" data-motion-reveal data-motion-group="workspace" data-motion-order="3" data-motion-surface>
+      <section class="card audio-card" id="audio-download-card">
         <div class="download-card-header">
           <span class="card-index">02 / AUDIO</span>
           <div class="card-title-row">
@@ -170,7 +171,7 @@
       </section>
     </div>
 
-    <section class="collection-preview" id="collectionPreview" data-motion-surface aria-labelledby="collectionPreviewTitle" hidden>
+    <section class="collection-preview" id="collectionPreview" aria-labelledby="collectionPreviewTitle" hidden>
       <div class="collection-preview-header">
         <div>
           <span class="section-index">01 / PREVIEW</span>
@@ -193,7 +194,7 @@
     </section>
   </section>
 
-  <section class="task-panel" id="task-card" data-motion-reveal data-motion-group="tasks" data-motion-order="0" data-motion-surface aria-labelledby="task-title">
+  <section class="task-panel" id="task-card" aria-labelledby="task-title">
     <div class="task-header">
       <div class="task-heading-group"><span class="section-index">02 / OPERATIONS</span><span class="task-title" id="task-title"><span data-guide-copy="zh">下载任务</span><span data-guide-copy="en">Download tasks</span></span></div>
       <div class="task-header-actions">
