@@ -192,3 +192,40 @@ class BrowserReliabilityTests(unittest.TestCase):
         self.assertEqual(self.page.locator('h1').evaluate("el=>getComputedStyle(el).opacity"), '1')
         self.assertEqual(self.page.locator('h1').evaluate("el=>getComputedStyle(el).filter"), 'none')
         self.assertEqual(self.page.locator('h1').evaluate("el=>getComputedStyle(el).transform"), 'none')
+
+    def test_recommendation_height_animation_reverses_and_releases_layout(self):
+        self.page.goto(self.url + '/kozekilmu/tracks')
+        details = self.page.locator('.circuit-card details').first
+        summary = details.locator('summary')
+        summary.scroll_into_view_if_needed()
+        summary.press('Enter')
+        self.assertTrue(details.evaluate("el=>el.getAnimations({subtree:true}).some(a=>a.effect.getKeyframes().some(k=>'height' in k))"))
+        body = details.locator('.recommendation-content')
+        body.evaluate("el=>{const a=el.getAnimations()[0]; a.pause(); a.currentTime=130;}")
+        middle = body.bounding_box()['height']
+        self.assertGreater(middle, 0)
+        self.assertLess(middle, body.evaluate('el=>el.scrollHeight'))
+        summary.press('Enter')
+        expect(details).not_to_have_attribute('open', '')
+        summary.press('Space')
+        expect(summary).to_have_attribute('aria-expanded', 'true')
+        expect(body).to_have_js_property('inert', False)
+        self.page.wait_for_function("!document.querySelector('.recommendation-content').getAnimations().length")
+        self.assertAlmostEqual(body.bounding_box()['height'], body.evaluate('el=>el.scrollHeight'), delta=1)
+        self.page.locator('label[for="guide-language-toggle"]').click()
+        self.assertAlmostEqual(body.bounding_box()['height'], body.evaluate('el=>el.scrollHeight'), delta=1)
+
+    def test_recommendations_respect_reduced_motion_and_native_fallback(self):
+        self.page.emulate_media(reduced_motion='reduce')
+        self.page.goto(self.url + '/kozekilmu/tracks')
+        details = self.page.locator('.circuit-card details').first
+        details.locator('summary').click()
+        expect(details).to_have_attribute('open', '')
+        self.assertEqual(details.evaluate('el=>el.getAnimations({subtree:true}).length'), 0)
+        details.locator('summary').click()
+        expect(details).not_to_have_attribute('open', '')
+        self.context.route('**/static/js/recommendations.js', lambda route: route.abort())
+        self.page.reload()
+        details.locator('summary').click()
+        expect(details).to_have_attribute('open', '')
+        expect(details.locator('.recommendation-group').first).to_be_visible()

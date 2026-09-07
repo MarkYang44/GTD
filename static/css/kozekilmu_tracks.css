@@ -651,3 +651,16 @@ details[open] summary::before {
     background: var(--background-deep);
   }
 }
+
+/* Clip only while the measured disclosure height changes; intrinsic height returns at rest. */
+.recommendation-content { display: flow-root; overflow: hidden; }
+details[data-recommendations][open] > .recommendation-content { animation: none; }
+details[data-recommendations] summary[aria-expanded="false"]::before { content: "＋"; background: transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  details[data-recommendations], details[data-recommendations] *,
+  details[data-recommendations] *::before {
+    transition: none !important;
+    animation: none !important;
+  }
+}

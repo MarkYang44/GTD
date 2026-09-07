@@ -38,3 +38,9 @@ User amendment: restore original editorial type in supplied screenshot regions, 
 - Native Chrome visual checks: refined desktop homepage/forms, iPhone SE download form and circuit page on September 7; restored editorial homepage and English circuit card names on September 8. Final mobile two-column nav covered by browser layout suite; September 7 final native reload was blocked by exhausted tool quota, subsequent native checks resumed successfully.
 - Independent review found no blocking regressions; rank typography was aligned with the amended editorial preference.
 - No downloader/API changes or dependency changes. Hosted CI and live media downloads were not run for this presentation change.
+
+## Recommendation disclosure follow-up — 2026-09-08
+
+User requested a natural, minimal animation for View car recommendations. Added a scoped native-details enhancement: 260ms measured height transition on a content wrapper, reversible from the current height, intrinsic height restored at rest. Resize/language changes settle active transitions; reduced motion switches immediately. Closing content is inert until fully hidden, keyboard summary activation and no-JS fallback remain native. No opacity cascade on this wrapper.
+
+Verification: browser regression demonstrated missing height animation before implementation; final 8 Chromium tests passed, including intermediate height, reversal, Enter/Space, language reflow, reduced motion and blocked-script fallback. Full unit suite: 418 tests, OK (2 platform skips). New JS syntax and git diff checks passed.

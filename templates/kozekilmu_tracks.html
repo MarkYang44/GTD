@@ -93,8 +93,9 @@
         <p>{{ guide_copy(circuit.advice_zh, circuit.advice) }}</p>
         <p><a href="{{ circuit.source_url }}" target="_blank" rel="noopener noreferrer">{{ guide_copy("LMU 官方赛道资料", "Official LMU circuit page") }}</a></p>
 
-        <details>
+        <details data-recommendations>
           <summary>{{ guide_copy("查看车型建议", "View car recommendations") }}</summary>
+          <div class="recommendation-content">
           {% for class_name, recommendations in (("LMGT3", circuit.lmgt3), ("Hypercar", circuit.hypercar)) %}
           <section class="recommendation-group" aria-labelledby="{{ circuit.slug }}-{{ class_name|lower }}">
             <h3 id="{{ circuit.slug }}-{{ class_name|lower }}">{{ class_name }}</h3>
@@ -131,6 +132,7 @@
             </ul>
           </section>
           {% endfor %}
+          </div>
         </details>
       </div>
       <span data-motion-sheen aria-hidden="true"></span>
@@ -153,5 +155,6 @@
   </p>
 </footer>
 <script defer src="/static/js/motion.js"></script>
+<script defer src="/static/js/recommendations.js"></script>
 </body>
 </html>
