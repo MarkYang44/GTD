@@ -229,3 +229,22 @@ class BrowserReliabilityTests(unittest.TestCase):
         details.locator('summary').click()
         expect(details).to_have_attribute('open', '')
         expect(details.locator('.recommendation-group').first).to_be_visible()
+
+    def test_lmu_navigation_matches_between_pages(self):
+        for width in (1280, 375):
+            self.page.set_viewport_size({'width': width, 'height': 800})
+            for language in ('zh', 'en'):
+                snapshots = []
+                for route in ('/kozekilmu/tracks', '/kozekilmu'):
+                    self.page.goto(self.url + route)
+                    if self.page.locator('html').get_attribute('data-guide-language') != language:
+                        self.page.locator('label[for="guide-language-toggle"]').click()
+                    snapshots.append(self.page.locator('.easter-nav-link').evaluate_all("""links=>links.map(el=>{
+                        const s=getComputedStyle(el), box=el.getBoundingClientRect();
+                        const label=[...el.children].find(c=>getComputedStyle(c).display!=='none');
+                        const t=getComputedStyle(label);
+                        return {text:el.innerText.trim(), width:box.width, height:box.height,
+                            font:s.font, spacing:s.letterSpacing, padding:s.padding,
+                            labelFont:t.font, labelSpacing:t.letterSpacing, labelMargin:t.marginLeft};
+                    })"""))
+                self.assertEqual(snapshots[0], snapshots[1], (width, language))

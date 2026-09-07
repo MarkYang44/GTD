@@ -98,10 +98,6 @@
     text-decoration: none;
     transition: color .18s ease, border-color .18s ease, background-color .18s ease;
   }
-  .easter-nav-link span {
-    margin-left: 6px;
-    letter-spacing: .04em;
-  }
   .easter-nav-link:hover {
     color: var(--foreground);
     border-color: var(--border-strong);
@@ -412,8 +408,8 @@
 
 <main class="main">
   <nav class="easter-nav" aria-label="LMU 彩蛋分页" data-i18n-aria-label-zh="LMU 彩蛋分页" data-i18n-aria-label-en="LMU Easter egg pages">
-    <a class="easter-nav-link" href="{{ url_for('kozekilmu_tracks') }}"><span data-guide-copy="zh">赛道指南</span><span data-guide-copy="en" lang="en">CIRCUIT GUIDE</span></a>
-    <a class="easter-nav-link is-active" href="{{ url_for('kozekilmu') }}" aria-current="page"><span data-guide-copy="zh">冠军档案</span><span data-guide-copy="en" lang="en">VICTORY ARCHIVE</span></a>
+    <a class="easter-nav-link" href="{{ url_for('kozekilmu_tracks') }}"><span data-guide-copy="zh">赛道指南</span><span data-guide-copy="en" lang="en">Circuit guide</span></a>
+    <a class="easter-nav-link is-active" href="{{ url_for('kozekilmu') }}" aria-current="page"><span data-guide-copy="zh">冠军档案</span><span data-guide-copy="en" lang="en">Victory archive</span></a>
   </nav>
 
   <section class="hero" data-motion-group="kozeki-hero" aria-labelledby="easter-egg-title">
