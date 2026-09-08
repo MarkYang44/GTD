@@ -231,7 +231,7 @@ class BrowserReliabilityTests(unittest.TestCase):
         expect(details.locator('.recommendation-group').first).to_be_visible()
 
     def test_lmu_navigation_matches_between_pages(self):
-        for width in (1280, 375):
+        for width in (1440, 1280, 580, 375):
             self.page.set_viewport_size({'width': width, 'height': 800})
             for language in ('zh', 'en'):
                 snapshots = []
@@ -243,7 +243,7 @@ class BrowserReliabilityTests(unittest.TestCase):
                         const s=getComputedStyle(el), box=el.getBoundingClientRect();
                         const label=[...el.children].find(c=>getComputedStyle(c).display!=='none');
                         const t=getComputedStyle(label);
-                        return {text:el.innerText.trim(), width:box.width, height:box.height,
+                        return {text:el.innerText.trim(), x:box.x, y:box.y, width:box.width, height:box.height,
                             font:s.font, spacing:s.letterSpacing, padding:s.padding,
                             labelFont:t.font, labelSpacing:t.letterSpacing, labelMargin:t.marginLeft};
                     })"""))

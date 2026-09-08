@@ -309,7 +309,7 @@ class LmuGuideRouteTests(unittest.TestCase):
         html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
         css = CSS_PATH.read_text(encoding="utf-8")
 
-        self.assertIn('<header class="topbar" id="topbar">', html)
+        self.assertIn('<header class="topbar" id="topbar" data-lmu-layout>', html)
         self.assertIn('class="topbar-link" href="/#task-card">', html)
         self.assertIn('<span data-guide-copy="zh">返回下载</span>', html)
         self.assertIn('class="service-status"', html)

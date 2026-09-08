@@ -197,3 +197,32 @@ h1, h2, h3, .hero-title, .guide-heading h1 {
   font-family: var(--editorial-font);
 }
 .hero-title, .guide-hero h1, .circuit-content h2 { font-weight: 500; }
+
+/* Both LMU tabs share the same content origin, not just matching buttons. */
+main[data-lmu-layout] {
+  width: min(1180px, calc(100% - 40px));
+  margin: 0 auto;
+  padding-top: 48px;
+}
+@media (max-width: 600px) {
+  main[data-lmu-layout] {
+    width: min(1180px, calc(100% - 28px));
+    padding-top: 32px;
+  }
+}
+
+@media (max-width: 600px) {
+  header[data-lmu-layout] { height: auto; min-height: 60px; }
+  header[data-lmu-layout] .topbar-inner {
+    width: min(1180px, calc(100% - 28px));
+    height: auto;
+    min-height: 64px;
+    padding-block: 10px;
+    justify-content: space-between;
+  }
+  header[data-lmu-layout] .brand { display: block; font-size: 15px; }
+  header[data-lmu-layout] .topbar-actions { width: auto; gap: 8px; }
+  header[data-lmu-layout] .language-toggle { gap: 6px; }
+  header[data-lmu-layout] .language-toggle-track { width: 42px; }
+  header[data-lmu-layout] .language-toggle input:checked + .language-toggle-track .language-toggle-thumb { transform: translateX(18px); }
+}

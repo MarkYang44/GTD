@@ -393,7 +393,7 @@
 <body>
 <div class="scroll-progress" id="scroll-progress" aria-hidden="true"></div>
 
-<header class="topbar" id="topbar">
+<header class="topbar" id="topbar" data-lmu-layout>
   <div class="topbar-inner">
     <div class="brand">Designed by Mark Yang</div>
     <div class="topbar-actions">
@@ -406,7 +406,7 @@
   </div>
 </header>
 
-<main class="main">
+<main class="main" data-lmu-layout>
   <nav class="easter-nav" aria-label="LMU 彩蛋分页" data-i18n-aria-label-zh="LMU 彩蛋分页" data-i18n-aria-label-en="LMU Easter egg pages">
     <a class="easter-nav-link" href="{{ url_for('kozekilmu_tracks') }}"><span data-guide-copy="zh">赛道指南</span><span data-guide-copy="en" lang="en">Circuit guide</span></a>
     <a class="easter-nav-link is-active" href="{{ url_for('kozekilmu') }}" aria-current="page"><span data-guide-copy="zh">冠军档案</span><span data-guide-copy="en" lang="en">Victory archive</span></a>
