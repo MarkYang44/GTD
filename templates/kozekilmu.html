@@ -412,10 +412,7 @@
 </header>
 
 <main class="main" data-lmu-layout>
-  <nav class="easter-nav" aria-label="LMU 彩蛋分页" data-i18n-aria-label-zh="LMU 彩蛋分页" data-i18n-aria-label-en="LMU Easter egg pages">
-    <a class="easter-nav-link" href="{{ url_for('kozekilmu_tracks') }}"><span data-guide-copy="zh">赛道指南</span><span data-guide-copy="en" lang="en">Circuit guide</span></a>
-    <a class="easter-nav-link is-active" href="{{ url_for('kozekilmu') }}" aria-current="page"><span data-guide-copy="zh">冠军档案</span><span data-guide-copy="en" lang="en">Victory archive</span></a>
-  </nav>
+  {% include '_lmu_nav.html' %}
 
   <section class="hero" data-motion-group="kozeki-hero" aria-labelledby="easter-egg-title">
     <div>

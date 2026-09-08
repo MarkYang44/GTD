@@ -30,7 +30,7 @@ The web interface also includes a dedicated local video upload page for original
 - **Command-line mode**: interactive input and command-line arguments
 - **Web mode**: separate video and audio input areas, collection selection, cancellation, retries, and downloading again, with live task status, speed, and estimated time remaining
 - **Local video audio extraction**: upload or drop a video on a dedicated page, copy its original audio or convert it to MP3 V0, track upload/processing progress, and download the result
-- **Shared website language switch**: switch between Chinese and English on the download page, user guide, audio extraction page, Circuit Guide, and Victory Archive; your browser remembers the choice across pages
+- **Shared website language switch**: switch between Chinese and English on the download page, user guide, audio extraction page, Circuit Guide, Victory Archive, Car Catalog, and Race Strategy; your browser remembers the choice across pages
 - **Dark and light themes**: dark by default, with a shared slider for light mode; Petronas green accents and editorial headings remain, and your choice persists across pages
 - **Custom download directory**: enter a path in the CLI or web interface; Windows uses a precompiled, cached, DPI-aware modern Explorer-style folder dialog, while macOS uses its system folder picker; leave blank to use `downloads/`
 - Continue processing other tasks when an individual link fails
@@ -426,6 +426,14 @@ Use the stars to favorite circuits or cars. Car favorites apply across circuit r
 
 Expand the recommendations and select 2–3 entries, then use **Compare** at the bottom right. Each column keeps its circuit context, recommendation reasons, and caveats; the same car on different circuits can be compared. Filtering preserves favorites and comparison selections; reloading clears comparison selections. Content comes from the existing guide and is not a live lap-time ranking.
 
+### Car catalog and race strategy
+
+**Car Catalog** (`/kozekilmu/cars`) displays every car in the existing dataset, its strengths and caveats, and the circuits that recommend it. Recommendation reasons come directly from the Circuit Guide. Filter by name, class, car, and favorites; compare 2–3 cars side by side. Car favorites share browser storage with the Circuit Guide; comparison selections last only for the current page.
+
+**Race Strategy** (`/kozekilmu/strategy`) accepts race duration (minutes), average lap time (seconds or `m:ss`), and fuel per lap (L). Blank fields use **30 minutes, 120 sec/lap, and 3 L/lap** respectively, with defaults identified in the result. Invalid nonempty values require correction. Accepted ranges are 1–1440 minutes, 10–1800 sec/lap, and 0.01–100 L/lap.
+
+Calculation: round duration ÷ lap time up, then add 1 lap. Base fuel is planned laps × fuel per lap. Reserve is the greater of 10% of base fuel or one lap of fuel; round total fuel up to 0.1 L. All blank fields produce **16 laps and 52.8 L**. This local browser estimate does not model tank capacity, pit stops, formation laps, weather, or fuel saving. The whole-race budget is not a starting fuel load; adjust it to measured practice data and event rules.
+
 ### Extract audio from a local video
 
 Choose **Extract audio from a local video** on the homepage, or open `/extract-audio`. Drop or select one local video (up to 2 GiB), choose **Original audio** or **MP3 V0**, and start extraction. Original audio copies the stream without re-encoding, using the default audio track or the first track when no default is set. AAC normally produces M4A; other extensions depend on the codec. Extraction cannot improve the source quality. Supported containers include MP4/MOV, MKV/WebM, AVI, MPEG-TS/MPEG, FLV, ASF, and Ogg. The file must contain both video and audio; only one track is extracted from multitrack files. This feature does not apply the link downloader’s artwork fallback or preserve video chapters and other metadata.
@@ -434,7 +442,7 @@ Upload and processing progress are shown separately. Extraction shares the exist
 
 ### Switch the Website Language
 
-The download page (`/`), user guide (`/guide`), audio extraction page (`/extract-audio`), Circuit Guide (`/kozekilmu/tracks`), and Victory Archive (`/kozekilmu`) share a **中文 / EN** switch in the upper-right corner. Your browser saves the selected language and applies it when you navigate to another page or refresh. Switching languages preserves entered links and current download tasks. The switch controls website text; source titles, filenames, and original third-party error details remain as provided. The CLI is unchanged.
+The download page (`/`), user guide (`/guide`), audio extraction page (`/extract-audio`), Circuit Guide (`/kozekilmu/tracks`), Victory Archive (`/kozekilmu`), Car Catalog (`/kozekilmu/cars`), and Race Strategy (`/kozekilmu/strategy`) share a **中文 / EN** switch in the upper-right corner. Your browser saves the selected language and applies it when you navigate to another page or refresh. Switching languages preserves entered links and current download tasks. The switch controls website text; source titles, filenames, and original third-party error details remain as provided. The CLI is unchanged.
 
 Use the **Dark / Light** slider in the upper-right corner to switch themes. Dark is the default; light uses clean white and soft gray surfaces. Both keep Petronas green accents. Your theme preference is independent of language, remembered in this browser, and shared across pages and tabs.
 

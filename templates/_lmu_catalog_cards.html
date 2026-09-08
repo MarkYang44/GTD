@@ -1,0 +1,31 @@
+<section class="circuit-grid catalog-grid" aria-label="车型图鉴" data-i18n-aria-label-zh="车型图鉴" data-i18n-aria-label-en="Car catalog">
+{% for slug, car in cars.items() %}
+  <article class="circuit-card catalog-card" id="{{ slug }}" data-name="{{ car.name }}" data-search="{{ car.name }} {{ car.car_class }} {{ slug }}">
+    <ul class="catalog-entry">
+      <li class="recommendation" data-class="{{ car.car_class }}" data-car="{{ slug }}" data-key="{{ slug }}">
+        {% if car.image in available_images %}<img src="{{ url_for('static', filename=car.image) }}" width="1024" height="576" loading="lazy" alt="{{ car.name }}">{% else %}<div class="media-placeholder">{{ guide_copy("官方车型图片暂缺", "Official car image unavailable") }}</div>{% endif %}
+        <div class="catalog-copy">
+          <p class="guide-kicker">{{ car.car_class }}</p>
+          <h4>{{ car.name }}</h4>
+          <p><strong>{{ guide_copy("优点：", "Strengths: ") }}</strong>{{ guide_copy(car.strength_zh, car.strength) }}</p>
+          <p><strong>{{ guide_copy("注意事项：", "Caveats: ") }}</strong>{{ guide_copy(car.caution_zh, car.caution) }}</p>
+          <a href="{{ car.source_url }}" target="_blank" rel="noopener noreferrer">{{ guide_copy("LMU 官方车型资料", "Official LMU car page") }}</a>
+          <div class="lmu-card-actions" data-lmu-enhance hidden>
+            <button type="button" class="lmu-favorite" data-favorite-car="{{ slug }}" aria-pressed="false" aria-label="收藏车型" data-i18n-aria-label-zh="收藏车型" data-i18n-aria-label-en="Favorite car">☆</button>
+            <button type="button" data-compare="{{ slug }}" aria-pressed="false">{{ guide_copy("加入对比", "Add to comparison") }}</button>
+          </div>
+          <div class="catalog-circuits">
+            <h5>{{ guide_copy("推荐它的赛道", "Recommended at") }} · {{ car_recommendations[slug]|length }}</h5>
+            <ul>
+            {% for circuit, recommendation in car_recommendations[slug] %}
+              <li><a href="{{ url_for('kozekilmu_tracks') }}#{{ circuit.slug }}">{{ circuit.name }}</a><p>{{ guide_copy(recommendation.fit_zh, recommendation.fit) }}</p></li>
+            {% else %}<li>{{ guide_copy("现有指南暂无赛道推荐记录。", "No circuit recommendations in the current guide.") }}</li>{% endfor %}
+            </ul>
+          </div>
+
+        </div>
+      </li>
+    </ul>
+  </article>
+{% endfor %}
+</section>

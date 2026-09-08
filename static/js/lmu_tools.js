@@ -20,10 +20,11 @@
     const feedback = byId('lmu-compare-feedback');
     const dialog = byId('lmu-compare-dialog');
     const grid = byId('lmu-compare-grid');
-    const cards = Array.from(document.querySelectorAll('article.circuit-card[data-circuit]'));
+    const catalog = toolbar.dataset.mode === 'cars';
+    const cards = Array.from(document.querySelectorAll('article.circuit-card'));
     const recommendations = new Map();
-    const circuitSlugs = new Set();
-    const carSlugs = new Set();
+    const circuitSlugs = new Set((toolbar.dataset.circuitSlugs || '').split(' ').filter(Boolean));
+    const carSlugs = new Set((toolbar.dataset.carSlugs || '').split(' ').filter(Boolean));
     const tr = (zh, en) => root.dataset.guideLanguage === 'en' ? en : zh;
     const normalize = text => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
     const selected = new Set();
@@ -34,7 +35,7 @@
     let returnFocus = null;
 
     cards.forEach(card => {
-      circuitSlugs.add(card.dataset.circuit);
+      if (card.dataset.circuit) circuitSlugs.add(card.dataset.circuit);
       card.querySelectorAll('li.recommendation[data-key]').forEach(node => {
         carSlugs.add(node.dataset.car);
         recommendations.set(node.dataset.key, {node, card});
@@ -82,7 +83,7 @@
     }
 
     function contextName(item) {
-      return `${item.card.dataset.name} · ${carName(item)} · ${item.node.dataset.class}`;
+      return catalog ? `${carName(item)} · ${item.node.dataset.class}` : `${item.card.dataset.name} · ${carName(item)} · ${item.node.dataset.class}`;
     }
 
     function renderActions() {
@@ -129,7 +130,7 @@
         if (visible) circuitCount += 1;
         recommendationCount += visible;
       });
-      results.textContent = tr(`${circuitCount} 条赛道 · ${recommendationCount} 条推荐`, `${circuitCount} circuits · ${recommendationCount} recommendations`);
+      results.textContent = catalog ? tr(`${circuitCount} 台车型`, `${circuitCount} cars`) : tr(`${circuitCount} 条赛道 · ${recommendationCount} 条推荐`, `${circuitCount} circuits · ${recommendationCount} recommendations`);
       empty.hidden = circuitCount !== 0;
       if (previousFocus && !previousFocus.getClientRects().length) favoriteFilter.focus();
     }
@@ -159,7 +160,7 @@
         article.className = 'lmu-compare-card';
         const context = document.createElement('p');
         context.className = 'lmu-compare-context';
-        context.textContent = `${item.card.dataset.name} · ${item.node.dataset.class}`;
+        context.textContent = catalog ? item.node.dataset.class : `${item.card.dataset.name} · ${item.node.dataset.class}`;
         article.append(context);
         Array.from(item.node.children).forEach(child => {
           if (child.matches('.lmu-card-actions, [data-lmu-enhance]')) return;
@@ -203,8 +204,8 @@
       openCompare.textContent = tr(`并排对比 (${selected.size}/3)`, `Compare (${selected.size}/3)`);
       openCompare.disabled = selected.size < 2;
       feedback.textContent = limitReached
-        ? tr('最多对比 3 条推荐，请先移除一条。', 'Compare up to 3 recommendations. Remove one before adding another.')
-        : tr(`已选 ${selected.size}/3 条推荐，至少选择 2 条开始对比。`, `${selected.size}/3 recommendations selected. Select at least 2 to compare.`);
+        ? tr('最多对比 3 项，请先移除一项。', 'Compare up to 3 items. Remove one before adding another.')
+        : tr(`已选 ${selected.size}/3 项，至少选择 2 项开始对比。`, `${selected.size}/3 items selected. Select at least 2 to compare.`);
       if (dialog.open && selected.size < 2) {
         dialog.close();
       } else if (dialog.open) {

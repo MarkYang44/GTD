@@ -144,6 +144,31 @@ def kozekilmu_tracks():
     )
 
 
+@app.route("/kozekilmu/cars")
+def kozekilmu_cars():
+    """Browse every catalog car with its source-derived circuit recommendations."""
+    recommendations = {slug: [] for slug in CARS}
+    for circuit in CIRCUITS:
+        for recommendation in (*circuit.lmgt3, *circuit.hypercar):
+            recommendations[recommendation.car_slug].append((circuit, recommendation))
+    return render_template(
+        "kozekilmu_tracks.html", is_catalog=True,
+        page_title_zh="LMU 车型图鉴", page_title_en="LMU Car Catalog",
+        cars=CARS, circuits=CIRCUITS, car_recommendations=recommendations,
+        guide_updated=GUIDE_UPDATED,
+        available_images=_available_guide_images(CIRCUITS, CARS.values()),
+    )
+
+
+@app.route("/kozekilmu/strategy")
+def kozekilmu_strategy():
+    """Estimate race laps and fuel locally in the browser."""
+    return render_template(
+        "kozekilmu_strategy.html", page_title_zh="LMU 赛前策略",
+        page_title_en="LMU Race Strategy", guide_updated=GUIDE_UPDATED,
+    )
+
+
 @app.route("/favicon.ico")
 def favicon():
     """Serve the multi-resolution icon at the legacy browser location."""

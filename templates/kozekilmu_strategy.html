@@ -1,0 +1,34 @@
+{% extends 'kozekilmu_tracks.html' %}
+{% block main_content %}
+<header class="guide-hero">
+  <p class="guide-kicker">{{ guide_copy("LE MANS ULTIMATE / 赛前准备", "LE MANS ULTIMATE / RACE PREPARATION") }}</p>
+  <h1>{{ guide_copy("LMU 赛前策略", "LMU Race Strategy") }}</h1>
+  <p>{{ guide_copy("用比赛时长、平均圈速与每圈油耗，估算圈数及燃油预算。", "Estimate your lap count and fuel budget from race duration, average lap time, and fuel consumption.") }}</p>
+</header>
+<section class="lmu-tools strategy-panel">
+  <form id="strategy-form" hidden novalidate>
+    <div class="lmu-filters strategy-fields">
+      <label for="strategy-minutes">{{ guide_copy("比赛时长（分钟）", "Race duration (min)") }}<input id="strategy-minutes" type="text" inputmode="decimal" placeholder="30" aria-describedby="strategy-defaults strategy-error"></label>
+      <label for="strategy-lap">{{ guide_copy("平均圈速（秒或 m:ss）", "Average lap time (seconds or m:ss)") }}<input id="strategy-lap" type="text" inputmode="text" placeholder="2:00" aria-describedby="strategy-defaults strategy-error"></label>
+      <label for="strategy-fuel">{{ guide_copy("每圈油耗（L）", "Fuel per lap (L)") }}<input id="strategy-fuel" type="text" inputmode="decimal" placeholder="3" aria-describedby="strategy-defaults strategy-error"></label>
+    </div>
+    <p id="strategy-defaults" class="strategy-note">{{ guide_copy("留空使用：30 分钟、120 秒/圈、3 L/圈。默认值仅作通用估算，请按实际练习数据调整。", "Blank fields use 30 minutes, 120 sec/lap, and 3 L/lap. These are generic estimates; adjust them to your practice data.") }}</p>
+    <div class="lmu-card-actions"><button type="submit">{{ guide_copy("计算策略", "Calculate strategy") }}</button><button type="reset">{{ guide_copy("恢复默认估算", "Use default estimates") }}</button></div>
+    <p id="strategy-error" role="alert" hidden></p>
+  </form>
+  <noscript>{{ guide_copy("启用 JavaScript 后可使用本地策略计算器。", "Enable JavaScript to use the local strategy calculator.") }}</noscript>
+</section>
+<section id="strategy-result" class="lmu-tools strategy-panel" aria-live="polite" aria-atomic="true" hidden>
+  <p id="strategy-assumptions" class="strategy-note"></p>
+  <div class="strategy-metrics">
+    <div><span>{{ guide_copy("规划圈数", "Planned laps") }}</span><strong id="strategy-laps"></strong></div>
+    <div><span>{{ guide_copy("总燃油预算（L）", "Total fuel budget (L)") }}</span><strong id="strategy-total"></strong></div>
+  </div>
+  <p>{{ guide_copy("时长估算圈数：", "Time-based laps: ") }}<b id="strategy-timed"></b> + {{ guide_copy("额外 1 圈", "1 extra lap") }}</p>
+  <p>{{ guide_copy("基础燃油：", "Base fuel: ") }}<b id="strategy-base"></b> L · {{ guide_copy("安全余量：", "Reserve: ") }}<b id="strategy-reserve"></b> L</p>
+  <p class="strategy-note">{{ guide_copy("圈数按时长 ÷ 圈速向上取整，再加 1 圈；安全余量取基础燃油的 10% 与 1 圈油耗中的较大值，总量向上取整至 0.1 L。", "Round duration ÷ lap time up to whole laps, then add 1 lap. Reserve is the greater of 10% of base fuel or 1 lap of fuel. Round total fuel up to 0.1 L.") }}</p>
+  <p class="strategy-note">{{ guide_copy("这是全场燃油预算，未考虑油箱容量、进站、编队圈、天气或节油；不等同于起步加油量，也不保证足以完成所有赛况。", "This is a whole-race fuel budget. Tank capacity, pit stops, formation laps, weather, and fuel saving are not modeled. It is not a starting fuel load or a guarantee for every race scenario.") }}</p>
+</section>
+{% endblock %}
+{% block page_footer %}<footer class="guide-footer"><p>{{ guide_copy("所有计算在浏览器本地完成。以实际练习油耗和赛事规则为准。", "All calculations run locally in your browser. Use measured practice consumption and the event rules.") }}</p></footer>{% endblock %}
+{% block page_scripts %}<script defer src="{{ url_for('static', filename='js/lmu_strategy.js') }}"></script>{% endblock %}

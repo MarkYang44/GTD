@@ -1,0 +1,5 @@
+<nav class="easter-nav" aria-label="LMU 内容导航" data-i18n-aria-label-zh="LMU 内容导航" data-i18n-aria-label-en="LMU content navigation">
+  {% for endpoint, zh, en in [('kozekilmu_tracks', '赛道指南', 'Circuit guide'), ('kozekilmu', '冠军档案', 'Victory archive'), ('kozekilmu_cars', '车型图鉴', 'Car catalog'), ('kozekilmu_strategy', '赛前策略', 'Race strategy')] %}
+  <a class="easter-nav-link{% if request.endpoint == endpoint %} is-active{% endif %}" href="{{ url_for(endpoint) }}"{% if request.endpoint == endpoint %} aria-current="page"{% endif %}><span data-guide-copy="zh">{{ zh }}</span><span data-guide-copy="en" lang="en">{{ en }}</span></a>
+  {% endfor %}
+</nav>

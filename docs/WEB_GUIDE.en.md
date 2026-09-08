@@ -20,6 +20,12 @@ Use the character icon in the upper-right corner to open the Circuit Guide. Sear
 
 Expand the recommendations, select 2–3 entries, and use **Compare** at the bottom right to view each circuit's recommendation reasons and caveats side by side. Filtering preserves favorites and comparison selections; reloading clears comparison selections. If browser storage is disabled, favorites last only for the current page.
 
+## Car catalog and race strategy
+
+Use **Car Catalog** in the LMU navigation to browse all cataloged cars, strengths, caveats, and recommended circuits. It reuses the Circuit Guide's filters, car favorites, and 2–3-entry comparison.
+
+**Race Strategy** accepts duration in minutes, lap time in seconds or `m:ss`, and liters per lap. Blank fields default to 30 minutes, 120 sec/lap, and 3 L/lap; invalid values show an error. Round laps up and add 1 lap, then reserve the greater of 10% of base fuel or 1 lap of fuel. Round the total up to 0.1 L. All defaults produce 16 laps and 52.8 L. This is a whole-race budget, excluding tank capacity, pit stops, and other conditions; adjust it to measured practice data.
+
 ## Download workflow
 
 1. To download video, paste links or platform share text into **Best-quality video**; for audio only, use **Best-quality audio**. Put each link on its own line.
