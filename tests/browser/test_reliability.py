@@ -146,7 +146,9 @@ class BrowserReliabilityTests(unittest.TestCase):
                     self.assertTrue(styles['font'].startswith('-apple-system'), styles)
                     heading_font = self.page.locator('h1').first.evaluate("el=>getComputedStyle(el).fontFamily")
                     if route == '/guide':
-                        self.assertTrue(heading_font.startswith('-apple-system'))
+                        self.assertIn('Cormorant Garamond', heading_font)
+                        self.assertEqual(self.page.locator('h1').first.evaluate("el=>getComputedStyle(el).fontStyle"), 'italic')
+                        self.assertIn('Palatino UI Italic', self.page.locator('.guide-intro').evaluate("el=>getComputedStyle(el).fontFamily"))
                     elif route == '/':
                         self.assertIn('Cormorant Garamond', heading_font)
                         self.assertEqual(self.page.locator('h1').first.evaluate("el=>getComputedStyle(el).fontStyle"), 'italic')

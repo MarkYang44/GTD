@@ -197,6 +197,12 @@ h1, h2, h3, .hero-title, .guide-heading h1 {
   font-family: var(--editorial-font);
 }
 .hero-title, .guide-hero h1, .circuit-content h2 { font-weight: 500; }
+.guide-heading h1 {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+}
+.guide-intro { font-family: var(--editorial-font); }
 
 /* Both LMU tabs share the same content origin, not just matching buttons. */
 main[data-lmu-layout] {
