@@ -32,13 +32,9 @@
       {% include '_theme_toggle.html' %}
       {% include '_language_toggle.html' %}
       <a class="topbar-link" href="{{ url_for('index') }}#task-card">{{ guide_copy("返回下载", "Back to downloads") }}</a>
-      <div class="service-status"
-           role="img"
-           aria-label="Kozeki Ui"
-           data-i18n-aria-label-zh="Kozeki Ui"
-           data-i18n-aria-label-en="Kozeki Ui">
+      <a class="service-status" href="{{ url_for('kozekilmu_tracks') }}" aria-label="打开隐藏的 LMU 赛道指南" data-i18n-aria-label-zh="打开隐藏的 LMU 赛道指南" data-i18n-aria-label-en="Open the hidden LMU circuit guide">
         <img class="service-avatar" src="{{ url_for('static', filename='icons/favicon-32x32.png', v='20260811') }}" srcset="{{ url_for('static', filename='icons/favicon-32x32.png', v='20260811') }} 1x, {{ url_for('static', filename='icons/favicon-64x64.png', v='20260811') }} 2x, {{ url_for('static', filename='icons/character-icon-128x128.png', v='20260811') }} 3x" width="30" height="30" alt="" aria-hidden="true">
-      </div>
+      </a>
     </div>
   </div>
 </header>

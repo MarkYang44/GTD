@@ -32,7 +32,7 @@
       {% include '_theme_toggle.html' %}
       {% include '_language_toggle.html' %}
       <a class="topbar-link" href="{{ url_for('guide') }}"><span data-guide-copy="zh">使用说明</span><span data-guide-copy="en">User guide</span></a>
-      <div class="service-status" role="status" aria-label="服务已就绪" data-i18n-aria-label-zh="服务已就绪" data-i18n-aria-label-en="Service ready">
+      <a class="service-status" href="{{ url_for('kozekilmu_tracks') }}" aria-label="打开隐藏的 LMU 赛道指南" data-i18n-aria-label-zh="打开隐藏的 LMU 赛道指南" data-i18n-aria-label-en="Open the hidden LMU circuit guide">
         <img
           class="service-avatar"
           src="{{ url_for('static', filename='icons/favicon-32x32.png', v='20260811') }}"
@@ -43,8 +43,7 @@
           aria-hidden="true"
           decoding="async"
         >
-        <span class="visually-hidden"><span data-guide-copy="zh">服务已就绪</span><span data-guide-copy="en">Service ready</span></span>
-      </div>
+      </a>
     </div>
   </div>
 </header>

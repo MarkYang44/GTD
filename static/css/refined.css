@@ -226,3 +226,5 @@ main[data-lmu-layout] {
   header[data-lmu-layout] .language-toggle-track { width: 42px; }
   header[data-lmu-layout] .language-toggle input:checked + .language-toggle-track .language-toggle-thumb { transform: translateX(18px); }
 }
+
+.service-status:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 8px; }

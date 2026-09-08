@@ -27,7 +27,7 @@ class WebGuideTests(unittest.TestCase):
         self.assertIn("Read. Inspect. Execute.", html)
         self.assertIn("Designed by Mark Yang", html)
         self.assertIn("<title>User Guide - GTD</title>", html)
-        self.assertIn('aria-label="GTD — Generalized Transmedia Downloader"', html)
+        self.assertIn('class="service-status" href="/kozekilmu/tracks" aria-label="打开隐藏的 LMU 赛道指南"', html)
         self.assertIn('class="topbar-link" href="/"', html)
         self.assertIn('class="guide-markdown"', html)
         self.assertIn('class="guide-toc-list"', html)

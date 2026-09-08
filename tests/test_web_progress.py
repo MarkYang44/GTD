@@ -157,7 +157,7 @@ class WebConfigurationTests(unittest.TestCase):
     def test_character_icon_replaces_ready_and_empty_state_arrow_responsively(self):
         html = web_app.app.test_client().get("/").get_data(as_text=True)
         html += frontend_style_source()
-        self.assertIn('class="service-status" role="status" aria-label="服务已就绪"', html)
+        self.assertIn('class="service-status" href="/kozekilmu/tracks" aria-label="打开隐藏的 LMU 赛道指南"', html)
         self.assertIn('class="service-avatar"', html)
         self.assertIn('character-icon-128x128.png?v=20260811', html)
         self.assertIn('character-icon-192x192.png?v=20260811', html)

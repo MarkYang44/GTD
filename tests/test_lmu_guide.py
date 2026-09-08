@@ -313,7 +313,7 @@ class LmuGuideRouteTests(unittest.TestCase):
         self.assertIn('class="topbar-link" href="/#task-card">', html)
         self.assertIn('<span data-guide-copy="zh">返回下载</span>', html)
         self.assertIn('class="service-status"', html)
-        self.assertIn('aria-label="Kozeki Ui"', html)
+        self.assertIn('class="service-status" href="/kozekilmu/tracks" aria-label="打开隐藏的 LMU 赛道指南"', html)
         self.assertIn('.topbar.is-scrolled', css)
         self.assertIn('height: 68px', css)
         self.assertIn('width: min(1180px, calc(100% - 40px))', css)
