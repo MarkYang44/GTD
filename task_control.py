@@ -189,6 +189,14 @@ class TaskManager:
                 summaries.append(summary)
             return summaries
 
+    def cleanup_inputs(self, platform: str, cleanup: Callable) -> None:
+        """Keep queued/running inputs protected while an input store expires files."""
+        with self._lock:
+            active = {str(task["url"]) for batch in self._batches.values()
+                      for task in batch["tasks"] if task["platform"] == platform
+                      and task["status"] not in self.TERMINAL_STATES}
+            cleanup(active)
+
     def snapshot(self, batch_id: str) -> dict[str, object]:
         with self._lock:
             batch = self._require_batch(batch_id)

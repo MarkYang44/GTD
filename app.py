@@ -52,6 +52,8 @@ from guide_renderer import render_markdown_file
 from lmu_guide_data import CARS, CIRCUITS, GUIDE_UPDATED
 from task_control import TaskManager, TaskSeed
 from task_history import TaskHistoryStore
+from local_audio import UploadStore, extract_audio
+from audio_extract_routes import extraction_blueprint, with_download_links
 
 app = Flask(__name__)
 WEB_HOST = "0.0.0.0"
@@ -82,9 +84,18 @@ def _available_guide_images(circuits, cars) -> frozenset[str]:
     image_paths.update(item.image for item in cars)
     return frozenset(path for path in image_paths if _guide_static_image_exists(path))
 
+upload_store = UploadStore(Path(__file__).resolve().parent / "state" / "audio_uploads")
+
+
+def run_media_task(url, **kwargs):
+    if kwargs.get("platform") == "local":
+        return extract_audio(url, store=upload_store, **kwargs)
+    return download_video(url, **kwargs)
+
+
 preview_store = PreviewStore(ttl_seconds=1800)
 task_manager = TaskManager(
-    download_video,
+    run_media_task,
     max_workers=3,
     max_bilibili=2,
     max_batches=MAX_STORED_BATCHES,
@@ -92,6 +103,9 @@ task_manager = TaskManager(
     directory_preparer=_prepare_output_dir,
     history_store=TaskHistoryStore(os.environ.get("GTD_HISTORY_PATH", str(Path(__file__).resolve().parent / "state" / "tasks.sqlite3"))),
 )
+
+app.register_blueprint(extraction_blueprint(task_manager, upload_store))
+task_manager.cleanup_inputs("local", upload_store.cleanup)
 
 # ---------------------------------------------------------------------------
 # 路由
@@ -391,7 +405,7 @@ def api_batches():
 def api_batch_status(batch_id: str):
     """轮询接口：返回指定 batch 的当前状态。"""
     try:
-        return jsonify(task_manager.snapshot(batch_id))
+        return jsonify(with_download_links(task_manager.snapshot(batch_id)))
     except KeyError:
         return _api_error(
             "BATCH_NOT_FOUND",

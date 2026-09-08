@@ -107,3 +107,9 @@ Export only the current platform's domain, select Netscape format, and confirm t
 ## Authorized use
 
 This tool is only for downloading video or audio you own, are authorized to use, or the platform permits you to download. Follow the terms of service of YouTube, Instagram, and Bilibili, and applicable local laws. Do not use it to bypass DRM or access controls, or to download content you have no right to use.
+
+## Extract audio from a local video
+
+Choose **Extract audio from a local video** on the homepage, or open `/extract-audio`. Drop or select one local video (up to 2 GiB), choose **Original audio** or **MP3 V0**, and start extraction. Original audio copies the stream without re-encoding, using the default audio track or the first track when no default is set. AAC normally produces M4A; other extensions depend on the codec. Extraction cannot improve the source quality.
+
+Upload and processing progress are shown separately. Extraction shares the existing queue, cancellation/retry, and task history. Results are saved to the default `downloads` folder and can also be saved with **Download audio**. Upload copies are staged in `state/audio_uploads` for 24 hours; expired inactive copies are cleaned on startup, upload, or extraction-history refresh. Re-upload after expiration to retry. Staging is limited to 8 GiB / 256 files. Source videos are unchanged and completed outputs are not automatically removed.

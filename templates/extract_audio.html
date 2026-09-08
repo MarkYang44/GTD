@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-guide-language="zh" data-theme="dark" data-motion-profile="calm" class="download-page extract-page" data-title-zh="视频提取音频 - GTD" data-title-en="Audio Extraction - GTD">
+<head>
+<meta charset="UTF-8">
+<script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0f172a">
+<link rel="icon" href="{{ url_for('static', filename='icons/favicon.ico', v='20260811') }}" sizes="any">
+<link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='icons/favicon-16x16.png', v='20260811') }}">
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/favicon-32x32.png', v='20260811') }}">
+<link rel="icon" type="image/png" sizes="48x48" href="{{ url_for('static', filename='icons/favicon-48x48.png', v='20260811') }}">
+<link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png', v='20260811') }}">
+<link rel="manifest" href="{{ url_for('static', filename='site.webmanifest', v='20260811') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,400&amp;display=swap" rel="stylesheet">
+<title>视频提取音频 - GTD</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/motion.css') }}">
+<script src="/static/js/lmu_guide_language.js"></script>
+<link rel="stylesheet" href="/static/css/language.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/refined.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/extract_audio.css') }}">
+</head>
+<body>
+<div class="scroll-progress" id="scroll-progress" aria-hidden="true"></div>
+
+<header class="topbar" id="topbar">
+  <div class="topbar-inner">
+    <div class="brand">Designed by Mark Yang</div>
+    <div class="topbar-actions">
+      {% include '_theme_toggle.html' %}
+      {% include '_language_toggle.html' %}
+      <a class="topbar-link" href="/"><span data-guide-copy="zh">返回下载</span><span data-guide-copy="en">Downloader</span></a>
+      <a class="service-status" href="{{ url_for('kozekilmu_tracks') }}" aria-label="打开隐藏的 LMU 赛道指南" data-i18n-aria-label-zh="打开隐藏的 LMU 赛道指南" data-i18n-aria-label-en="Open the hidden LMU circuit guide">
+        <img
+          class="service-avatar"
+          src="{{ url_for('static', filename='icons/favicon-32x32.png', v='20260811') }}"
+          srcset="{{ url_for('static', filename='icons/favicon-32x32.png', v='20260811') }} 1x, {{ url_for('static', filename='icons/favicon-64x64.png', v='20260811') }} 2x, {{ url_for('static', filename='icons/character-icon-128x128.png', v='20260811') }} 3x"
+          width="30"
+          height="30"
+          alt=""
+          aria-hidden="true"
+          decoding="async"
+        >
+      </a>
+    </div>
+  </div>
+</header>
+
+<main class="main">
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="hero-copy">
+      <div class="hero-kicker">LOCAL VIDEO / AUDIO</div>
+      <h1 id="hero-title">Keep the sound.</h1>
+      <p class="hero-description"><strong><span data-guide-copy="zh">从本地视频中，留下声音。</span><span data-guide-copy="en">Extract the audio from your local video.</span></strong><br><span data-guide-copy="zh">选择一个视频，提取原始音轨或转换为 MP3 V0。</span><span data-guide-copy="en">Choose a video. Keep its original audio or convert it to MP3 V0.</span></p>
+    </div>
+  </section>
+  <section class="card extractor-card" aria-labelledby="extract-title">
+    <div class="download-card-header"><span class="card-index">01 / EXTRACT</span><h2 id="extract-title"><span data-guide-copy="zh">选择你的视频</span><span data-guide-copy="en">Choose your video</span></h2></div>
+    <form id="extract-form">
+      <label class="extract-drop" id="extract-drop" for="video-file">
+        <span class="extract-drop-symbol" aria-hidden="true">↥</span>
+        <strong><span data-guide-copy="zh">选择文件，或拖放到这里</span><span data-guide-copy="en">Choose a file, or drop it here</span></strong>
+        <span><span data-guide-copy="zh">每次一个视频 · 最大 2 GiB</span><span data-guide-copy="en">One video at a time · Up to 2 GiB</span></span>
+        <input id="video-file" type="file" accept="video/*,.mkv,.webm,.avi,.mov,.m4v,.ts,.mts" aria-label="选择视频" data-i18n-aria-label-zh="选择视频" data-i18n-aria-label-en="Choose a video">
+      </label>
+      <p class="extract-file" id="selected-file" role="status"></p>
+      <fieldset class="format-control"><legend><span data-guide-copy="zh">音频输出格式</span><span data-guide-copy="en">Audio output format</span></legend>
+        <label class="format-option"><input type="radio" name="audio_format" value="source" checked><span><span data-guide-copy="zh">原始音轨</span><span data-guide-copy="en">Original audio</span></span></label>
+        <label class="format-option"><input type="radio" name="audio_format" value="mp3"><span>MP3 V0</span></label>
+      </fieldset>
+      <p class="extract-note"><span data-guide-copy="zh">原始音轨直接复制音频，不重新编码，也不会恢复源文件已损失的音质。优先提取默认音轨，否则使用第一条音轨；文件扩展名由音频编码决定。</span><span data-guide-copy="en">Original audio copies the stream without re-encoding; it cannot restore quality already lost. We use the default audio track, or the first track if no default is set. The audio codec determines the file extension.</span></p>
+      <div class="btn-row"><button class="btn btn-primary" id="extract-submit" type="submit"><span data-guide-copy="zh">提取音频</span><span data-guide-copy="en">Extract audio</span> <span class="btn-arrow" aria-hidden="true">↘</span></button><button class="btn btn-secondary" type="button" id="upload-cancel" hidden><span data-guide-copy="zh">取消上传</span><span data-guide-copy="en">Cancel upload</span></button></div>
+      <div id="upload-state" hidden><p id="upload-label" role="status"></p><progress id="upload-progress" max="100" value="0" aria-labelledby="upload-label"></progress></div>
+      <p class="task-error" id="extract-error" role="alert" hidden></p>
+    </form>
+  </section>
+  <section class="task-panel" aria-labelledby="extract-task-title">
+    <div class="task-header"><div class="task-heading-group"><span class="section-index">02 / OPERATIONS</span><h2 class="task-title" id="extract-task-title"><span data-guide-copy="zh">提取任务</span><span data-guide-copy="en">Extraction tasks</span></h2></div><span class="task-count" id="extract-summary" role="status"></span></div>
+    <div class="batch-history-controls"><label for="extract-history"><span data-guide-copy="zh">任务历史</span><span data-guide-copy="en">Task history</span></label><select id="extract-history"></select><button class="task-action" id="refresh-history" type="button"><span data-guide-copy="zh">刷新历史</span><span data-guide-copy="en">Refresh history</span></button><span id="history-feedback" role="status"></span></div>
+    <div id="extract-tasks"></div>
+  </section>
+  <p class="extract-note"><span data-guide-copy="zh">输入文件保留 24 小时以便重试，过期后请重新上传。输出保存到默认 downloads 文件夹，也可在任务完成后下载。</span><span data-guide-copy="en">Input files are kept for retries for 24 hours. Upload again after they expire. Audio is saved to the default downloads folder and can also be downloaded when complete.</span></p>
+</main>
+<script defer src="{{ url_for('static', filename='js/motion.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/extract_audio.js') }}"></script>
+</body>
+</html>

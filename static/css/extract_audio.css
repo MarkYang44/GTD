@@ -1,0 +1,19 @@
+.extractor-card { margin-bottom: 32px; }
+.extract-drop { position: relative; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 40px 20px; border: 1px dashed var(--border-strong); border-radius: var(--radius-control); color: var(--muted); cursor: pointer; text-align: center; background: var(--background); }
+.extract-drop strong { color: var(--foreground); font-size: 16px; }
+.extract-drop-symbol { font-size: 32px; color: var(--accent); }
+.extract-drop:hover, .extract-drop.drag-over { background: var(--surface-hover); border-color: var(--accent); }
+.extract-drop:focus-within { outline: 2px solid var(--accent); outline-offset: 3px; }
+.extract-drop input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.extract-file { color: var(--foreground); overflow-wrap: anywhere; min-height: 1.5em; margin: 16px 0; }
+.extract-note { color: var(--muted); line-height: 1.8; font-size: 13px; margin: 16px 0 24px; }
+.extract-page progress { display: block; width: 100%; height: 8px; accent-color: var(--accent); margin: 12px 0; border: 0; border-radius: 8px; overflow: hidden; }
+.extract-page progress::-webkit-progress-bar { background: var(--border); }
+.extract-page progress::-webkit-progress-value { background: var(--accent); }
+.extract-page progress:indeterminate { opacity: .55; }
+#upload-state { margin-top: 20px; color: var(--muted); font-size: 13px; }
+.extract-page [hidden] { display: none !important; }
+.extract-page .task-meta, .extract-page .task-error { overflow-wrap: anywhere; }
+.extract-page .task-actions a { text-decoration: none; }
+.extract-page .task-title { margin: 0; }
+@media (max-width: 600px) { .extract-drop { padding: 30px 12px; } .extract-page .task-header { flex-wrap: wrap; gap: 12px; } }

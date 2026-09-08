@@ -812,12 +812,13 @@
         failed: [tr("下载失败", "Failed"), "badge-failed"],
         cancelled: [tr("已取消", "Cancelled"), "badge-cancelled"],
       };
-      const [label, badgeCls] = badgeMap[t.status] || [tr("未知", "Unknown"), ""];
+      let [label, badgeCls] = badgeMap[t.status] || [tr("未知", "Unknown"), ""];
 
+      if (t.platform === 'local' && t.status === 'running') label = tr('提取中', 'Extracting');
       html += `<li class="task-item ${cls}">`;
       html += `<span class="task-index">${String(i + 1).padStart(2, "0")}</span>`;
       html += `<div class="task-body">`;
-      html += `<div class="task-url">${escHtml(t.url)}</div>`;
+      html += `<div class="task-url">${escHtml(t.platform === "local" ? (t.title || tr("本地视频", "Local video")) : t.url)}</div>`;
 
       if (t.status === "completed" && t.result) {
         const r = t.result;
@@ -840,6 +841,7 @@
         if (batch.media_type === "audio" && r.audio_format_fallback) {
           html += `<br>${tr("源站未提供 FLAC，已自动回退至 MP3 V0", "The source has no FLAC audio; automatically fell back to MP3 V0")}`;
         }
+        if (t.platform === 'local' && typeof r.download_url === 'string' && r.download_url.startsWith('/api/extract-audio/')) html += `<br><a class="task-action" href="${escHtml(r.download_url)}" download>${tr('下载音频', 'Download audio')}</a>`;
         if (r.filepath) html += `<br>${tr("保存路径: ", "Saved to: ")}${escHtml(r.filepath)}`;
         html += `</div>`;
       } else if (["running", "running_uninterruptible"].includes(t.status)) {
