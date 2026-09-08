@@ -1,0 +1,78 @@
+/* Native scrolling keeps the gallery usable without JavaScript. */
+.gallery .gallery-grid {
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--surface);
+}
+.gallery .shot {
+  flex: 0 0 100%;
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  aspect-ratio: auto;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+.gallery .shot-media {
+  position: relative;
+  inset: auto;
+  display: block;
+  height: clamp(220px, 48vw, 640px);
+}
+.gallery .shot img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform: none;
+  filter: none;
+}
+.gallery .shot-caption {
+  position: static;
+  min-height: 44px;
+  padding: 12px 20px;
+  background: none;
+  color: var(--muted-strong);
+}
+[data-theme="light"] .gallery .shot-caption { color: var(--muted-strong); }
+.gallery-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 18px;
+}
+.gallery-controls button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--foreground);
+  cursor: pointer;
+  font: 22px/1 system-ui, sans-serif;
+}
+.gallery-controls button:disabled { opacity: .3; cursor: default; }
+.gallery-controls button:focus-visible, .gallery-grid:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.gallery-dots { display: flex; gap: 0; }
+.gallery-dots button { width: 28px; border: 0; background: none; }
+.gallery-dots button::before {
+  content: ''; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--muted); transition: background .2s ease, transform .2s ease;
+}
+.gallery-dots button[aria-current="true"]::before { background: var(--accent); transform: scale(1.4); }
+.gallery-count { color: var(--muted-strong); font: 12px/1.4 system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+@media (max-width: 480px) { .gallery-controls { gap: 8px; } }
+@media (prefers-reduced-motion: reduce) { .gallery-dots button::before { transition: none; } }

@@ -199,9 +199,9 @@ class KozekiLmuEasterEggTests(unittest.TestCase):
         surfaces = [node for node in structure.nodes if "data-motion-surface" in node.attrs]
         video_surfaces = [node for node in surfaces if node.tag == "a" and "video-card" in node.classes]
         shot_surfaces = [node for node in surfaces if node.tag == "figure" and "shot" in node.classes]
-        self.assertEqual(len(surfaces), 6)
+        self.assertEqual(len(surfaces), 1)  # Carousel slides do not use pointer/parallax effects.
         self.assertEqual(len(video_surfaces), 1)
-        self.assertEqual(len(shot_surfaces), 5)
+        self.assertEqual(len(shot_surfaces), 0)
 
         assets = [
             Path(node.attrs["src"]).name
@@ -226,11 +226,6 @@ class KozekiLmuEasterEggTests(unittest.TestCase):
             [
                 ("hero-stamp", "0.55"),
                 ("video-media", "0.45"),
-                ("shot-media", "0.40"),
-                ("shot-media", "0.46"),
-                ("shot-media", "0.52"),
-                ("shot-media", "0.44"),
-                ("shot-media", "0.48"),
             ],
         )
 
@@ -244,7 +239,7 @@ class KozekiLmuEasterEggTests(unittest.TestCase):
 
         self.assertEqual(
             [(node.attrs.get("src"), "defer" in node.attrs) for node in scripts],
-            [("/static/js/theme.js", False), ("/static/js/lmu_guide_language.js", False), ("/static/js/motion.js", True)],
+            [("/static/js/theme.js", False), ("/static/js/lmu_guide_language.js", False), ("/static/js/gallery.js", True), ("/static/js/motion.js", True)],
         )
 
     def test_media_surfaces_have_noninteractive_sheen_below_controls(self):
