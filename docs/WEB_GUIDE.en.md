@@ -10,6 +10,8 @@ Once the project web server is running, visit [http://127.0.0.1:8233](http://127
 
 Use the **ZH / EN** switch at the top right to change languages. Your choice applies across all project pages and is remembered in this browser.
 
+Use the **Dark / Light** slider in the upper-right corner to switch themes. Dark is the default; light uses clean white and soft gray surfaces. Both keep Petronas green accents. Your theme preference is independent of language, remembered in this browser, and shared across pages and tabs.
+
 > The web interface and system folder picker are intended for the local desktop session running this project. The browser does not read or upload arbitrary local folder contents.
 
 ## Download workflow

@@ -56,7 +56,7 @@ class WebConfigurationTests(unittest.TestCase):
         )
         self.assertEqual(
             stylesheet_urls,
-            ["/static/css/index.css", "/static/css/motion.css", "/static/css/language.css", "/static/css/refined.css"],
+            ["/static/css/index.css", "/static/css/motion.css", "/static/css/language.css", "/static/css/refined.css", "/static/css/theme.css"],
         )
         self.assertEqual(
             script_urls,

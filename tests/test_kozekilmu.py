@@ -244,7 +244,7 @@ class KozekiLmuEasterEggTests(unittest.TestCase):
 
         self.assertEqual(
             [(node.attrs.get("src"), "defer" in node.attrs) for node in scripts],
-            [("/static/js/lmu_guide_language.js", False), ("/static/js/motion.js", True)],
+            [("/static/js/theme.js", False), ("/static/js/lmu_guide_language.js", False), ("/static/js/motion.js", True)],
         )
 
     def test_media_surfaces_have_noninteractive_sheen_below_controls(self):

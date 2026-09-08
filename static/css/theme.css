@@ -1,0 +1,97 @@
+/* Shared theme control: native keyboard interaction, quiet slider motion. */
+.theme-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 6px;
+  min-height: 44px;
+  color: var(--muted-strong);
+  font: 500 11px/1 var(--ui-font);
+  cursor: pointer;
+}
+.theme-toggle input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.theme-toggle-track {
+  display: block;
+  position: relative;
+  width: 42px;
+  height: 22px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+}
+.theme-toggle-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  transition: transform 180ms ease;
+}
+.theme-toggle input:checked + .theme-toggle-track .theme-toggle-thumb { transform: translateX(18px); }
+.theme-toggle input:focus-visible + .theme-toggle-track { outline: 2px solid var(--accent); outline-offset: 4px; }
+header.topbar { height: auto; }
+header.topbar .topbar-inner { height: auto; min-height: 68px; padding-block: 10px; }
+header.topbar .topbar-actions { flex-wrap: wrap; }
+
+/* Brand accents stay Petronas green; ink is darker for legibility on white. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --background: #edf2f0;
+  --background-deep: #f5f7f6;
+  --surface: #ffffff;
+  --surface-hover: #edf4f1;
+  --foreground: #182825;
+  --muted: #596c66;
+  --muted-strong: #3e554e;
+  --border: rgba(24, 60, 49, .14);
+  --border-strong: rgba(0, 123, 117, .38);
+  --success: #087c61;
+  --danger: #b42343;
+  --accent-ink: #00756f;
+  --field: #fafcfb;
+}
+[data-theme="light"] body {
+  background: radial-gradient(ellipse at 15% 0%, rgba(0, 155, 149, .035), transparent 48rem), var(--background-deep);
+}
+[data-theme="light"] .topbar.is-scrolled { background: rgba(245, 247, 246, .92); }
+[data-theme="light"] :is(.card, .task-panel, .collection-preview, .circuit-card, .guide-document, .guide-toc-inner, .video-card, .shot) {
+  box-shadow: 0 4px 24px rgba(24, 60, 49, .045);
+}
+[data-theme="light"] :is(.url-input, .url-input:focus, .download-location-input, .format-control, .download-location-history-toggle, .collection-entry, .task-item, .recommendation, .guide-markdown pre) {
+  background: var(--field);
+}
+[data-theme="light"] :is(.url-input, .download-location-input)::placeholder { color: var(--muted); }
+[data-theme="light"] .task-item:hover { background: var(--surface-hover); }
+[data-theme="light"] :is(.guide-layout, .guide-toc) { background: var(--background); box-shadow: none; }
+[data-theme="light"] :is(.easter-nav-link, .topbar-link) { background: var(--surface); }
+[data-theme="light"] :is(.easter-nav-link.is-active, .easter-nav-link:hover, .topbar-link:hover) { background: rgba(0, 155, 149, .09); }
+[data-theme="light"] :is(.hero-kicker, .hero-date, .data-label, .stamp-copy, .section-index, .card-index, .guide-kicker, .guide-toc-label, .circuit-meta, .recommendation-group h3, .task-progress-value, .badge-running, .guide-markdown a, .guide-markdown code, .circuit-content a, .collection-thumb-placeholder) { color: var(--accent-ink); }
+[data-theme="light"] .guide-markdown pre code { color: var(--muted-strong); }
+[data-theme="light"] .task-error { color: var(--danger); }
+[data-theme="light"] .badge-cancelled { color: #865600; }
+[data-theme="light"] .footer-line-en { color: var(--muted); }
+/* Photo captions retain their dark scrims and light ink in either theme. */
+[data-theme="light"] :is(.video-overlay, .video-play) { color: #f2f7f6; }
+[data-theme="light"] .shot-caption { color: #cad8d5; }
+@media (max-width: 600px) {
+  html { scroll-padding-top: 140px; }
+  header.topbar .topbar-inner { flex-wrap: wrap; gap: 4px; }
+  header.topbar .topbar-actions { width: 100%; gap: 4px 8px; justify-content: space-between; }
+  header.topbar .language-toggle { gap: 6px; }
+  header.topbar .language-toggle-track { width: 42px; }
+  header.topbar .language-toggle input:checked + .language-toggle-track .language-toggle-thumb { transform: translateX(18px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-toggle-thumb { transition: none; }
+}
+@media (max-width: 420px) {
+  header.topbar .topbar-actions { gap: 4px; }
+  header.topbar .topbar-link { font-size: 11px; padding-inline: 8px; }
+  header.topbar .language-toggle, .theme-toggle { font-size: 10px; gap: 4px; }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  [data-theme="light"] .topbar.is-scrolled { background: var(--background-deep); }
+}

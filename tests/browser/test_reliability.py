@@ -137,7 +137,7 @@ class BrowserReliabilityTests(unittest.TestCase):
         self.assertEqual(self.posts, [])
 
     def test_refined_theme_on_all_pages_in_both_languages_and_mobile(self):
-        for width in (1280, 375):
+        for width in (1280, 375, 320):
             self.page.set_viewport_size({'width': width, 'height': 800})
             for route in ('/', '/guide', '/kozekilmu/tracks', '/kozekilmu'):
                 with self.subTest(width=width, route=route):
@@ -248,3 +248,67 @@ class BrowserReliabilityTests(unittest.TestCase):
                             labelFont:t.font, labelSpacing:t.letterSpacing, labelMargin:t.marginLeft};
                     })"""))
                 self.assertEqual(snapshots[0], snapshots[1], (width, language))
+
+    def test_theme_switch_defaults_dark_and_persists_across_pages(self):
+        self.page.goto(self.url)
+        expect(self.page.locator('html')).to_have_attribute('data-theme', 'dark')
+        toggle = self.page.locator('#theme-toggle')
+        expect(toggle).not_to_be_checked()
+        self.page.locator('label[for="theme-toggle"]').click()
+        expect(toggle).to_be_checked()
+        self.assertEqual(self.page.evaluate("localStorage.getItem('gtd_theme_v1')"), 'light')
+        self.page.locator('#videoUrls').fill('https://youtu.be/example')
+        self.page.locator('label[for="guide-language-toggle"]').click()
+        expect(toggle).to_be_checked()
+        expect(self.page.locator('#videoUrls')).to_have_value('https://youtu.be/example')
+        other = self.context.new_page()
+        other.goto(self.url + '/guide')
+        expect(other.locator('html')).to_have_attribute('data-theme', 'light')
+        other.locator('label[for="theme-toggle"]').click()
+        expect(self.page.locator('html')).to_have_attribute('data-theme', 'dark')
+        other.close()
+        self.page.reload()
+        expect(toggle).not_to_be_checked()
+
+    def test_light_palette_and_navigation_on_all_routes(self):
+        self.context.add_init_script("localStorage.setItem('gtd_theme_v1','light')")
+        for width in (1280, 375, 320):
+            self.page.set_viewport_size({'width': width, 'height': 800})
+            navs = []
+            for route in ('/', '/guide', '/kozekilmu/tracks', '/kozekilmu'):
+                self.page.goto(self.url + route)
+                expect(self.page.locator('html')).to_have_attribute('data-theme', 'light')
+                expect(self.page.locator('#theme-toggle')).to_be_checked()
+                style = self.page.locator('body').evaluate("el=>{const s=getComputedStyle(el);return {bg:s.backgroundColor,color:s.color,primary:s.getPropertyValue('--primary').trim(),scheme:s.colorScheme}}")
+                self.assertEqual(style['bg'], 'rgb(245, 247, 246)')
+                self.assertEqual(style['color'], 'rgb(24, 40, 37)')
+                self.assertEqual(style['primary'], '#009b95')
+                self.assertEqual(style['scheme'], 'light')
+                self.assertLessEqual(self.page.evaluate('document.documentElement.scrollWidth'), width)
+                for selector in ('.topbar-actions', '.theme-toggle', '.language-toggle'):
+                    box = self.page.locator(selector).bounding_box()
+                    self.assertGreaterEqual(box['x'], 0)
+                    self.assertLessEqual(box['x'] + box['width'], width)
+                if route.startswith('/kozekilmu'):
+                    navs.append(self.page.locator('.easter-nav').bounding_box())
+                if route == '/':
+                    self.page.locator('#videoUrls').focus()
+                    self.assertEqual(self.page.locator('#videoUrls').evaluate('el=>getComputedStyle(el).backgroundColor'), 'rgb(250, 252, 251)')
+                if route == '/kozekilmu/tracks':
+                    self.page.locator('details summary').first.click()
+                    expect(self.page.locator('.recommendation').first).to_be_visible()
+                    self.assertEqual(self.page.locator('.recommendation').first.evaluate('el=>getComputedStyle(el).backgroundColor'), 'rgb(250, 252, 251)')
+            self.assertEqual(navs[0], navs[1])
+
+    def test_mobile_guide_anchor_clears_theme_header(self):
+        for width in (375, 320):
+            self.page.set_viewport_size({'width': width, 'height': 800})
+            self.page.goto(self.url + '/guide')
+            link = self.page.locator('.guide-toc-list a:visible').nth(2)
+            target = link.get_attribute('href')
+            link.click()
+            self.page.wait_for_function("""target => {
+                const heading = document.getElementById(decodeURIComponent(target.slice(1)));
+                const y = heading.getBoundingClientRect().top;
+                return y >= document.querySelector('.topbar').getBoundingClientRect().bottom && y < 200;
+            }""", arg=target)

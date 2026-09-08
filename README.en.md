@@ -400,6 +400,8 @@ Use **User Guide** in the upper-right corner of the main page to open `/guide`, 
 
 The download page (`/`), user guide (`/guide`), Circuit Guide (`/kozekilmu/tracks`), and Victory Archive (`/kozekilmu`) share a **中文 / EN** switch in the upper-right corner. Your browser saves the selected language and applies it when you navigate to another page or refresh. Switching languages preserves entered links and current download tasks. The switch controls website text; source titles, filenames, and original third-party error details remain as provided. The CLI is unchanged.
 
+Use the **Dark / Light** slider in the upper-right corner to switch themes. Dark is the default; light uses clean white and soft gray surfaces. Both keep Petronas green accents. Your theme preference is independent of language, remembered in this browser, and shared across pages and tabs.
+
 This README uses separate Markdown files: follow **中文 | English** at the top to switch between the complete Chinese and English versions.
 
 ### Web Workflow

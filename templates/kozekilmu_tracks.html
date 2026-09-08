@@ -2,9 +2,10 @@
 <span data-guide-copy="zh">{{ zh }}</span><span data-guide-copy="en">{{ en }}</span>
 {%- endmacro -%}
 <!DOCTYPE html>
-<html lang="zh-CN" data-guide-language="zh" data-motion-profile="calm" data-title-zh="LMU 赛道指南 - GTD" data-title-en="LMU Circuit Guide - GTD">
+<html lang="zh-CN" data-guide-language="zh" data-theme="dark" data-motion-profile="calm" data-title-zh="LMU 赛道指南 - GTD" data-title-en="LMU Circuit Guide - GTD">
 <head>
 <meta charset="UTF-8">
+<script src="{{ url_for('static', filename='js/theme.js') }}"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0f172a">
 <link rel="icon" href="{{ url_for('static', filename='icons/favicon.ico', v='20260811') }}" sizes="any">
@@ -20,6 +21,7 @@
 <link rel="stylesheet" href="/static/css/motion.css">
 <link rel="stylesheet" href="/static/css/language.css">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/refined.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
 </head>
 <body>
 <div class="scroll-progress" id="scroll-progress" aria-hidden="true"></div>
@@ -27,6 +29,7 @@
   <div class="topbar-inner">
     <div class="brand">Designed by Mark Yang</div>
     <div class="topbar-actions">
+      {% include '_theme_toggle.html' %}
       {% include '_language_toggle.html' %}
       <a class="topbar-link" href="{{ url_for('index') }}#task-card">{{ guide_copy("返回下载", "Back to downloads") }}</a>
       <div class="service-status"
