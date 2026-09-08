@@ -14,6 +14,12 @@ Use the **Dark / Light** slider in the upper-right corner to switch themes. Dark
 
 > The web interface and system folder picker are intended for the local desktop session running this project. The browser does not read or upload arbitrary local folder contents.
 
+## LMU content tools
+
+Use the character icon in the upper-right corner to open the Circuit Guide. Search by circuit name, Chinese alias, or location, and combine class, car, and favorites filters. Star a circuit or car to save it in this browser; favorites synchronize across same-origin tabs.
+
+Expand the recommendations, select 2–3 entries, and use **Compare** at the bottom right to view each circuit's recommendation reasons and caveats side by side. Filtering preserves favorites and comparison selections; reloading clears comparison selections. If browser storage is disabled, favorites last only for the current page.
+
 ## Download workflow
 
 1. To download video, paste links or platform share text into **Best-quality video**; for audio only, use **Best-quality audio**. Put each link on its own line.

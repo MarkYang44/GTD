@@ -418,6 +418,14 @@ Use **User Guide** in the upper-right corner of the main page to open `/guide`, 
 
 The character icon in the upper-right corner of every page, and the lower character icon on the downloader homepage, open `/kozekilmu/tracks`. From the Circuit Guide, switch to the Victory Archive at `/kozekilmu`.
 
+### LMU content tools
+
+Open `/kozekilmu/tracks` to search by English circuit name, Chinese alias, or location, and combine class, car, and favorites filters. Search ignores case and accents.
+
+Use the stars to favorite circuits or cars. Car favorites apply across circuit recommendations. Favorites are saved in this browser and synchronized across same-origin tabs, not devices. When browser storage is blocked, favorites last only for the current page.
+
+Expand the recommendations and select 2–3 entries, then use **Compare** at the bottom right. Each column keeps its circuit context, recommendation reasons, and caveats; the same car on different circuits can be compared. Filtering preserves favorites and comparison selections; reloading clears comparison selections. Content comes from the existing guide and is not a live lap-time ranking.
+
 ### Extract audio from a local video
 
 Choose **Extract audio from a local video** on the homepage, or open `/extract-audio`. Drop or select one local video (up to 2 GiB), choose **Original audio** or **MP3 V0**, and start extraction. Original audio copies the stream without re-encoding, using the default audio track or the first track when no default is set. AAC normally produces M4A; other extensions depend on the codec. Extraction cannot improve the source quality. Supported containers include MP4/MOV, MKV/WebM, AVI, MPEG-TS/MPEG, FLV, ASF, and Ogg. The file must contain both video and audio; only one track is extracted from multitrack files. This feature does not apply the link downloader’s artwork fallback or preserve video chapters and other metadata.

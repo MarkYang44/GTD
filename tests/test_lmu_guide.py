@@ -253,8 +253,8 @@ class LmuGuideRouteTests(unittest.TestCase):
         self.assertIn('href="/kozekilmu/tracks" aria-current="page"', html)
         self.assertEqual(html.count('class="circuit-card"'), 16)
         self.assertEqual(html.count("<details"), 16)
-        self.assertEqual(html.count('data-class="LMGT3"'), 48)
-        self.assertEqual(html.count('data-class="Hypercar"'), 48)
+        self.assertEqual(html.count('<li class="recommendation" data-class="LMGT3"'), 48)
+        self.assertEqual(html.count('<li class="recommendation" data-class="Hypercar"'), 48)
 
     def test_circuit_reveal_stagger_is_bounded_per_grid_row(self):
         html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)

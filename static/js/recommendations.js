@@ -55,6 +55,7 @@
   const finishAll = () => finishers.forEach(finish => finish());
   window.addEventListener('resize', finishAll, {passive: true});
   document.addEventListener('gtd:languagechange', finishAll);
+  document.addEventListener('gtd:lmu-filterchange', finishAll);
   reduced.addEventListener?.('change', finishAll);
   document.addEventListener('visibilitychange', () => { if (document.hidden) finishAll(); });
 })();

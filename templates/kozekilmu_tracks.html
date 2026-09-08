@@ -2,7 +2,7 @@
 <span data-guide-copy="zh">{{ zh }}</span><span data-guide-copy="en">{{ en }}</span>
 {%- endmacro -%}
 <!DOCTYPE html>
-<html lang="zh-CN" data-guide-language="zh" data-theme="dark" data-motion-profile="calm" data-title-zh="LMU 赛道指南 - GTD" data-title-en="LMU Circuit Guide - GTD">
+<html lang="zh-CN" data-guide-language="zh" class="lmu-page" data-theme="dark" data-motion-profile="calm" data-title-zh="LMU 赛道指南 - GTD" data-title-en="LMU Circuit Guide - GTD">
 <head>
 <meta charset="UTF-8">
 <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
@@ -22,6 +22,7 @@
 <link rel="stylesheet" href="/static/css/language.css">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/refined.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/lmu_tools.css') }}">
 </head>
 <body>
 <div class="scroll-progress" id="scroll-progress" aria-hidden="true"></div>
@@ -54,6 +55,41 @@
     <p class="guide-updated">{{ guide_copy("资料更新：", "Updated: ") }}<time datetime="{{ guide_updated }}">{{ guide_updated }}</time></p>
   </header>
 
+  <section id="lmu-tools" class="lmu-tools" hidden aria-label="赛道工具" data-i18n-aria-label-zh="赛道工具" data-i18n-aria-label-en="Circuit tools">
+    <div class="lmu-filters">
+      <label class="lmu-search-field" for="lmu-search">{{ guide_copy("搜索赛道", "Search circuits") }}
+        <input id="lmu-search" type="search" placeholder="名称、地点…" data-i18n-placeholder-zh="名称、地点…" data-i18n-placeholder-en="Name or location…" autocomplete="off">
+      </label>
+      <label for="lmu-class">{{ guide_copy("组别", "Class") }}
+        <select id="lmu-class"><option value="" data-i18n-text-zh="全部组别" data-i18n-text-en="All classes">All classes</option><option>LMGT3</option><option>Hypercar</option></select>
+      </label>
+      <label for="lmu-car">{{ guide_copy("车型", "Car") }}
+        <select id="lmu-car"><option value="" data-i18n-text-zh="全部车型" data-i18n-text-en="All cars">All cars</option>
+        {% for slug, car in cars.items() %}<option value="{{ slug }}" data-class="{{ car.car_class }}">{{ car.name }}</option>{% endfor %}
+        </select>
+      </label>
+      <label for="lmu-favorites">{{ guide_copy("收藏", "Favorites") }}
+        <select id="lmu-favorites"><option value="" data-i18n-text-zh="全部内容" data-i18n-text-en="All content">All content</option><option value="circuits" data-i18n-text-zh="收藏的赛道" data-i18n-text-en="Favorite circuits">Favorite circuits</option><option value="cars" data-i18n-text-zh="收藏的车型" data-i18n-text-en="Favorite cars">Favorite cars</option></select>
+      </label>
+      <button id="lmu-reset" type="button">{{ guide_copy("重置筛选", "Reset filters") }}</button>
+    </div>
+    <p id="lmu-results" role="status" aria-live="polite"></p>
+    <p id="lmu-storage-note" role="status" hidden></p>
+  </section>
+
+  <section id="lmu-compare-bar" class="lmu-compare-bar" hidden aria-label="已选对比" data-i18n-aria-label-zh="已选对比" data-i18n-aria-label-en="Comparison selection">
+    <p>{{ guide_copy("选择 2–3 条推荐并排对比；每条保留对应的赛道背景。", "Choose 2–3 recommendations to compare, each with its circuit context.") }}</p>
+    <ul id="lmu-selection"></ul>
+    <div class="lmu-compare-actions"><button type="button" id="lmu-open-compare" disabled>{{ guide_copy("并排对比", "Compare side by side") }}</button><button type="button" id="lmu-clear-compare">{{ guide_copy("清空对比", "Clear comparison") }}</button></div>
+    <p id="lmu-compare-feedback" role="status" aria-live="polite"></p>
+  </section>
+  <p id="lmu-empty" class="lmu-empty" role="status" hidden>{{ guide_copy("没有匹配的赛道或车型。试试其他关键词，或重置筛选。", "No matching circuits or cars. Try another search or reset the filters.") }}</p>
+  <dialog id="lmu-compare-dialog" class="lmu-dialog" aria-labelledby="lmu-compare-title">
+    <header class="lmu-dialog-heading"><h2 id="lmu-compare-title">{{ guide_copy("车型推荐对比", "Compare recommendations") }}</h2><button type="button" id="lmu-close-compare">{{ guide_copy("关闭", "Close") }}</button></header>
+    <div id="lmu-compare-grid"></div>
+  </dialog>
+
+{% set circuit_aliases = {'bahrain': '巴林', 'barcelona': '巴塞罗那 加泰罗尼亚', 'le-mans': '勒芒 萨尔特', 'paul-ricard': '保罗里卡尔', 'cota': '美洲 奥斯汀', 'daytona': '代托纳', 'fuji': '富士', 'imola': '伊莫拉', 'interlagos': '英特拉格斯 因特拉格斯', 'lusail': '卢赛尔 罗赛尔', 'monza': '蒙扎', 'portimao': '波尔蒂芒 阿尔加维', 'sebring': '赛百灵 塞布林', 'silverstone-international': '银石', 'spa': '斯帕 弗朗科尔尚', 'laguna-seca': '拉古纳塞卡 拉古纳·塞卡'} %}
   <section class="circuit-list circuit-grid"
            aria-label="LMU 赛道与车型建议"
            data-i18n-aria-label-zh="LMU 赛道与车型建议"
@@ -61,6 +97,8 @@
   {% for circuit in circuits %}
     <article class="circuit-card"
              id="{{ circuit.slug }}"
+             data-circuit="{{ circuit.slug }}" data-name="{{ circuit.name }}"
+             data-search="{{ circuit.name }} {{ circuit.slug }} {{ circuit_aliases.get(circuit.slug, '') }} {{ circuit.location }} {{ circuit.location_zh }}"
              data-motion-reveal
              data-motion-group="lmu-circuits"
              data-motion-order="{{ loop.index0 % 2 }}"
@@ -85,7 +123,7 @@
       <div class="circuit-content">
         <header>
           <p class="circuit-meta">{{ guide_copy(circuit.location_zh, circuit.location) }} · {{ circuit.length_km }} km{% if circuit.is_dlc %} · DLC{% endif %}</p>
-          <h2>{{ circuit.name }}</h2>
+          <div class="lmu-circuit-heading"><h2>{{ circuit.name }}</h2><span data-lmu-enhance hidden><button type="button" class="lmu-favorite" data-favorite-circuit="{{ circuit.slug }}" aria-pressed="false" aria-label="收藏赛道" data-i18n-aria-label-zh="收藏赛道" data-i18n-aria-label-en="Favorite circuit"><span aria-hidden="true">☆</span></button></span></div>
           <p>{{ guide_copy(circuit.character_zh, circuit.character) }}</p>
         </header>
         <p>{{ guide_copy(circuit.challenge_zh, circuit.challenge) }}</p>
@@ -101,7 +139,7 @@
             <ul>
             {% for recommendation in recommendations %}
               {% set car = cars[recommendation.car_slug] %}
-              <li class="recommendation" data-class="{{ class_name }}">
+              <li class="recommendation" data-class="{{ class_name }}" data-car="{{ car.slug }}" data-key="{{ circuit.slug }}:{{ car.slug }}">
                 {% if car.image in available_images %}
                 <img src="{{ url_for("static", filename=car.image) }}"
                      width="1024"
@@ -125,6 +163,7 @@
                     <span data-guide-copy="en">{{ car.strength }}; caution: {{ car.caution }}.</span>
                   </p>
                   <a href="{{ car.source_url }}" target="_blank" rel="noopener noreferrer">{{ guide_copy("LMU 官方车型资料", "Official LMU car page") }}</a>
+                  <div class="lmu-card-actions" data-lmu-enhance hidden><button type="button" class="lmu-favorite" data-favorite-car="{{ car.slug }}" aria-pressed="false" aria-label="收藏车型" data-i18n-aria-label-zh="收藏车型" data-i18n-aria-label-en="Favorite car"><span aria-hidden="true">☆</span></button><button type="button" data-compare="{{ circuit.slug }}:{{ car.slug }}" aria-pressed="false">{{ guide_copy("加入对比", "Compare") }}</button></div>
                 </div>
               </li>
             {% endfor %}
@@ -155,5 +194,6 @@
 </footer>
 <script defer src="/static/js/motion.js"></script>
 <script defer src="/static/js/recommendations.js"></script>
+<script defer src="{{ url_for('static', filename='js/lmu_tools.js') }}"></script>
 </body>
 </html>
