@@ -8,26 +8,30 @@ GTD stands for Generalized Transmedia Downloader.
 
 A multi-platform media downloader designed for downloading and processing media from multiple online platforms.
 
-YouTube + Instagram + Bilibili 视频与多格式音频批量下载工具。
+YouTube + Instagram + Bilibili 视频与多格式音频批量下载工具，同时支持从本地视频提取音频。
 
 这是一个基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 的程序，支持**命令行**和**网页**两种使用方式。它可以在同一批任务中自动识别 YouTube、Instagram 和 Bilibili 链接，预览播放列表、合集与分 P，既能下载视频，也能按用户选择输出 **MP3 V0 / 源 FLAC / 原始音频 / WAV PCM**。下载位置可手动输入或通过系统界面选择；不配置时仍保存到项目内的 `downloads/` 文件夹。
+
+网页另提供独立的本地视频音频提取页，可上传视频并输出原始音轨或 MP3 V0，复用现有任务队列。
 
 ## 功能
 
 - 一次输入多个 YouTube、Instagram 与 Bilibili 链接
-- 一批任务最多同时处理 3 个链接，超过上限的任务自动排队
+- Web 所有批次共用最多 3 个工作槽（包括本地音频提取），CLI 每批最多同时处理 3 项；超过上限自动排队
 - 三个平台的链接可以任意混合，程序自动识别平台
 - 提交前预览并选择播放列表、合集与分 P 条目；每批最多选择 100 项，单次预览最多汇总前 1000 项并明确提示截断
 - YouTube 自动选择可用的最高画质与最高音质
 - 音频模式选择源站可获取的最高质量音轨，可输出 MP3 V0、真实源 FLAC、原始音频或 WAV PCM
-- 音频与 MP4 视频优先嵌入源封面；源站无封面时随机使用内置兜底图
+- 链接下载的音频与 MP4 视频优先嵌入源封面；源站无封面时随机使用内置兜底图
 - Instagram 支持 Reels、视频帖子、IGTV 和有效期内的 Stories
 - Bilibili 支持 `BV`、`av`、移动端视频、分 P 链接和 `b23.tv` 短链接
 - Bilibili 大于 50 MiB 的文件可在源站返回的最多 4 个 CDN 主机间自适应测速；aria2c 极速模式为可选功能
 - 使用 FFmpeg 合并音视频并输出 MP4，或处理 MP3 / FLAC / WAV 音频
 - **命令行模式**：交互式输入和命令行参数两种运行方式
 - **网页模式**：视频与音频使用两个独立输入区，支持合集选择、取消、重试与重新下载，并实时显示任务状态、下载速度和预计剩余时间
-- **全站语言切换**：下载首页、使用说明、赛道指南、冠军档案共享中英文开关，浏览器记住选择并跨页面生效
+- **本地视频提取音频**：独立页面上传/拖放视频，提取原始音轨或转换 MP3 V0，显示上传和处理进度，支持结果下载
+- **全站语言切换**：下载首页、使用说明、视频提取音频、赛道指南、冠军档案共享中英文开关，浏览器记住选择并跨页面生效
+- **深浅主题**：默认深色，可用全局滑块切换浅色；保留马石油绿点缀和花体标题，偏好跨页面保存
 - **自定义下载位置**：CLI 与 Web 均可输入路径；Windows 使用预编译并缓存的 DPI-aware 现代资源管理器式文件夹窗口，macOS 使用系统文件夹选择器，留空保持使用 `downloads/`
 - 单个链接下载失败时继续处理后续任务
 - 错误使用稳定错误码和可执行建议；脱敏 JSONL 日志自动轮转
@@ -35,6 +39,8 @@ YouTube + Instagram + Bilibili 视频与多格式音频批量下载工具。
 - 下载完成后显示成功、失败及文件路径汇总
 
 ## 目录结构
+
+主要文件与目录（省略部分内部辅助模块）：
 
 ```text
 GTD/
@@ -44,25 +50,39 @@ GTD/
 ├── media_cover.py               # 最终媒体封面检测与随机兜底写入
 ├── bilibili_acceleration.py     # Bilibili CDN 测速、缓存与极速模式策略
 ├── collection_resolver.py       # 播放列表、合集与分 P 预览/选择
-├── task_control.py              # Web 队列、取消、重试与重新下载
+├── task_control.py              # Web 共享队列、取消、重试与重新下载
+├── task_history.py              # SQLite 任务历史
+├── audio_output.py              # 音频格式和后处理配置
+├── local_audio.py               # 本地视频暂存、FFprobe 检查与 FFmpeg 提取
+├── audio_extract_routes.py      # 本地视频上传、提取历史与结果下载 API
 ├── download_errors.py           # 结构化错误码与用户建议
 ├── download_logging.py          # 脱敏 JSONL 轮转日志
 ├── folder_picker.py             # Windows / macOS 原生文件夹选择器
 ├── guide_renderer.py            # 项目内网页说明 Markdown 安全渲染器
 ├── assets/fallback_covers/      # 6 张内置封面兜底图片
 ├── docs/
-│   └── WEB_GUIDE.md             # 仅保留网页使用相关内容的说明文档
+│   ├── WEB_GUIDE.md             # 中文网页使用说明
+│   └── WEB_GUIDE.en.md          # 英文网页使用说明
 ├── templates/
 │   ├── index.html               # Web 主界面
-│   └── guide.html               # Web 使用说明页面
-├── requirements.txt             # Python 依赖
+│   ├── guide.html               # Web 使用说明页面
+│   ├── extract_audio.html       # 本地视频提取音频页面
+│   ├── kozekilmu_tracks.html    # LMU 赛道指南
+│   └── kozekilmu.html           # LMU 冠军档案
+├── static/css/                  # 共用样式、主题和页面样式
+├── static/js/                   # 语言、主题、动画及页面交互
+├── tests/                       # 单元、JS 与浏览器回归测试
+├── requirements.txt             # 固定直接依赖基线
+├── requirements-dev.txt         # 浏览器测试依赖
+├── requirements-update.txt      # 可选 yt-dlp 上游更新通道
 ├── README.md                    # 中文说明
 ├── README.en.md                 # 英文说明
 ├── cookies.txt                  # 可选：通用 Cookie
 ├── youtube_cookies.txt          # 可选：YouTube 专用 Cookie
 ├── instagram_cookies.txt        # 可选：Instagram 专用 Cookie
 ├── bilibili_cookies.txt         # 可选：Bilibili 专用 Cookie
-├── downloads/                   # 首次下载时自动创建
+├── downloads/                   # 默认下载与提取输出目录，自动创建
+├── state/                       # tasks.sqlite3 任务历史及 audio_uploads 暂存
 └── logs/                        # 首次记录任务事件时自动创建
 ```
 
@@ -74,7 +94,7 @@ Cookie 文件均为可选文件，不配置时无需创建。平台专用 Cookie
 
 - Python 3.10 或更高版本
 - pip
-- FFmpeg
+- FFmpeg 和 ffprobe（通常随 FFmpeg 一同安装）
 
 先将本项目下载或克隆到本机，然后在终端中进入项目根目录：
 
@@ -167,7 +187,7 @@ python -m pip install --upgrade --force-reinstall --no-cache-dir -r requirements
 
 ## 二、安装 FFmpeg
 
-FFmpeg 用于合并最高质量的视频流和音频流、封装 MP4，以及处理 MP3、FLAC、原始音轨封装、WAV 和封面。没有 FFmpeg 时部分音视频输出无法完成。
+FFmpeg 用于合并最高质量的视频流和音频流、封装 MP4，以及处理 MP3、FLAC、原始音轨封装、WAV 和封面。没有 FFmpeg 时部分音视频输出无法完成；本地视频提取页同时需要 ffprobe 识别音轨。
 
 macOS：
 
@@ -190,7 +210,7 @@ Windows：
 2. 解压后将 `bin` 目录加入系统 `PATH`。
 3. 重新打开 PowerShell 并运行 `ffmpeg -version` 验证安装。
 
-无论使用哪个系统，只要终端能正常显示 `ffmpeg -version` 的输出，本项目就能找到 FFmpeg。
+无论使用哪个系统，都应确认 `ffmpeg -version` 和 `ffprobe -version` 能在启动服务的同一终端正常运行；本地视频提取缺少任一程序都会返回 `FFMPEG_MISSING`。
 
 ### 可选：安装 aria2c 极速模式
 
@@ -384,23 +404,23 @@ python app.py
 
 ### 浏览器中访问
 
-在运行服务的 Mac 上访问 **http://127.0.0.1:8233**。
+在运行服务的电脑上访问 **http://127.0.0.1:8233**。
 
 同一局域网内的其他设备访问 **http://<本机局域网 IP>:8233**。可以在 Mac 终端执行 `ipconfig getifaddr en0` 查询 Wi-Fi 的局域网 IP；如果 macOS 防火墙询问是否允许 Python 接收入站连接，请选择允许。访客网络或启用了客户端隔离的 Wi-Fi 可能禁止设备之间互访。
 
-> Web 服务未提供登录验证。局域网中能够连接这台 Mac 的设备都可以提交下载任务；不要将 8233 端口映射到公网。
+> Web 服务未提供登录验证。局域网中能够连接服务电脑的设备都可以提交下载/提取任务并访问任务结果；不要将 8233 端口映射到公网。
 
-主页面右上角的 **“使用说明”** 可打开 `/guide`，查看专门面向网页操作整理的精简文档。
+主页面右上角的 **“使用说明”** 可打开 `/guide`，查看专门面向网页操作整理的精简文档。所有页面右上角的人物图标和下载首页下方的人物图标都链接到 `/kozekilmu/tracks`；赛道指南内可切换至冠军档案 `/kozekilmu`。
 
 ### 从本地视频提取音频
 
-在首页点击 **本地视频提取音频**，或打开 `/extract-audio`。拖放或选择一个本地视频（单文件最大 2 GiB），选择 **原始音轨** 或 **MP3 V0** 后点击提取。原始音轨直接复制音频流，不重新编码；优先使用默认音轨，否则使用第一条音轨。AAC 通常输出 M4A，其他扩展名由编码决定，不会因提取而提升源音质。
+在首页点击 **本地视频提取音频**，或打开 `/extract-audio`。拖放或选择一个本地视频（单文件最大 2 GiB），选择 **原始音轨** 或 **MP3 V0** 后点击提取。原始音轨直接复制音频流，不重新编码；优先使用默认音轨，否则使用第一条音轨。AAC 通常输出 M4A，其他扩展名由编码决定，不会因提取而提升源音质。支持 MP4/MOV、MKV/WebM、AVI、MPEG-TS/MPEG、FLV、ASF、Ogg 等容器；文件必须实际包含视频和音频流，多音轨当前仅提取一条。此功能不使用链接下载的封面补全流程，也不保留视频章节等元数据。
 
-页面分别显示上传与处理进度，复用下载任务队列、取消/重试和历史记录。输出保存到默认 `downloads`，完成后也可点击 **下载音频**。上传副本在 `state/audio_uploads` 暂存 24 小时，过期且不在运行/排队中的副本会在服务启动、上传或刷新提取历史时清理；过期后重试需要重新上传。暂存上限 8 GiB / 256 个文件。源视频不会被修改，已完成的输出不会自动删除。
+页面分别显示上传与处理进度，复用下载任务队列、取消/重试和历史记录。输出保存到默认 `downloads`，完成后也可点击 **下载音频**。文件名包含原视频名与上传标识，例如 `clip [local-xxxxxxxxxxxx].m4a`；同一任务再次输出时使用递增后缀避免覆盖。提取页历史只列本地提取任务；下载首页共享历史也可查看这些任务及其下载链接。上传副本在 `state/audio_uploads` 暂存 24 小时，过期且不在运行/排队中的副本会在服务启动、上传或刷新提取历史时清理；过期后重试需要重新上传。暂存上限 8 GiB / 256 个文件。源视频不会被修改，已完成的输出不会自动删除。
 
 ### 切换网页语言
 
-下载首页（`/`）、使用说明（`/guide`）、赛道指南（`/kozekilmu/tracks`）与冠军档案（`/kozekilmu`）共用右上角的 **中文 / EN** 开关。浏览器会保存语言偏好，跳转页面或刷新后继续使用所选语言；切换时保留已输入链接与当前下载任务。开关控制网站文案，源内容标题、文件名与第三方原始错误详情保持原样；命令行界面不受影响。
+下载首页（`/`）、使用说明（`/guide`）、视频提取音频（`/extract-audio`）、赛道指南（`/kozekilmu/tracks`）与冠军档案（`/kozekilmu`）共用右上角的 **中文 / EN** 开关。浏览器会保存语言偏好，跳转页面或刷新后继续使用所选语言；切换时保留已输入链接与当前下载任务。开关控制网站文案，源内容标题、文件名与第三方原始错误详情保持原样；命令行界面不受影响。
 
 右上角的 **深色 / 浅色** 滑块可切换主题：默认使用深色，浅色采用简约白色与浅灰背景，两种主题均保留马石油绿点缀。主题选择独立于语言设置，浏览器会记住并跨页面、标签页同步。
 
@@ -419,7 +439,7 @@ README 使用独立 Markdown 文件，在顶部点击 **中文 | English** 即�
 9. 可取消等待中或标准下载任务；失败/取消后可重试，批次中可一次重试所有可重试失败项；完成后可重新下载并保留旧文件。
 10. 每个输入区都有独立的 **“清空输入”**。任务会保持本批次选择的下载位置，重试和重新下载不会退回默认目录。
 
-> Web 文件夹选择器由运行 Flask 服务的 Mac 调用，只会在这台 Mac 上弹出；从手机或其他电脑点击时，不会在远程设备上打开文件夹选择器。若系统选择器不可用，仍可手动输入服务端 Mac 的文件夹路径；浏览器本身不会读取或上传任意本机目录内容。
+> 下载位置的文件夹选择器只会在运行 Flask 的 Windows/macOS 电脑上弹出；其他设备访问时，选择的仍是服务端目录。系统选择器不可用时可手动输入服务端路径。视频提取页的文件选择框则用于上传当前浏览器设备上由用户明确选择的视频，两者用途不同。
 
 ### 取消、重试与重新下载
 
@@ -427,7 +447,7 @@ README 使用独立 Markdown 文件，在顶部点击 **中文 | English** 即�
 - **aria2c 极速任务**：进入“不可中断”状态后不提供取消按钮，必须等待该任务完成；这是已确认的极速模式行为。
 - **重试**：失败或取消任务重新进入同一队列，并保留尝试记录（重启后恢复最近 20 次）。不可重试错误不会显示重试操作。
 - **重新下载**：只针对已完成任务，生成新任务且不覆盖原文件；新文件使用 `(2)`、`(3)` 等递增后缀。
-- **批次保留**：任务历史保存在本机 `state/tasks.sqlite3`（可用环境变量 `GTD_HISTORY_PATH` 指定路径），记录源链接、输出路径与任务结果，不存储 Cookie 文件或下载器内部对象。最多保留 100 个批次，优先清理最旧的已结束批次；进行中的批次不会被清理。刷新页面会恢复当前批次，也可在“任务历史”中选择旧批次。服务重启后，未完成任务标记为可重试的 `INTERRUPTED`，需手动点击重试，不会自动重新下载；已下载文件不会删除。
+- **批次保留**：任务历史保存在本机 `state/tasks.sqlite3`（可用环境变量 `GTD_HISTORY_PATH` 指定路径），记录源链接（本地提取记录上传标识及文件名）、输出路径与任务结果，不存储 Cookie 文件或下载器内部对象。最多保留 100 个批次，优先清理最旧的已结束批次；进行中的批次不会被清理。刷新页面会恢复当前批次，也可在“任务历史”中选择旧批次。服务重启后，未完成任务标记为可重试的 `INTERRUPTED`，需手动点击重试，不会自动重新下载；已下载文件不会删除。
 
 ### 测试批量下载
 
@@ -476,6 +496,8 @@ https://www.youtube.com/watch?v=BaW_jenozKc
 当前不承诺支持需要额外业务接口、DRM 或特殊账号权限的 Bilibili 番剧批量页、稍后再看、私密收藏夹，以及平台未向 yt-dlp 暴露条目的页面。无法解析时会返回 `COLLECTION_EXTRACT_FAILED`，不会静默下载错误内容。无论来源有多少条，一次最多选择 100 项；单次最多解析 20 行输入并汇总前 1000 个预览条目，发生截断时网页会明确提示，可拆分链接继续选择。
 
 ### 输出文件名与音质说明
+
+以下规则用于平台链接下载；本地视频提取的命名与封装规则见上文对应章节。
 
 - YouTube 视频和音频使用内容标题命名；Instagram 与 Bilibili 文件名继续附加内容 ID，基础形式分别如 `Video by author [ABC123].mp3`、`标题 [内容ID].mp4` 和 `标题 [内容ID].mp3`，避免同标题内容互相覆盖。
 - 实际音频文件名会在扩展名前追加真实规格。例如，以约 1521 kbps 的源 FLAC 转换 MP3 时得到 `标题 [内容ID] [MP3 V0 · 源FLAC 1521kbps].mp3`；保留源文件时得到 `标题 [内容ID] [FLAC Lossless · 1521kbps].flac`。
@@ -564,13 +586,16 @@ Cookie 文件等同于登录凭证。不要上传、分享、截图或提交到 
 
 | 问题 | 处理方式 |
 |---|---|
-| 未检测到 FFmpeg | 按上文安装 FFmpeg，并重新打开终端验证 `ffmpeg -version` |
+| 未检测到 FFmpeg / ffprobe | 按上文安装 FFmpeg，并重新打开终端验证 `ffmpeg -version` 与 `ffprobe -version` |
+| 本地视频提取提示 `NO_AUDIO` / `INVALID_MEDIA` | 选择实际包含视频和音轨、容器受支持且完整的视频文件 |
+| 提取任务提示 `INPUT_EXPIRED` | 上传副本已被清理或丢失，请重新上传；已完成输出不受暂存清理影响 |
+| 上传提示 `UPLOAD_TOO_LARGE` / `UPLOAD_STORAGE_FULL` | 单文件上限 2 GiB；暂存上限 8 GiB / 256 文件，过期的非活动副本按前述时机清理 |
 | `HTTP 403` 或要求登录 | 配置对应平台的 Cookie，确认浏览器中可正常打开链接 |
 | `HTTP 429` | 请求过于频繁，暂停一段时间后再试 |
 | Instagram Story 无法下载 | 确认 Story 尚未过期，且登录账号有访问权限 |
 | Bilibili 画质受限、要求登录或会员 | 确认账号本来有权播放该内容，再导出完整 Cookie 保存为 `bilibili_cookies.txt` |
 | Bilibili 风控或 `HTTP 412` | 降低请求频率，切换到可正常访问 Bilibili 的网络环境后稍后重试；登录内容同时配置 `bilibili_cookies.txt` |
-| Bilibili 下载速度较慢 | 项目使用 10 MB HTTP 分块，并且最多同时运行 2 个 Bilibili 下载任务；实际速度仍取决于 Bilibili 分配的 CDN 和网络路由，客户端优化不保证绕过平台侧限速 |
+| Bilibili 下载速度较慢 | 项目默认使用 10 MiB HTTP 分块，大文件可能自适应选择 4 MiB 分块，并且最多同时运行 2 个 Bilibili 下载任务；实际速度仍取决于 Bilibili 分配的 CDN 和网络路由，客户端优化不保证绕过平台侧限速 |
 | 视频不可用或 404 | 在浏览器中确认链接仍有效且内容未被删除 |
 | 网络连接超时 | 检查本机网络、代理或 VPN 配置后重试 |
 | 下载后没有声音或无法合并 | 确认 FFmpeg 已安装并位于系统 `PATH` 中 |
@@ -588,7 +613,7 @@ Cookie 文件等同于登录凭证。不要上传、分享、截图或提交到 
 
 ## 开发验证
 
-使用 Python 3.10+ 和 Node.js 22（JavaScript 回归脚本需要 Node），在项目根目录运行：
+安装项目依赖后，使用 Python 3.10+ 和 Node.js 22（JavaScript 回归脚本需要 Node），在项目根目录运行；真实音频提取测试还需要 FFmpeg 和 ffprobe：
 
 ```bash
 python -m unittest discover -s tests -p "test_*.py"
@@ -602,7 +627,7 @@ python -m playwright install chromium
 python -m unittest discover -s tests/browser -p "test_*.py"
 ```
 
-GitHub Actions 配置覆盖 macOS / Windows 与 Python 3.10 / 3.13，运行单元测试、JavaScript 回归和浏览器测试。测试使用模拟下载响应，不验证真实平台连通性或下载速度。
+GitHub Actions 配置覆盖 macOS / Windows 与 Python 3.10 / 3.13，运行单元测试、JavaScript 回归和浏览器测试。平台下载测试使用模拟响应，不验证真实平台连通性或下载速度。本地音频测试会生成小视频并调用真实 FFmpeg/ffprobe，验证默认音轨选择、无重编码提取、MP3 和浏览器下载；缺少这些程序时相关测试会跳过。当前 CI 配置没有显式安装 FFmpeg，因此是否运行这些测试取决于运行器是否已有 FFmpeg/ffprobe。
 
 ## 合规说明
 

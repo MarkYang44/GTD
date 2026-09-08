@@ -8,26 +8,30 @@ GTD stands for Generalized Transmedia Downloader.
 
 A multi-platform media downloader designed for downloading and processing media from multiple online platforms.
 
-Batch-download YouTube, Instagram, and Bilibili videos and audio in multiple formats.
+Batch-download YouTube, Instagram, and Bilibili videos and audio in multiple formats, and extract audio from local videos.
 
 Built on [yt-dlp](https://github.com/yt-dlp/yt-dlp), GTD supports both a **command-line interface** and a **web interface**. It automatically recognizes YouTube, Instagram, and Bilibili links within the same batch, previews playlists, collections, and multipart videos, and downloads videos or audio in **MP3 V0 / source FLAC / original audio / WAV PCM** format. Enter a download directory or choose one with the system folder picker; the default remains the project's `downloads/` folder.
+
+The web interface also includes a dedicated local video upload page for original audio extraction or MP3 V0 conversion, sharing the existing task queue.
 
 ## Features
 
 - Enter multiple YouTube, Instagram, and Bilibili links at once
-- Process up to 3 links concurrently per batch, with additional tasks queued automatically
+- All web batches share up to 3 worker slots, including local audio extraction; the CLI processes up to 3 items per batch concurrently, queuing additional work
 - Mix links from all three platforms; the platform is detected automatically
 - Preview and select playlist, collection, and multipart entries before submitting; select up to 100 items per batch, with previews capped at the first 1,000 items and an explicit truncation notice
 - Automatically select the highest available video and audio quality on YouTube
 - Audio mode selects the highest-quality source track available and outputs MP3 V0, genuine source FLAC, original audio, or WAV PCM
-- Embed source artwork in audio and MP4 video whenever possible; randomly use a built-in fallback image when the source has no artwork
+- Embed source artwork in audio and MP4 video downloaded from links whenever possible; randomly use a built-in fallback image when the source has no artwork
 - Instagram support for Reels, video posts, IGTV, and unexpired Stories
 - Bilibili support for `BV`, `av`, mobile video, multipart links, and `b23.tv` short links
 - Adaptive speed testing across up to 4 source-provided CDN hosts for Bilibili files larger than 50 MiB; optional aria2c Turbo Mode
 - FFmpeg merges video and audio into MP4 and processes MP3 / FLAC / WAV audio
 - **Command-line mode**: interactive input and command-line arguments
 - **Web mode**: separate video and audio input areas, collection selection, cancellation, retries, and downloading again, with live task status, speed, and estimated time remaining
-- **Shared website language switch**: switch between Chinese and English on the download page, user guide, Circuit Guide, and Victory Archive; your browser remembers the choice across pages
+- **Local video audio extraction**: upload or drop a video on a dedicated page, copy its original audio or convert it to MP3 V0, track upload/processing progress, and download the result
+- **Shared website language switch**: switch between Chinese and English on the download page, user guide, audio extraction page, Circuit Guide, and Victory Archive; your browser remembers the choice across pages
+- **Dark and light themes**: dark by default, with a shared slider for light mode; Petronas green accents and editorial headings remain, and your choice persists across pages
 - **Custom download directory**: enter a path in the CLI or web interface; Windows uses a precompiled, cached, DPI-aware modern Explorer-style folder dialog, while macOS uses its system folder picker; leave blank to use `downloads/`
 - Continue processing other tasks when an individual link fails
 - Stable error codes and actionable suggestions; automatically rotated, redacted JSONL logs
@@ -35,6 +39,8 @@ Built on [yt-dlp](https://github.com/yt-dlp/yt-dlp), GTD supports both a **comma
 - A completion summary with successes, failures, and file paths
 
 ## Directory Structure
+
+Main files and directories; some internal helper modules are omitted:
 
 ```text
 GTD/
@@ -44,25 +50,39 @@ GTD/
 ├── media_cover.py               # Final-media artwork detection and random fallback
 ├── bilibili_acceleration.py     # Bilibili CDN testing, cache, and Turbo Mode policy
 ├── collection_resolver.py       # Playlist, collection, and multipart preview/selection
-├── task_control.py              # Web queue, cancellation, retries, and downloading again
+├── task_control.py              # Shared web queue, cancellation, retries, and downloading again
+├── task_history.py              # SQLite task history
+├── audio_output.py              # Audio formats and postprocessing profiles
+├── local_audio.py               # Upload staging, ffprobe checks, and FFmpeg extraction
+├── audio_extract_routes.py      # Upload, extraction history, and output download APIs
 ├── download_errors.py           # Structured error codes and user suggestions
 ├── download_logging.py          # Redacted, rotating JSONL logs
 ├── folder_picker.py             # Native Windows / macOS folder picker
 ├── guide_renderer.py            # Safe Markdown renderer for the web user guide
 ├── assets/fallback_covers/      # 6 built-in fallback artwork images
 ├── docs/
-│   └── WEB_GUIDE.md             # Documentation focused on web usage
+│   ├── WEB_GUIDE.md             # Chinese web user guide
+│   └── WEB_GUIDE.en.md          # English web user guide
 ├── templates/
 │   ├── index.html               # Main web interface
-│   └── guide.html               # Web user guide
-├── requirements.txt             # Python dependencies
+│   ├── guide.html               # Web user guide
+│   ├── extract_audio.html       # Local video audio extraction
+│   ├── kozekilmu_tracks.html    # LMU Circuit Guide
+│   └── kozekilmu.html           # LMU Victory Archive
+├── static/css/                  # Shared, theme, and page styles
+├── static/js/                   # Language, theme, motion, and page interaction
+├── tests/                       # Unit, JavaScript, and browser regressions
+├── requirements.txt             # Pinned direct dependency baseline
+├── requirements-dev.txt         # Browser test dependencies
+├── requirements-update.txt      # Optional upstream yt-dlp channel
 ├── README.md                    # Chinese documentation
 ├── README.en.md                 # English documentation
 ├── cookies.txt                  # Optional: general cookies
 ├── youtube_cookies.txt          # Optional: YouTube cookies
 ├── instagram_cookies.txt        # Optional: Instagram cookies
 ├── bilibili_cookies.txt         # Optional: Bilibili cookies
-├── downloads/                   # Created automatically on the first download
+├── downloads/                   # Default download/extraction outputs, created automatically
+├── state/                       # tasks.sqlite3 history and audio_uploads staging
 └── logs/                        # Created when the first task event is logged
 ```
 
@@ -74,7 +94,7 @@ Install:
 
 - Python 3.10 or later
 - pip
-- FFmpeg
+- FFmpeg and ffprobe (usually installed together)
 
 Download or clone this project, then open its root directory in a terminal:
 
@@ -167,7 +187,7 @@ The examples below assume the virtual environment is active and use `python`. If
 
 ## 2. Install FFmpeg
 
-FFmpeg merges the highest-quality video and audio streams, packages MP4 files, and handles MP3, FLAC, original audio packaging, WAV, and artwork. Some video and audio outputs cannot be completed without FFmpeg.
+FFmpeg merges the highest-quality video and audio streams, packages MP4 files, and handles MP3, FLAC, original audio packaging, WAV, and artwork. Some video and audio outputs cannot be completed without FFmpeg; local extraction also needs ffprobe to identify audio tracks.
 
 macOS:
 
@@ -190,7 +210,7 @@ Windows:
 2. Extract it and add its `bin` directory to your system `PATH`.
 3. Reopen PowerShell and run `ffmpeg -version` to verify the installation.
 
-On any operating system, GTD can find FFmpeg if `ffmpeg -version` works in your terminal.
+On any operating system, check that both `ffmpeg -version` and `ffprobe -version` work in the terminal used to start the server. Local extraction returns `FFMPEG_MISSING` if either executable is unavailable.
 
 ### Optional: Install aria2c for Turbo Mode
 
@@ -388,23 +408,25 @@ It lists the local URL, LAN URL, default download directory, and the `Ctrl+C` sh
 
 ### Open in a Browser
 
-On the Mac running the server, open **http://127.0.0.1:8233**.
+On the computer running the server, open **http://127.0.0.1:8233**.
 
 Other devices on the same LAN can use **http://<server LAN IP>:8233**. Run `ipconfig getifaddr en0` in the Mac terminal to find its Wi-Fi LAN IP. If the macOS firewall asks whether Python may accept incoming connections, allow it. Guest networks or Wi-Fi with client isolation may prevent devices from reaching each other.
 
-> The web server has no login authentication. Any device on the LAN that can reach this Mac can submit download tasks. Do not forward port 8233 to the public internet.
+> The web server has no login authentication. Any device on the LAN that can reach the server can submit download/extraction tasks and access task results. Do not forward port 8233 to the public internet.
 
 Use **User Guide** in the upper-right corner of the main page to open `/guide`, a concise guide focused on web usage.
 
+The character icon in the upper-right corner of every page, and the lower character icon on the downloader homepage, open `/kozekilmu/tracks`. From the Circuit Guide, switch to the Victory Archive at `/kozekilmu`.
+
 ### Extract audio from a local video
 
-Choose **Extract audio from a local video** on the homepage, or open `/extract-audio`. Drop or select one local video (up to 2 GiB), choose **Original audio** or **MP3 V0**, and start extraction. Original audio copies the stream without re-encoding, using the default audio track or the first track when no default is set. AAC normally produces M4A; other extensions depend on the codec. Extraction cannot improve the source quality.
+Choose **Extract audio from a local video** on the homepage, or open `/extract-audio`. Drop or select one local video (up to 2 GiB), choose **Original audio** or **MP3 V0**, and start extraction. Original audio copies the stream without re-encoding, using the default audio track or the first track when no default is set. AAC normally produces M4A; other extensions depend on the codec. Extraction cannot improve the source quality. Supported containers include MP4/MOV, MKV/WebM, AVI, MPEG-TS/MPEG, FLV, ASF, and Ogg. The file must contain both video and audio; only one track is extracted from multitrack files. This feature does not apply the link downloader’s artwork fallback or preserve video chapters and other metadata.
 
-Upload and processing progress are shown separately. Extraction shares the existing queue, cancellation/retry, and task history. Results are saved to the default `downloads` folder and can also be saved with **Download audio**. Upload copies are staged in `state/audio_uploads` for 24 hours; expired inactive copies are cleaned on startup, upload, or extraction-history refresh. Re-upload after expiration to retry. Staging is limited to 8 GiB / 256 files. Source videos are unchanged and completed outputs are not automatically removed.
+Upload and processing progress are shown separately. Extraction shares the existing queue, cancellation/retry, and task history. Results are saved to the default `downloads` folder and can also be saved with **Download audio**. Names include the video name and upload ID, such as `clip [local-xxxxxxxxxxxx].m4a`; repeated outputs use increasing suffixes to avoid overwriting files. The extraction page lists only extraction history; the downloader’s shared history also shows these tasks and their audio download links. Upload copies are staged in `state/audio_uploads` for 24 hours; expired inactive copies are cleaned on startup, upload, or extraction-history refresh. Re-upload after expiration to retry. Staging is limited to 8 GiB / 256 files. Source videos are unchanged and completed outputs are not automatically removed.
 
 ### Switch the Website Language
 
-The download page (`/`), user guide (`/guide`), Circuit Guide (`/kozekilmu/tracks`), and Victory Archive (`/kozekilmu`) share a **中文 / EN** switch in the upper-right corner. Your browser saves the selected language and applies it when you navigate to another page or refresh. Switching languages preserves entered links and current download tasks. The switch controls website text; source titles, filenames, and original third-party error details remain as provided. The CLI is unchanged.
+The download page (`/`), user guide (`/guide`), audio extraction page (`/extract-audio`), Circuit Guide (`/kozekilmu/tracks`), and Victory Archive (`/kozekilmu`) share a **中文 / EN** switch in the upper-right corner. Your browser saves the selected language and applies it when you navigate to another page or refresh. Switching languages preserves entered links and current download tasks. The switch controls website text; source titles, filenames, and original third-party error details remain as provided. The CLI is unchanged.
 
 Use the **Dark / Light** slider in the upper-right corner to switch themes. Dark is the default; light uses clean white and soft gray surfaces. Both keep Petronas green accents. Your theme preference is independent of language, remembered in this browser, and shared across pages and tabs.
 
@@ -412,7 +434,7 @@ This README uses separate Markdown files: follow **中文 | English** at the top
 
 ### Web Workflow
 
-1. Paste links or share text into **Highest Quality Video** for video downloads, or use the separate **Highest Quality Audio** section for audio only.
+1. Paste links or share text into **Best-quality video** for video downloads, or use the separate **Best-quality audio** section for audio only.
 2. Choose **MP3 V0**, **Source FLAC**, **Original Audio**, or **WAV PCM** for audio. Original audio extensions depend on the source stream. WAV files are larger without improving source quality. If FLAC is unavailable, GTD automatically falls back to MP3 V0.
 3. Enter a Windows or macOS directory under **Download Location**, or click **Choose Folder** to open the system picker on the computer running the web server. Leave it blank to use the default `downloads/` shown on the page.
 4. Clicking download first resolves the input. Individual content keeps one-click submission; playlists, collections, and multipart videos open a shared preview panel with item selection, select-all, and counts. Submit up to 100 items at once.
@@ -423,7 +445,7 @@ This README uses separate Markdown files: follow **中文 | English** at the top
 9. Cancel queued or standard download tasks; retry failed or canceled tasks, or retry all eligible failed tasks in a batch. Download completed tasks again while keeping the original files.
 10. Each input area has its own **Clear Input** button. Tasks retain the selected download directory for their batch; retrying or downloading again does not revert to the default directory.
 
-> The web folder picker is invoked by the Mac running Flask and appears only on that Mac. Clicking from a phone or another computer does not open a picker on that remote device. If the system picker is unavailable, enter a folder path on the server Mac manually. The browser does not read or upload arbitrary local directory contents.
+> The download directory picker appears only on the Windows/macOS computer running Flask. Remote visitors still select a server directory; enter a server path manually if the picker is unavailable. The extraction page’s file chooser instead uploads a video explicitly selected on the device running the browser.
 
 ### Cancel, Retry, and Download Again
 
@@ -431,7 +453,7 @@ This README uses separate Markdown files: follow **中文 | English** at the top
 - **aria2c turbo tasks**: once a task becomes non-interruptible, no cancel button is available; wait for it to finish. This is the intended Turbo Mode behavior.
 - **Retry**: failed or canceled tasks reenter the same queue, preserving attempt records (the latest 20 are restored after a restart). Non-retryable errors do not offer a retry action.
 - **Download again**: available only for completed tasks; creates a new task without overwriting the original file. New files use increasing suffixes such as `(2)` and `(3)`.
-- **Batch retention**: Task history is saved locally in `state/tasks.sqlite3` (override with the `GTD_HISTORY_PATH` environment variable), including source URLs, output paths, and task results, but excluding cookie files and downloader internals. Up to 100 batches are retained by pruning the oldest finished batches; active batches are never pruned. Refreshing the page restores the current batch, and Task history lets you select older batches. After a server restart, unfinished tasks become retryable `INTERRUPTED` failures and require a manual retry; no downloads start automatically, and downloaded files are kept.
+- **Batch retention**: Task history is saved locally in `state/tasks.sqlite3` (override with the `GTD_HISTORY_PATH` environment variable), including source URLs (upload IDs and filenames for local extraction), output paths, and task results, but excluding cookie files and downloader internals. Up to 100 batches are retained by pruning the oldest finished batches; active batches are never pruned. Refreshing the page restores the current batch, and Task history lets you select older batches. After a server restart, unfinished tasks become retryable `INTERRUPTED` failures and require a manual retry; no downloads start automatically, and downloaded files are kept.
 
 ### Test Batch Downloads
 
@@ -480,6 +502,8 @@ GTD previews and selects entries from YouTube playlists, Bilibili multipart vide
 Support is not guaranteed for Bilibili series batch pages, Watch Later, private favorites, or pages whose entries are not exposed to yt-dlp and require additional service APIs, DRM handling, or special account permissions. Parsing failures return `COLLECTION_EXTRACT_FAILED` instead of silently downloading the wrong content. Regardless of source size, select up to 100 items at a time. Each preview resolves at most 20 input lines and includes the first 1,000 entries. The web interface explicitly reports truncation; split links into separate previews to continue selecting.
 
 ### Output Filenames and Audio Quality
+
+These rules apply to platform link downloads. Local extraction uses the naming and packaging rules described in its section above.
 
 - YouTube video and audio files use content titles. Instagram and Bilibili filenames also include content IDs, such as `Video by author [ABC123].mp3`, `标题 [内容ID].mp4`, and `标题 [内容ID].mp3`, to prevent unrelated content with identical titles from overwriting each other.
 - Audio filenames include actual specifications before the extension. For example, converting source FLAC at approximately 1521 kbps to MP3 produces `标题 [内容ID] [MP3 V0 · 源FLAC 1521kbps].mp3`; retaining the source produces `标题 [内容ID] [FLAC Lossless · 1521kbps].flac`.
@@ -568,13 +592,16 @@ Cookie files are login credentials. Do not upload, share, screenshot, or commit 
 
 | Problem | What to Do |
 |---|---|
-| FFmpeg not detected | Install FFmpeg as described above, reopen the terminal, and verify `ffmpeg -version` |
+| FFmpeg / ffprobe not detected | Install FFmpeg, reopen the terminal, and verify both `ffmpeg -version` and `ffprobe -version` |
+| Local extraction reports `NO_AUDIO` / `INVALID_MEDIA` | Select a complete file in a supported container with both video and audio streams |
+| Extraction reports `INPUT_EXPIRED` | The staged upload was removed or is missing; upload again. Staging cleanup does not remove completed outputs |
+| Upload reports `UPLOAD_TOO_LARGE` / `UPLOAD_STORAGE_FULL` | Limit: 2 GiB per file, 8 GiB / 256 staged files. Expired inactive copies are cleaned at the times described above |
 | `HTTP 403` or login required | Configure cookies for the platform and confirm that the link opens in your browser |
 | `HTTP 429` | Requests are too frequent; wait before retrying |
 | Instagram Story cannot be downloaded | Confirm that it has not expired and that the signed-in account has access |
 | Bilibili quality restricted, login required, or membership required | Confirm that your account can already play the content, then export complete cookies to `bilibili_cookies.txt` |
 | Bilibili abuse prevention or `HTTP 412` | Reduce request frequency, use a network that can access Bilibili normally, and retry later; configure `bilibili_cookies.txt` for login-required content |
-| Slow Bilibili downloads | The project uses 10 MB HTTP chunks and runs up to 2 Bilibili downloads concurrently; actual speed depends on the assigned CDN and network route, and client optimization cannot guarantee bypassing platform rate limits |
+| Slow Bilibili downloads | The project uses 10 MiB HTTP chunks by default, with adaptive 4 MiB chunks for some large files and runs up to 2 Bilibili downloads concurrently; actual speed depends on the assigned CDN and network route, and client optimization cannot guarantee bypassing platform rate limits |
 | Video unavailable or 404 | Check that the link is valid and the content has not been deleted |
 | Network timeout | Check your network, proxy, or VPN configuration and retry |
 | No sound after download or merging fails | Ensure FFmpeg is installed and available in the system `PATH` |
@@ -592,7 +619,7 @@ Cookie files are login credentials. Do not upload, share, screenshot, or commit 
 
 ## Development checks
 
-With Python 3.10+ and Node.js 22 (required by the JavaScript regression harnesses), run from the project root:
+After installing project dependencies, use Python 3.10+ and Node.js 22 (required by the JavaScript regression harnesses). Real extraction tests also require FFmpeg and ffprobe. Run from the project root:
 
 ```bash
 python -m unittest discover -s tests -p "test_*.py"
@@ -606,7 +633,7 @@ python -m playwright install chromium
 python -m unittest discover -s tests/browser -p "test_*.py"
 ```
 
-The GitHub Actions configuration covers macOS / Windows and Python 3.10 / 3.13, running unit tests, JavaScript harnesses, and browser tests. Tests mock download responses; they do not validate live platform connectivity or download speed.
+The GitHub Actions configuration covers macOS / Windows and Python 3.10 / 3.13, running unit tests, JavaScript harnesses, and browser tests. Platform download tests mock responses and do not validate live platform connectivity or speed. Local audio tests generate small videos and invoke real FFmpeg/ffprobe to verify default track selection, stream copying, MP3 conversion, and browser downloads; these tests skip when the executables are missing. The current CI configuration does not explicitly install FFmpeg, so execution depends on whether the runner already provides FFmpeg/ffprobe.
 
 ## Acceptable Use
 
