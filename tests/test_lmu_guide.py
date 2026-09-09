@@ -252,7 +252,7 @@ class LmuGuideRouteTests(unittest.TestCase):
         self.assertIn('href="/kozekilmu/tracks"', html)
         self.assertIn('href="/kozekilmu/tracks" aria-current="page"', html)
         self.assertEqual(html.count('class="circuit-card"'), 16)
-        self.assertEqual(html.count("<details"), 16)
+        self.assertEqual(html.count("<details data-recommendations>"), 16)
         self.assertEqual(html.count('<li class="recommendation" data-class="LMGT3"'), 48)
         self.assertEqual(html.count('<li class="recommendation" data-class="Hypercar"'), 48)
 

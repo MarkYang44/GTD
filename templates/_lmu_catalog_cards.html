@@ -14,11 +14,12 @@
             <button type="button" class="lmu-favorite" data-favorite-car="{{ slug }}" aria-pressed="false" aria-label="收藏车型" data-i18n-aria-label-zh="收藏车型" data-i18n-aria-label-en="Favorite car">☆</button>
             <button type="button" data-compare="{{ slug }}" aria-pressed="false">{{ guide_copy("加入对比", "Add to comparison") }}</button>
           </div>
+          {{ content.practice(car_notes[slug]) }}
           <div class="catalog-circuits">
             <h5>{{ guide_copy("推荐它的赛道", "Recommended at") }} · {{ car_recommendations[slug]|length }}</h5>
             <ul>
             {% for circuit, recommendation in car_recommendations[slug] %}
-              <li><a href="{{ url_for('kozekilmu_tracks') }}#{{ circuit.slug }}">{{ circuit.name }}</a><p>{{ guide_copy(recommendation.fit_zh, recommendation.fit) }}</p></li>
+              <li><a href="{{ url_for('kozekilmu_tracks') }}#{{ circuit.slug }}">{{ circuit.name }}</a><p>{{ guide_copy(recommendation.fit_zh, recommendation.fit) }}</p>{{ content.review(recommendation_review(circuit, car)) }}</li>
             {% else %}<li>{{ guide_copy("现有指南暂无赛道推荐记录。", "No circuit recommendations in the current guide.") }}</li>{% endfor %}
             </ul>
           </div>

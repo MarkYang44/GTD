@@ -1,3 +1,4 @@
+{% import '_lmu_content.html' as content %}
 {% macro guide_copy(zh, en) -%}
 <span data-guide-copy="zh">{{ zh }}</span><span data-guide-copy="en">{{ en }}</span>
 {%- endmacro -%}
@@ -50,6 +51,8 @@
     <p>{{ guide_copy("以赛道特性为起点，整理 LMGT3 与 Hypercar 的三台可尝试车型。", "Start with each circuit's character and compare three approachable LMGT3 and Hypercar choices.") }}</p>{% endif %}
     <p class="guide-updated">{{ guide_copy("资料更新：", "Updated: ") }}<time datetime="{{ guide_updated }}">{{ guide_updated }}</time></p>
   </header>
+
+  <p class="lmu-content-banner">{{ guide_copy('内容版本：', 'Content release: ') }}<a href="{{ url_for('kozekilmu_updates') }}">{{ content_version }} · {{ guide_copy('查看改动', 'View changes') }}</a> · {{ guide_copy('具有版本验证证据的推荐：', 'Recommendations with build-validation evidence: ') }}{{ validated_recommendations }}/{{ total_recommendations }}</p>
 
   <section id="lmu-tools" class="lmu-tools" data-mode="{{ 'cars' if is_catalog else 'circuits' }}" data-circuit-slugs="{{ circuits|map(attribute='slug')|join(' ') }}" data-car-slugs="{{ cars|join(' ') }}" hidden aria-label="LMU 内容工具" data-i18n-aria-label-zh="LMU 内容工具" data-i18n-aria-label-en="LMU content tools">
     <div class="lmu-filters">
@@ -129,6 +132,7 @@
         <p>{{ guide_copy(circuit.advice_zh, circuit.advice) }}</p>
         <p><a href="{{ circuit.source_url }}" target="_blank" rel="noopener noreferrer">{{ guide_copy("LMU 官方赛道资料", "Official LMU circuit page") }}</a></p>
 
+        {{ content.practice(track_notes[circuit.slug]) }}
         <details data-recommendations>
           <summary>{{ guide_copy("查看车型建议", "View car recommendations") }}</summary>
           <div class="recommendation-content">
@@ -162,6 +166,8 @@
                     <span data-guide-copy="en">{{ car.strength }}; caution: {{ car.caution }}.</span>
                   </p>
                   <a href="{{ car.source_url }}" target="_blank" rel="noopener noreferrer">{{ guide_copy("LMU 官方车型资料", "Official LMU car page") }}</a>
+                  {{ content.review(recommendation_review(circuit, car)) }}
+                  {{ content.practice(car_notes[car.slug]) }}
                   <div class="lmu-card-actions" data-lmu-enhance hidden><button type="button" class="lmu-favorite" data-favorite-car="{{ car.slug }}" aria-pressed="false" aria-label="收藏车型" data-i18n-aria-label-zh="收藏车型" data-i18n-aria-label-en="Favorite car"><span aria-hidden="true">☆</span></button><button type="button" data-compare="{{ circuit.slug }}:{{ car.slug }}" aria-pressed="false">{{ guide_copy("加入对比", "Compare") }}</button></div>
                 </div>
               </li>

@@ -26,6 +26,12 @@ Use **Car Catalog** in the LMU navigation to browse all cataloged cars, strength
 
 **Race Strategy** accepts duration in minutes, lap time in seconds or `m:ss`, and liters per lap. Blank fields default to 30 minutes, 120 sec/lap, and 3 L/lap; invalid values show an error. Round laps up and add 1 lap, then reserve the greater of 10% of base fuel or 1 lap of fuel. Round the total up to 0.1 L. All defaults produce 16 laps and 52.8 L. This is a whole-race budget, excluding tank capacity, pit stops, and other conditions; adjust it to measured practice data.
 
+## Content versions and practice notes
+
+Expand **Practice notes and reflection** on a circuit or car for source observations, editorial exercises, and review dates. Recommendations also expose **Recommendation sources and version**; compatibility is currently unverified, and source review does not imply driving tests.
+
+Open **Content updates** in the LMU navigation to inspect before/after fields grouped by circuits, cars, and pairings. The website does not automatically fetch or update online content; content releases and game builds are tracked separately.
+
 ## Download workflow
 
 1. To download video, paste links or platform share text into **Best-quality video**; for audio only, use **Best-quality audio**. Put each link on its own line.

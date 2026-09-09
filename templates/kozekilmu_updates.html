@@ -1,0 +1,36 @@
+{% extends 'kozekilmu_tracks.html' %}
+{% block main_content %}
+<header class="guide-hero"><p class="guide-kicker">{{ guide_copy('LE MANS ULTIMATE / 内容记录', 'LE MANS ULTIMATE / CONTENT HISTORY') }}</p><h1>{{ guide_copy('内容版本与更新', 'Content Versions & Updates') }}</h1><p>{{ guide_copy('查看资料来源、核验边界与实际内容改动。内容版本和游戏版本分别记录。', 'Inspect sources, review limits, and actual content changes. Content releases and game builds are tracked separately.') }}</p></header>
+<section class="lmu-tools lmu-content-notice">
+  <p>{{ guide_copy('本次核对的官方版本参考：', 'Official build reference checked: ') }}<a href="{{ game_source }}" target="_blank" rel="noopener noreferrer">{{ game_reference }}</a> · {{ game_checked_on }}</p>
+  <p>{{ guide_copy('阅读更新说明不等于重新试驾：适用版本以各条目为准，未验证条目不可视为适配认证。核验日期表示读过所列资料，不是作者发布日期，也不是圈速实测日期。', 'Reading release notes is not a driving retest: check each record for applicability; unverified records are not compatibility certifications. Review dates record source reading, not publication or lap-test dates.') }}</p>
+  <p>{{ guide_copy('具有版本验证证据的推荐：', 'Recommendations with build-validation evidence: ') }}{{ validated_recommendations }}/{{ total_recommendations }}</p>
+  <p>{{ guide_copy('赛道练习依据官方特性介绍整理；车型要点来自 Coach Dave Academy 的逐车指南。历史指南可能不再对应当前物理或 BoP。', 'Circuit exercises are derived from official descriptions; car observations summarize individual Coach Dave Academy guides. Historical guides may not match current physics or BoP.') }}</p>
+</section>
+{% for release in releases %}
+<section class="lmu-tools lmu-release" id="release-{{ release.version }}">
+  <h2>{{ release.version }}</h2><time datetime="{{ release.date }}">{{ release.date }}</time>
+  <p>{{ guide_copy(release.summary_zh, release.summary_en) }}</p>
+  {% if release.changes %}
+  <p>{{ release.changes|length }} {{ guide_copy('个条目发生变化', 'records changed') }}</p>
+  {% for kind, zh, en in [('circuit','赛道','Circuits'),('car','车型','Cars'),('recommendation','推荐配对','Recommendation pairings'),('reference','版本参考','Build reference')] %}
+  <details class="lmu-change-group"><summary>{{ guide_copy(zh,en) }} · {{ release.changes|selectattr('kind','equalto',kind)|list|length }}</summary>
+    {% for change in release.changes if change.kind == kind %}
+    <details class="lmu-change"><summary>{{ change.name }}</summary>
+      <p>{{ guide_copy('新增条目', 'Added record') if change.status == 'added' else guide_copy('已移除条目', 'Removed record') if change.status == 'removed' else guide_copy('条目已修改', 'Changed record') }}{% if change.status != 'removed' %} · <a href="{{ change.href }}">{{ guide_copy('查看对应条目', 'View record') }}</a>{% endif %}</p>
+      {% for field in change.fields %}
+      <div class="lmu-change-field"><h3>{{ guide_copy(field.label.zh,field.label.en) }}</h3>
+        <p><strong>{{ guide_copy('之前：', 'Before: ') }}</strong>{{ guide_copy(field.before.zh, field.before.en) if field.before else guide_copy('未记录', 'Not recorded') }}</p>
+        <p><strong>{{ guide_copy('现在：', 'After: ') }}</strong>{{ guide_copy(field.after.zh, field.after.en) if field.after else guide_copy('已移除', 'Removed') }}</p>
+      </div>
+      {% endfor %}
+    </details>
+    {% endfor %}
+  </details>
+  {% endfor %}
+  {% endif %}
+</section>
+{% endfor %}
+{% endblock %}
+{% block page_footer %}<footer class="guide-footer"><p>{{ guide_copy('变更由已保存的内容快照比较生成；不会自动把网络变化当成已验证建议。', 'Changes are computed from saved content snapshots; online changes are not automatically treated as validated advice.') }}</p></footer>{% endblock %}
+{% block page_scripts %}{% endblock %}

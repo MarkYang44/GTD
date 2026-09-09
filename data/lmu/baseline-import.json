@@ -1,0 +1,1474 @@
+{
+  "circuit:bahrain": {
+    "name": "Bahrain",
+    "href": "/kozekilmu/tracks#bahrain",
+    "fields": {
+      "character": {
+        "zh": "重刹区、低速牵引力（traction）和后轮胎管理。",
+        "en": "Heavy stops, low-speed traction, and rear-tyre management."
+      },
+      "challenge": {
+        "zh": "连续制动区让出弯和后轮温度在一段赛程中都很关键。",
+        "en": "Repeated braking zones make exits and rear temperatures matter through a stint."
+      },
+      "advice": {
+        "zh": "保持直线制动，耐心松开踏板，出弯保护后轮。",
+        "en": "Brake in a straight line, release the pedal patiently, and protect the rear tyres on exit."
+      }
+    }
+  },
+  "circuit:barcelona": {
+    "name": "Circuit de Barcelona-Catalunya",
+    "href": "/kozekilmu/tracks#barcelona",
+    "fields": {
+      "character": {
+        "zh": "长距离负荷弯，搭配技术性很强的末段。",
+        "en": "Long loaded corners plus a mixed technical final sector."
+      },
+      "challenge": {
+        "zh": "持续的横向负荷会在进入较慢末段前考验轮胎平衡。",
+        "en": "Sustained lateral load tests tyre balance before the slower final sequence."
+      },
+      "advice": {
+        "zh": "负荷弯里保持转向输入整洁，然后优先保证末段出弯干净。",
+        "en": "Keep steering inputs tidy in the loaded turns, then prioritize a clean final-sector exit."
+      }
+    }
+  },
+  "circuit:le-mans": {
+    "name": "Circuit de la Sarthe",
+    "href": "/kozekilmu/tracks#le-mans",
+    "fields": {
+      "character": {
+        "zh": "低阻力、极重制动区和长距离全油门。",
+        "en": "Low drag, extreme braking zones, and long full-throttle runs."
+      },
+      "challenge": {
+        "zh": "最大制动时的稳定性必须和直道效率共存。",
+        "en": "Stability under the biggest stops must coexist with efficient straight-line running."
+      },
+      "advice": {
+        "zh": "交通中采用保守的制动参考点，并保持进入每条长直道的速度。",
+        "en": "Use conservative braking references in traffic and preserve momentum onto each long straight."
+      }
+    }
+  },
+  "circuit:paul-ricard": {
+    "name": "Circuit Paul Ricard",
+    "href": "/kozekilmu/tracks#paul-ricard",
+    "fields": {
+      "character": {
+        "zh": "Mistral 直道、Signes 全力攻弯和技术末段。",
+        "en": "Mistral straight, Signes commitment, and a technical final sector."
+      },
+      "challenge": {
+        "zh": "单圈从直线效率切换到高速决心与低速转向。",
+        "en": "The lap swings from straight-line efficiency to high-speed commitment and slow rotation."
+      },
+      "advice": {
+        "zh": "逐步建立 Signes 的信心，之后提前制动来整理末段。",
+        "en": "Build confidence progressively through Signes, then brake early enough to organize the final sector."
+      }
+    }
+  },
+  "circuit:cota": {
+    "name": "Circuit of the Americas",
+    "href": "/kozekilmu/tracks#cota",
+    "fields": {
+      "character": {
+        "zh": "上坡制动、高速连续弯和低速牵引区。",
+        "en": "Uphill braking, fast esses, and slow traction zones."
+      },
+      "challenge": {
+        "zh": "开局爬升和连续弯会惩罚不稳定制动，低速出弯则奖励耐心。",
+        "en": "The opening climb and esses punish unstable braking, while slow exits reward patience."
+      },
+      "advice": {
+        "zh": "上坡提前放置车身，连续弯平顺变向，低速出弯尽量摆正车身。",
+        "en": "Place the car early uphill, use smooth direction changes in the esses, and square slow exits."
+      }
+    }
+  },
+  "circuit:daytona": {
+    "name": "Daytona International Speedway",
+    "href": "/kozekilmu/tracks#daytona",
+    "fields": {
+      "character": {
+        "zh": "高速倾斜弯效率、内场牵引力和 Bus Stop 稳定性。",
+        "en": "Banking efficiency, infield traction, and Bus Stop stability."
+      },
+      "challenge": {
+        "zh": "跟车和倾斜弯奖励效率，但内场与 Bus Stop 会惩罚突兀操作。",
+        "en": "Drafting and banking reward efficiency, but the infield and Bus Stop punish abrupt inputs."
+      },
+      "advice": {
+        "zh": "在倾斜弯保持干净速度，进入 Bus Stop 路肩前先让车身稳定。",
+        "en": "Carry clean speed through banking, then settle the car before the Bus Stop kerbs."
+      }
+    }
+  },
+  "circuit:fuji": {
+    "name": "Fuji Speedway",
+    "href": "/kozekilmu/tracks#fuji",
+    "fields": {
+      "character": {
+        "zh": "超长直道，接着是低速技术性第三段。",
+        "en": "A very long straight followed by a slow technical third sector."
+      },
+      "challenge": {
+        "zh": "直道要求出弯速度，末段则需要受控转向和牵引力。",
+        "en": "The straight demands exit speed, then the final sector needs controlled rotation and traction."
+      },
+      "advice": {
+        "zh": "保护通往直道的出弯，然后在技术性第三段放慢手上动作。",
+        "en": "Protect the exit onto the straight, then slow the hands down for the technical third sector."
+      }
+    }
+  },
+  "circuit:imola": {
+    "name": "Imola",
+    "href": "/kozekilmu/tracks#imola",
+    "fields": {
+      "character": {
+        "zh": "狭窄节奏、高路肩、反复制动和牵引力。",
+        "en": "Narrow rhythm, tall kerbs, repeated braking, and traction."
+      },
+      "challenge": {
+        "zh": "赛道宽度有限会放大失误，高路肩也会考验制动与车身稳定。",
+        "en": "Limited width magnifies mistakes while tall kerbs challenge braking and composure."
+      },
+      "advice": {
+        "zh": "尊重路肩，提前放置车身，以入弯速度换取出弯牵引力。",
+        "en": "Respect the kerbs, place the car early, and sacrifice entry speed for traction."
+      }
+    }
+  },
+  "circuit:interlagos": {
+    "name": "Interlagos",
+    "href": "/kozekilmu/tracks#interlagos",
+    "fields": {
+      "character": {
+        "zh": "起伏、短单圈、中高速混合弯和出弯牵引力。",
+        "en": "Elevation, a short lap, mixed-speed corners, and traction exits."
+      },
+      "challenge": {
+        "zh": "紧凑单圈会放大每次牵引力出弯和地形起伏的影响。",
+        "en": "Compressed lap time makes every traction exit and elevation change highly visible."
+      },
+      "advice": {
+        "zh": "出弯优先于激进入弯，并在坡顶保持平台稳定。",
+        "en": "Prioritize exits over aggressive entries and keep the platform settled over crests."
+      }
+    }
+  },
+  "circuit:lusail": {
+    "name": "Lusail International Circuit",
+    "href": "/kozekilmu/tracks#lusail",
+    "fields": {
+      "character": {
+        "zh": "持续中高速轮胎负荷（tyre load）和轮胎温度。",
+        "en": "Sustained medium/high-speed load and tyre temperature."
+      },
+      "challenge": {
+        "zh": "长距离负荷组合会暴露一段赛程里的轮胎温度与平衡。",
+        "en": "Long loaded sequences expose tyre temperature and balance over a full stint."
+      },
+      "advice": {
+        "zh": "避免让负荷轮胎滑动，保持小幅转向修正，并监控温度。",
+        "en": "Avoid sliding the loaded tyres, keep steering corrections small, and watch temperatures."
+      }
+    }
+  },
+  "circuit:monza": {
+    "name": "Monza",
+    "href": "/kozekilmu/tracks#monza",
+    "fields": {
+      "character": {
+        "zh": "最高速度、重刹减速弯和激进路肩。",
+        "en": "Maximum speed, heavy chicane braking, and aggressive kerbs."
+      },
+      "challenge": {
+        "zh": "最高速很重要，但减速弯需要稳定制动和克制的路肩使用。",
+        "en": "Top speed matters, but the chicanes demand stable braking and measured kerb use."
+      },
+      "advice": {
+        "zh": "直线制动，不要每个路肩都硬吃，优先保证驶上长直道的出弯。",
+        "en": "Brake straight, do not attack every kerb, and prioritize exits onto the long straights."
+      }
+    }
+  },
+  "circuit:portimao": {
+    "name": "Portimão",
+    "href": "/kozekilmu/tracks#portimao",
+    "fields": {
+      "character": {
+        "zh": "盲顶、压缩、转向和牵引力。",
+        "en": "Blind crests, compression, rotation, and traction."
+      },
+      "challenge": {
+        "zh": "坡顶会遮挡视线，压缩段会在关键出弯前考验平衡。",
+        "en": "Sightlines vanish over crests, and compression tests balance before traction-critical exits."
+      },
+      "advice": {
+        "zh": "在盲顶使用可重复的参考点，等车身稳定后再加油。",
+        "en": "Use repeatable references over blind crests and delay throttle until the car is settled."
+      }
+    }
+  },
+  "circuit:sebring": {
+    "name": "Sebring International Raceway",
+    "href": "/kozekilmu/tracks#sebring",
+    "fields": {
+      "character": {
+        "zh": "颠簸、粗糙制动路面和混凝土接缝上的牵引力。",
+        "en": "Bumps, rough braking surfaces, and traction over concrete seams."
+      },
+      "challenge": {
+        "zh": "路面起伏会打乱制动参考，需要能容忍颠簸的操作平台。",
+        "en": "Surface movement disrupts braking references and asks for a platform that tolerates bumps."
+      },
+      "advice": {
+        "zh": "在最差接缝处留余量，渐进制动，让车在你身下自由活动。",
+        "en": "Leave margin over the worst seams, brake progressively, and let the car move underneath you."
+      }
+    }
+  },
+  "circuit:silverstone-international": {
+    "name": "Silverstone International",
+    "href": "/kozekilmu/tracks#silverstone-international",
+    "fields": {
+      "character": {
+        "zh": "紧凑单圈、频繁交通和反复变向。",
+        "en": "Compact lap, frequent traffic, and repeated direction changes."
+      },
+      "challenge": {
+        "zh": "短单圈里的交通几乎没有补救时间，反复变向则奖励响应灵敏的平台。",
+        "en": "Short lap traffic leaves little recovery time, while repeated changes reward a responsive platform."
+      },
+      "advice": {
+        "zh": "提前规划超车，保护出弯速度，每次变向只做一次干净的转向输入。",
+        "en": "Plan passes early, preserve exit speed, and make one clean steering input per change."
+      }
+    }
+  },
+  "circuit:spa": {
+    "name": "Spa-Francorchamps",
+    "href": "/kozekilmu/tracks#spa",
+    "fields": {
+      "character": {
+        "zh": "高速空气动力学、起伏、长单圈和多变天气。",
+        "en": "High-speed aero, elevation, a long lap, and variable weather."
+      },
+      "challenge": {
+        "zh": "应对地形起伏的决心必须和天气、轮胎变化平衡。",
+        "en": "Commitment through elevation changes must be balanced against weather and tyre variation."
+      },
+      "advice": {
+        "zh": "在变化条件中逐步提速，并在高速压缩处留出余量。",
+        "en": "Build speed gradually in changing conditions and leave margin at the high-speed compressions."
+      }
+    }
+  },
+  "circuit:laguna-seca": {
+    "name": "WeatherTech Raceway Laguna Seca",
+    "href": "/kozekilmu/tracks#laguna-seca",
+    "fields": {
+      "character": {
+        "zh": "低速牵引力、起伏和 Corkscrew 组合。",
+        "en": "Low-speed traction, elevation, and the Corkscrew sequence."
+      },
+      "challenge": {
+        "zh": "Corkscrew 会迅速下坠，因此车身必须转过来又不牺牲下一处出弯。",
+        "en": "The Corkscrew drops away quickly, so the car must rotate without compromising the next exit."
+      },
+      "advice": {
+        "zh": "过坡顶提前制动，在 Corkscrew 用一次平顺转向，并保护牵引力。",
+        "en": "Brake early over the crest, use one smooth rotation at the Corkscrew, and protect traction."
+      }
+    }
+  },
+  "car:aston-martin-vantage-lmgt3": {
+    "name": "Aston Martin Vantage AMR LMGT3",
+    "href": "/kozekilmu/cars#aston-martin-vantage-lmgt3",
+    "fields": {
+      "strength": {
+        "zh": "平台顺从，制动动作平稳",
+        "en": "compliant platform and calm braking"
+      },
+      "caution": {
+        "zh": "允许带着可控的转向不足驾驶",
+        "en": "can lean into safe understeer"
+      }
+    }
+  },
+  "car:bmw-m4-lmgt3": {
+    "name": "BMW M4 LMGT3",
+    "href": "/kozekilmu/cars#bmw-m4-lmgt3",
+    "fields": {
+      "strength": {
+        "zh": "稳定的前置引擎平衡，兼容路肩（kerb）",
+        "en": "stable, kerb-friendly front-engine balance"
+      },
+      "caution": {
+        "zh": "前轮会惩罚过度驾驶",
+        "en": "front tyres punish overdriving"
+      }
+    }
+  },
+  "car:corvette-z06-lmgt3-r": {
+    "name": "Corvette Z06 LMGT3.R",
+    "href": "/kozekilmu/cars#corvette-z06-lmgt3-r",
+    "fields": {
+      "strength": {
+        "zh": "制动信心足，牵引力（traction）可预测",
+        "en": "confident braking and predictable traction"
+      },
+      "caution": {
+        "zh": "需要耐心用油门带动车尾转向",
+        "en": "throttle rotation needs patience"
+      }
+    }
+  },
+  "car:ferrari-296-lmgt3": {
+    "name": "Ferrari 296 LMGT3",
+    "href": "/kozekilmu/cars#ferrari-296-lmgt3",
+    "fields": {
+      "strength": {
+        "zh": "方向变化灵活，空气动力学平衡",
+        "en": "agile direction changes and balanced aero"
+      },
+      "caution": {
+        "zh": "粗暴路肩可能打乱车身",
+        "en": "rough kerbs can unsettle it"
+      }
+    }
+  },
+  "car:ford-mustang-lmgt3": {
+    "name": "Ford Mustang LMGT3",
+    "href": "/kozekilmu/cars#ford-mustang-lmgt3",
+    "fields": {
+      "strength": {
+        "zh": "直线速度快，扭矩易于掌控",
+        "en": "straight-line speed and accessible torque"
+      },
+      "caution": {
+        "zh": "车重和前轮负荷在紧凑路段很明显",
+        "en": "mass and front-tyre load show in tight sectors"
+      }
+    }
+  },
+  "car:lamborghini-huracan-lmgt3-evo2": {
+    "name": "Lamborghini Huracan LMGT3 Evo2",
+    "href": "/kozekilmu/cars#lamborghini-huracan-lmgt3-evo2",
+    "fields": {
+      "strength": {
+        "zh": "连续弯反应迅速",
+        "en": "fast response in flowing corners"
+      },
+      "caution": {
+        "zh": "尾部动态需要平顺操作",
+        "en": "rear movement requires smooth inputs"
+      }
+    }
+  },
+  "car:lexus-rc-f-lmgt3": {
+    "name": "Lexus RC F LMGT3",
+    "href": "/kozekilmu/cars#lexus-rc-f-lmgt3",
+    "fields": {
+      "strength": {
+        "zh": "稳定感令人安心，V8 输出易用",
+        "en": "reassuring stability and usable V8 delivery"
+      },
+      "caution": {
+        "zh": "极紧凑的方向变化中转向较慢",
+        "en": "slower rotation in very tight changes"
+      }
+    }
+  },
+  "car:mclaren-720s-lmgt3-evo": {
+    "name": "McLaren 720S LMGT3 Evo",
+    "href": "/kozekilmu/cars#mclaren-720s-lmgt3-evo",
+    "fields": {
+      "strength": {
+        "zh": "空气动力学效率（aero efficiency）高，高速信心足",
+        "en": "aero efficiency and high-speed confidence"
+      },
+      "caution": {
+        "zh": "低速牵引力和高路肩需要小心",
+        "en": "low-speed traction and tall kerbs need care"
+      }
+    }
+  },
+  "car:porsche-911-gt3-r": {
+    "name": "Porsche 911 GT3 R LMGT3",
+    "href": "/kozekilmu/cars#porsche-911-gt3-r",
+    "fields": {
+      "strength": {
+        "zh": "后置引擎带来牵引力（traction）和转向",
+        "en": "traction and rotation from the rear-engine layout"
+      },
+      "caution": {
+        "zh": "循迹刹车（trail braking）过深可能诱发车尾滑动",
+        "en": "trail braking can provoke the rear"
+      }
+    }
+  },
+  "car:alpine-a424": {
+    "name": "Alpine A424",
+    "href": "/kozekilmu/cars#alpine-a424",
+    "fields": {
+      "strength": {
+        "zh": "车身紧凑，反应灵活",
+        "en": "compact, nimble response"
+      },
+      "caution": {
+        "zh": "制动稳定性（braking stability）取决于调校（setup）",
+        "en": "braking stability is setup-sensitive"
+      }
+    }
+  },
+  "car:bmw-m-hybrid-v8": {
+    "name": "BMW M Hybrid V8",
+    "href": "/kozekilmu/cars#bmw-m-hybrid-v8",
+    "fields": {
+      "strength": {
+        "zh": "平台稳定，过路肩有信心",
+        "en": "stable platform and kerb confidence"
+      },
+      "caution": {
+        "zh": "低速弯需要耐心让车转起来",
+        "en": "needs patience to rotate in slow corners"
+      }
+    }
+  },
+  "car:cadillac-v-series-r": {
+    "name": "Cadillac V-Series.R",
+    "href": "/kozekilmu/cars#cadillac-v-series-r",
+    "fields": {
+      "strength": {
+        "zh": "制动强，机械牵引力（traction）好",
+        "en": "strong braking and mechanical traction"
+      },
+      "caution": {
+        "zh": "扭矩可能增加后轮负荷",
+        "en": "torque can stress the rear tyres"
+      }
+    }
+  },
+  "car:ferrari-499p": {
+    "name": "Ferrari 499P",
+    "href": "/kozekilmu/cars#ferrari-499p",
+    "fields": {
+      "strength": {
+        "zh": "空气动力学性能和果断转向",
+        "en": "aero performance and decisive rotation"
+      },
+      "caution": {
+        "zh": "比起修正动作，更奖励精准操作",
+        "en": "rewards precise inputs more than corrections"
+      }
+    }
+  },
+  "car:peugeot-9x8-2024": {
+    "name": "Peugeot 9X8 2024",
+    "href": "/kozekilmu/cars#peugeot-9x8-2024",
+    "fields": {
+      "strength": {
+        "zh": "现代化空气动力学套件灵活",
+        "en": "agile modern aero package"
+      },
+      "caution": {
+        "zh": "平衡对调校（setup）和路肩使用敏感",
+        "en": "balance is sensitive to setup and kerb use"
+      }
+    }
+  },
+  "car:porsche-963": {
+    "name": "Porsche 963",
+    "href": "/kozekilmu/cars#porsche-963",
+    "fields": {
+      "strength": {
+        "zh": "操作窗口（operating window）宽广，容易上手",
+        "en": "broad, approachable operating window"
+      },
+      "caution": {
+        "zh": "仍需监控轮胎温度",
+        "en": "tyre temperature still needs monitoring"
+      }
+    }
+  },
+  "car:toyota-gr010-hybrid": {
+    "name": "Toyota GR010-Hybrid",
+    "href": "/kozekilmu/cars#toyota-gr010-hybrid",
+    "fields": {
+      "strength": {
+        "zh": "稳定、牵引力（traction）好，适合耐力赛节奏",
+        "en": "stability, traction, and endurance-friendly behaviour"
+      },
+      "caution": {
+        "zh": "在紧凑路段转向较慢，可能损失时间",
+        "en": "slower rotation can cost time in tight sectors"
+      }
+    }
+  },
+  "recommendation:bahrain:bmw-m4-lmgt3": {
+    "name": "Bahrain · BMW M4 LMGT3",
+    "href": "/kozekilmu/tracks#bahrain",
+    "fields": {
+      "fit": {
+        "zh": "稳定且兼容路肩的平衡，让巴林的重刹区更从容。",
+        "en": "Its stable, kerb-friendly balance keeps Bahrain's heavy stops calm."
+      }
+    }
+  },
+  "recommendation:bahrain:corvette-z06-lmgt3-r": {
+    "name": "Bahrain · Corvette Z06 LMGT3.R",
+    "href": "/kozekilmu/tracks#bahrain",
+    "fields": {
+      "fit": {
+        "zh": "自信的制动和可预测的牵引力适合巴林的低速出弯。",
+        "en": "Confident braking and predictable traction suit Bahrain's slow exits."
+      }
+    }
+  },
+  "recommendation:bahrain:lexus-rc-f-lmgt3": {
+    "name": "Bahrain · Lexus RC F LMGT3",
+    "href": "/kozekilmu/tracks#bahrain",
+    "fields": {
+      "fit": {
+        "zh": "令人安心的稳定性有助于在巴林重刹后管理后轮胎。",
+        "en": "Reassuring stability supports rear-tyre management after Bahrain's heavy stops."
+      }
+    }
+  },
+  "recommendation:bahrain:toyota-gr010-hybrid": {
+    "name": "Bahrain · Toyota GR010-Hybrid",
+    "href": "/kozekilmu/tracks#bahrain",
+    "fields": {
+      "fit": {
+        "zh": "稳定且偏向牵引力的表现适合巴林的低速出弯和长距离赛程。",
+        "en": "Its stable traction-oriented behaviour fits Bahrain's slow exits and long stints."
+      }
+    }
+  },
+  "recommendation:bahrain:cadillac-v-series-r": {
+    "name": "Bahrain · Cadillac V-Series.R",
+    "href": "/kozekilmu/tracks#bahrain",
+    "fields": {
+      "fit": {
+        "zh": "强力制动和机械牵引力适合巴林的连续重刹区。",
+        "en": "Strong braking and mechanical traction help at Bahrain's repeated heavy stops."
+      }
+    }
+  },
+  "recommendation:bahrain:porsche-963": {
+    "name": "Bahrain · Porsche 963",
+    "href": "/kozekilmu/tracks#bahrain",
+    "fields": {
+      "fit": {
+        "zh": "宽广的操作窗口让巴林的后轮胎管理更容易上手。",
+        "en": "Its broad operating window makes Bahrain's rear-tyre management approachable."
+      }
+    }
+  },
+  "recommendation:barcelona:ferrari-296-lmgt3": {
+    "name": "Circuit de Barcelona-Catalunya · Ferrari 296 LMGT3",
+    "href": "/kozekilmu/tracks#barcelona",
+    "fields": {
+      "fit": {
+        "zh": "灵活的方向变化和均衡空气动力学适合巴塞罗那的负荷弯。",
+        "en": "Agile direction changes and balanced aero suit Barcelona's loaded corners."
+      }
+    }
+  },
+  "recommendation:barcelona:mclaren-720s-lmgt3-evo": {
+    "name": "Circuit de Barcelona-Catalunya · McLaren 720S LMGT3 Evo",
+    "href": "/kozekilmu/tracks#barcelona",
+    "fields": {
+      "fit": {
+        "zh": "高速空气动力学信心有助于通过巴塞罗那的长距离负荷弯。",
+        "en": "High-speed aero confidence helps through Barcelona's long loaded turns."
+      }
+    }
+  },
+  "recommendation:barcelona:porsche-911-gt3-r": {
+    "name": "Circuit de Barcelona-Catalunya · Porsche 911 GT3 R LMGT3",
+    "href": "/kozekilmu/tracks#barcelona",
+    "fields": {
+      "fit": {
+        "zh": "后置引擎的牵引力有助于应对负荷弯后的技术性末段。",
+        "en": "Rear-engine traction helps the technical final sector after loaded corners."
+      }
+    }
+  },
+  "recommendation:barcelona:ferrari-499p": {
+    "name": "Circuit de Barcelona-Catalunya · Ferrari 499P",
+    "href": "/kozekilmu/tracks#barcelona",
+    "fields": {
+      "fit": {
+        "zh": "空气动力学性能和果断转向适合巴塞罗那的长距离负荷弯。",
+        "en": "Aero performance and decisive rotation fit Barcelona's long loaded corners."
+      }
+    }
+  },
+  "recommendation:barcelona:peugeot-9x8-2024": {
+    "name": "Circuit de Barcelona-Catalunya · Peugeot 9X8 2024",
+    "href": "/kozekilmu/tracks#barcelona",
+    "fields": {
+      "fit": {
+        "zh": "灵活的空气动力学套件对 Barcelona 的混合型末段响应良好。",
+        "en": "Its agile aero package responds well to Barcelona's mixed final sector."
+      }
+    }
+  },
+  "recommendation:barcelona:porsche-963": {
+    "name": "Circuit de Barcelona-Catalunya · Porsche 963",
+    "href": "/kozekilmu/tracks#barcelona",
+    "fields": {
+      "fit": {
+        "zh": "宽广的操作窗口适合巴塞罗那持续的轮胎负荷。",
+        "en": "The broad operating window supports Barcelona's sustained tyre load."
+      }
+    }
+  },
+  "recommendation:le-mans:ford-mustang-lmgt3": {
+    "name": "Circuit de la Sarthe · Ford Mustang LMGT3",
+    "href": "/kozekilmu/tracks#le-mans",
+    "fields": {
+      "fit": {
+        "zh": "直线速度和易掌控扭矩适合勒芒的长距离全油门路段。",
+        "en": "Straight-line speed and accessible torque serve Le Mans' long full-throttle runs."
+      }
+    }
+  },
+  "recommendation:le-mans:mclaren-720s-lmgt3-evo": {
+    "name": "Circuit de la Sarthe · McLaren 720S LMGT3 Evo",
+    "href": "/kozekilmu/tracks#le-mans",
+    "fields": {
+      "fit": {
+        "zh": "空气动力学效率让勒芒长直道更有信心，同时减少阻力。",
+        "en": "Aero efficiency gives confidence while minimizing drag on Le Mans' straights."
+      }
+    }
+  },
+  "recommendation:le-mans:ferrari-296-lmgt3": {
+    "name": "Circuit de la Sarthe · Ferrari 296 LMGT3",
+    "href": "/kozekilmu/tracks#le-mans",
+    "fields": {
+      "fit": {
+        "zh": "均衡空气动力学有助于把勒芒的极重制动区连接到快速变向。",
+        "en": "Balanced aero helps link Le Mans' extreme braking zones to fast changes."
+      }
+    }
+  },
+  "recommendation:le-mans:cadillac-v-series-r": {
+    "name": "Circuit de la Sarthe · Cadillac V-Series.R",
+    "href": "/kozekilmu/tracks#le-mans",
+    "fields": {
+      "fit": {
+        "zh": "强力制动适合勒芒长直道前的极重制动。",
+        "en": "Strong braking supports Le Mans' extreme stops before long straights."
+      }
+    }
+  },
+  "recommendation:le-mans:porsche-963": {
+    "name": "Circuit de la Sarthe · Porsche 963",
+    "href": "/kozekilmu/tracks#le-mans",
+    "fields": {
+      "fit": {
+        "zh": "宽广的窗口让勒芒漫长多变的单圈更安心。",
+        "en": "Its broad window is reassuring across Le Mans' long, changing lap."
+      }
+    }
+  },
+  "recommendation:le-mans:ferrari-499p": {
+    "name": "Circuit de la Sarthe · Ferrari 499P",
+    "href": "/kozekilmu/tracks#le-mans",
+    "fields": {
+      "fit": {
+        "zh": "空气动力学性能适合勒芒的低阻力与高速需求。",
+        "en": "Aero performance suits the low-drag and high-speed demands of Le Mans."
+      }
+    }
+  },
+  "recommendation:paul-ricard:mclaren-720s-lmgt3-evo": {
+    "name": "Circuit Paul Ricard · McLaren 720S LMGT3 Evo",
+    "href": "/kozekilmu/tracks#paul-ricard",
+    "fields": {
+      "fit": {
+        "zh": "空气动力学效率和高速信心适合 Mistral 直道与 Signes。",
+        "en": "Aero efficiency and high-speed confidence suit the Mistral and Signes."
+      }
+    }
+  },
+  "recommendation:paul-ricard:ferrari-296-lmgt3": {
+    "name": "Circuit Paul Ricard · Ferrari 296 LMGT3",
+    "href": "/kozekilmu/tracks#paul-ricard",
+    "fields": {
+      "fit": {
+        "zh": "均衡空气动力学和灵活变向有助于应对 Paul Ricard 技术末段。",
+        "en": "Balanced aero and agile changes help Paul Ricard's technical final sector."
+      }
+    }
+  },
+  "recommendation:paul-ricard:porsche-911-gt3-r": {
+    "name": "Circuit Paul Ricard · Porsche 911 GT3 R LMGT3",
+    "href": "/kozekilmu/tracks#paul-ricard",
+    "fields": {
+      "fit": {
+        "zh": "后置引擎牵引力有助于从 Paul Ricard 较慢末弯加速离开。",
+        "en": "Rear-engine traction helps launch from Paul Ricard's slower final corners."
+      }
+    }
+  },
+  "recommendation:paul-ricard:peugeot-9x8-2024": {
+    "name": "Circuit Paul Ricard · Peugeot 9X8 2024",
+    "href": "/kozekilmu/tracks#paul-ricard",
+    "fields": {
+      "fit": {
+        "zh": "灵活空气动力学套件契合 Signes 攻弯与技术末段。",
+        "en": "Its agile aero package fits Signes commitment and the technical final sector."
+      }
+    }
+  },
+  "recommendation:paul-ricard:ferrari-499p": {
+    "name": "Circuit Paul Ricard · Ferrari 499P",
+    "href": "/kozekilmu/tracks#paul-ricard",
+    "fields": {
+      "fit": {
+        "zh": "空气动力学性能支撑 Paul Ricard 高速 Signes 组合。",
+        "en": "Aero performance supports Paul Ricard's fast Signes sequence."
+      }
+    }
+  },
+  "recommendation:paul-ricard:alpine-a424": {
+    "name": "Circuit Paul Ricard · Alpine A424",
+    "href": "/kozekilmu/tracks#paul-ricard",
+    "fields": {
+      "fit": {
+        "zh": "紧凑响应有助于在 Paul Ricard 技术末段完成转向。",
+        "en": "Compact response helps rotate through Paul Ricard's technical final sector."
+      }
+    }
+  },
+  "recommendation:cota:bmw-m4-lmgt3": {
+    "name": "Circuit of the Americas · BMW M4 LMGT3",
+    "href": "/kozekilmu/tracks#cota",
+    "fields": {
+      "fit": {
+        "zh": "稳定且兼容路肩的平衡有助于应对 COTA 上坡制动和高速连续弯。",
+        "en": "Stable kerb-friendly balance helps COTA's uphill braking and fast esses."
+      }
+    }
+  },
+  "recommendation:cota:corvette-z06-lmgt3-r": {
+    "name": "Circuit of the Americas · Corvette Z06 LMGT3.R",
+    "href": "/kozekilmu/tracks#cota",
+    "fields": {
+      "fit": {
+        "zh": "自信制动和牵引力适合 COTA 上坡制动与低速出弯。",
+        "en": "Confident braking and traction match COTA's uphill stops and slow exits."
+      }
+    }
+  },
+  "recommendation:cota:ferrari-296-lmgt3": {
+    "name": "Circuit of the Americas · Ferrari 296 LMGT3",
+    "href": "/kozekilmu/tracks#cota",
+    "fields": {
+      "fit": {
+        "zh": "灵活方向变化适合 COTA 高速连续弯和混合速度节奏。",
+        "en": "Agile direction changes suit COTA's fast esses and mixed-speed flow."
+      }
+    }
+  },
+  "recommendation:cota:porsche-963": {
+    "name": "Circuit of the Americas · Porsche 963",
+    "href": "/kozekilmu/tracks#cota",
+    "fields": {
+      "fit": {
+        "zh": "容易上手的操作窗口有助于处理 COTA 混合制动与连续弯。",
+        "en": "Its approachable operating window helps COTA's mixed braking and esses."
+      }
+    }
+  },
+  "recommendation:cota:cadillac-v-series-r": {
+    "name": "Circuit of the Americas · Cadillac V-Series.R",
+    "href": "/kozekilmu/tracks#cota",
+    "fields": {
+      "fit": {
+        "zh": "强力制动和牵引力支撑 COTA 上坡制动与低速区域。",
+        "en": "Strong braking and traction support COTA's uphill stops and slow zones."
+      }
+    }
+  },
+  "recommendation:cota:ferrari-499p": {
+    "name": "Circuit of the Americas · Ferrari 499P",
+    "href": "/kozekilmu/tracks#cota",
+    "fields": {
+      "fit": {
+        "zh": "果断转向适合精准输入下的 COTA 高速连续弯。",
+        "en": "Decisive rotation works through COTA's fast esses when inputs stay precise."
+      }
+    }
+  },
+  "recommendation:daytona:ford-mustang-lmgt3": {
+    "name": "Daytona International Speedway · Ford Mustang LMGT3",
+    "href": "/kozekilmu/tracks#daytona",
+    "fields": {
+      "fit": {
+        "zh": "直线速度和易掌控扭矩有助于 Daytona 倾斜弯效率。",
+        "en": "Straight-line speed and accessible torque help Daytona's banking efficiency."
+      }
+    }
+  },
+  "recommendation:daytona:bmw-m4-lmgt3": {
+    "name": "Daytona International Speedway · BMW M4 LMGT3",
+    "href": "/kozekilmu/tracks#daytona",
+    "fields": {
+      "fit": {
+        "zh": "稳定兼容路肩平衡让 Daytona Bus Stop 保持稳定。",
+        "en": "Stable kerb-friendly balance keeps Daytona's Bus Stop composed."
+      }
+    }
+  },
+  "recommendation:daytona:mclaren-720s-lmgt3-evo": {
+    "name": "Daytona International Speedway · McLaren 720S LMGT3 Evo",
+    "href": "/kozekilmu/tracks#daytona",
+    "fields": {
+      "fit": {
+        "zh": "空气动力学效率兼顾 Daytona 倾斜弯与高速信心。",
+        "en": "Aero efficiency supports Daytona banking while retaining high-speed confidence."
+      }
+    }
+  },
+  "recommendation:daytona:cadillac-v-series-r": {
+    "name": "Daytona International Speedway · Cadillac V-Series.R",
+    "href": "/kozekilmu/tracks#daytona",
+    "fields": {
+      "fit": {
+        "zh": "强力制动和牵引力适合 Daytona 内场及 Bus Stop 入口。",
+        "en": "Strong braking and traction fit Daytona's infield and Bus Stop approach."
+      }
+    }
+  },
+  "recommendation:daytona:porsche-963": {
+    "name": "Daytona International Speedway · Porsche 963",
+    "href": "/kozekilmu/tracks#daytona",
+    "fields": {
+      "fit": {
+        "zh": "宽广的操作窗口让 Daytona 倾斜弯和内场更易掌控。",
+        "en": "Its broad operating window keeps Daytona's banking and infield manageable."
+      }
+    }
+  },
+  "recommendation:daytona:bmw-m-hybrid-v8": {
+    "name": "Daytona International Speedway · BMW M Hybrid V8",
+    "href": "/kozekilmu/tracks#daytona",
+    "fields": {
+      "fit": {
+        "zh": "通过路肩的信心有助于稳定 Daytona Bus Stop。",
+        "en": "Kerb confidence helps stabilize the Daytona Bus Stop."
+      }
+    }
+  },
+  "recommendation:fuji:bmw-m4-lmgt3": {
+    "name": "Fuji Speedway · BMW M4 LMGT3",
+    "href": "/kozekilmu/tracks#fuji",
+    "fields": {
+      "fit": {
+        "zh": "稳定前置引擎平衡有助于超长直道后的制动。",
+        "en": "Stable front-engine balance helps Fuji's braking after the very long straight."
+      }
+    }
+  },
+  "recommendation:fuji:porsche-911-gt3-r": {
+    "name": "Fuji Speedway · Porsche 911 GT3 R LMGT3",
+    "href": "/kozekilmu/tracks#fuji",
+    "fields": {
+      "fit": {
+        "zh": "后置引擎牵引力支撑 Fuji 低速技术路段出弯。",
+        "en": "Rear-engine traction supports Fuji's slow technical-sector exits."
+      }
+    }
+  },
+  "recommendation:fuji:corvette-z06-lmgt3-r": {
+    "name": "Fuji Speedway · Corvette Z06 LMGT3.R",
+    "href": "/kozekilmu/tracks#fuji",
+    "fields": {
+      "fit": {
+        "zh": "可预测牵引力适合从直道切换到 Fuji 低速弯。",
+        "en": "Predictable traction fits Fuji's transition from the straight to slow corners."
+      }
+    }
+  },
+  "recommendation:fuji:toyota-gr010-hybrid": {
+    "name": "Fuji Speedway · Toyota GR010-Hybrid",
+    "href": "/kozekilmu/tracks#fuji",
+    "fields": {
+      "fit": {
+        "zh": "稳定性与牵引力适合 Fuji 长直道制动和低速路段。",
+        "en": "Stability and traction suit Fuji's long-straight braking and slow sector."
+      }
+    }
+  },
+  "recommendation:fuji:porsche-963": {
+    "name": "Fuji Speedway · Porsche 963",
+    "href": "/kozekilmu/tracks#fuji",
+    "fields": {
+      "fit": {
+        "zh": "宽广操作窗口有助于处理 Fuji 反差明显的路段。",
+        "en": "Its broad operating window helps manage Fuji's contrasting sectors."
+      }
+    }
+  },
+  "recommendation:fuji:cadillac-v-series-r": {
+    "name": "Fuji Speedway · Cadillac V-Series.R",
+    "href": "/kozekilmu/tracks#fuji",
+    "fields": {
+      "fit": {
+        "zh": "强力制动在 Fuji 超长直道末端很有用。",
+        "en": "Strong braking is useful at the end of Fuji's very long straight."
+      }
+    }
+  },
+  "recommendation:imola:porsche-911-gt3-r": {
+    "name": "Imola · Porsche 911 GT3 R LMGT3",
+    "href": "/kozekilmu/tracks#imola",
+    "fields": {
+      "fit": {
+        "zh": "后置引擎牵引力适合 Imola 反复制动和狭窄出弯。",
+        "en": "Rear-engine traction suits Imola's repeated braking and narrow exits."
+      }
+    }
+  },
+  "recommendation:imola:bmw-m4-lmgt3": {
+    "name": "Imola · BMW M4 LMGT3",
+    "href": "/kozekilmu/tracks#imola",
+    "fields": {
+      "fit": {
+        "zh": "兼容路肩的平衡有助于吸收 Imola 高路肩。",
+        "en": "Kerb-friendly balance helps absorb Imola's tall kerbs."
+      }
+    }
+  },
+  "recommendation:imola:aston-martin-vantage-lmgt3": {
+    "name": "Imola · Aston Martin Vantage AMR LMGT3",
+    "href": "/kozekilmu/tracks#imola",
+    "fields": {
+      "fit": {
+        "zh": "平和制动支撑 Imola 狭窄节奏和反复制动。",
+        "en": "Calm braking supports Imola's narrow rhythm and repeated stops."
+      }
+    }
+  },
+  "recommendation:imola:porsche-963": {
+    "name": "Imola · Porsche 963",
+    "href": "/kozekilmu/tracks#imola",
+    "fields": {
+      "fit": {
+        "zh": "宽广操作窗口让 Imola 狭窄节奏更易掌控。",
+        "en": "Its broad operating window helps keep Imola's narrow rhythm manageable."
+      }
+    }
+  },
+  "recommendation:imola:bmw-m-hybrid-v8": {
+    "name": "Imola · BMW M Hybrid V8",
+    "href": "/kozekilmu/tracks#imola",
+    "fields": {
+      "fit": {
+        "zh": "稳定且有路肩通过信心，适合 Imola 高路肩和反复制动。",
+        "en": "Stable kerb confidence fits Imola's tall kerbs and repeated braking."
+      }
+    }
+  },
+  "recommendation:imola:toyota-gr010-hybrid": {
+    "name": "Imola · Toyota GR010-Hybrid",
+    "href": "/kozekilmu/tracks#imola",
+    "fields": {
+      "fit": {
+        "zh": "稳定性与牵引力奖励在 Imola 狭窄布局中的谨慎出弯。",
+        "en": "Stability and traction reward careful exits on Imola's narrow layout."
+      }
+    }
+  },
+  "recommendation:interlagos:ferrari-296-lmgt3": {
+    "name": "Interlagos · Ferrari 296 LMGT3",
+    "href": "/kozekilmu/tracks#interlagos",
+    "fields": {
+      "fit": {
+        "zh": "灵活方向变化适合 Interlagos 混合速度地形起伏。",
+        "en": "Agile direction changes suit Interlagos' mixed-speed elevation changes."
+      }
+    }
+  },
+  "recommendation:interlagos:porsche-911-gt3-r": {
+    "name": "Interlagos · Porsche 911 GT3 R LMGT3",
+    "href": "/kozekilmu/tracks#interlagos",
+    "fields": {
+      "fit": {
+        "zh": "后置引擎牵引力有助于 Interlagos 反复牵引力出弯。",
+        "en": "Rear-engine traction helps Interlagos' repeated traction exits."
+      }
+    }
+  },
+  "recommendation:interlagos:corvette-z06-lmgt3-r": {
+    "name": "Interlagos · Corvette Z06 LMGT3.R",
+    "href": "/kozekilmu/tracks#interlagos",
+    "fields": {
+      "fit": {
+        "zh": "可预测牵引力支撑 Interlagos 短单圈和低速出弯。",
+        "en": "Predictable traction supports Interlagos' short lap and slow exits."
+      }
+    }
+  },
+  "recommendation:interlagos:ferrari-499p": {
+    "name": "Interlagos · Ferrari 499P",
+    "href": "/kozekilmu/tracks#interlagos",
+    "fields": {
+      "fit": {
+        "zh": "果断转向契合 Interlagos 混合速度地形起伏。",
+        "en": "Decisive rotation fits Interlagos' mixed-speed elevation changes."
+      }
+    }
+  },
+  "recommendation:interlagos:porsche-963": {
+    "name": "Interlagos · Porsche 963",
+    "href": "/kozekilmu/tracks#interlagos",
+    "fields": {
+      "fit": {
+        "zh": "宽广窗口让 Interlagos 短而多变单圈保持稳定。",
+        "en": "Its broad window helps keep Interlagos' short, changing lap composed."
+      }
+    }
+  },
+  "recommendation:interlagos:cadillac-v-series-r": {
+    "name": "Interlagos · Cadillac V-Series.R",
+    "href": "/kozekilmu/tracks#interlagos",
+    "fields": {
+      "fit": {
+        "zh": "机械牵引力适用于 Interlagos 频繁牵引力出弯。",
+        "en": "Mechanical traction serves Interlagos' frequent traction exits."
+      }
+    }
+  },
+  "recommendation:lusail:mclaren-720s-lmgt3-evo": {
+    "name": "Lusail International Circuit · McLaren 720S LMGT3 Evo",
+    "href": "/kozekilmu/tracks#lusail",
+    "fields": {
+      "fit": {
+        "zh": "高速空气动力学信心适合 Lusail 持续中速负荷。",
+        "en": "High-speed aero confidence suits Lusail's sustained medium-speed load."
+      }
+    }
+  },
+  "recommendation:lusail:ferrari-296-lmgt3": {
+    "name": "Lusail International Circuit · Ferrari 296 LMGT3",
+    "href": "/kozekilmu/tracks#lusail",
+    "fields": {
+      "fit": {
+        "zh": "均衡空气动力学支撑 Lusail 长距离负荷弯和轮胎控制。",
+        "en": "Balanced aero supports Lusail's long loaded corners and tyre control."
+      }
+    }
+  },
+  "recommendation:lusail:lamborghini-huracan-lmgt3-evo2": {
+    "name": "Lusail International Circuit · Lamborghini Huracan LMGT3 Evo2",
+    "href": "/kozekilmu/tracks#lusail",
+    "fields": {
+      "fit": {
+        "zh": "迅速响应适合 Lusail 流畅中高速组合，配合平顺输入。",
+        "en": "Fast response helps Lusail's flowing medium/high-speed sequence with smooth inputs."
+      }
+    }
+  },
+  "recommendation:lusail:ferrari-499p": {
+    "name": "Lusail International Circuit · Ferrari 499P",
+    "href": "/kozekilmu/tracks#lusail",
+    "fields": {
+      "fit": {
+        "zh": "空气动力学性能适合 Lusail 持续高速轮胎负荷。",
+        "en": "Aero performance fits Lusail's sustained high-speed tyre load."
+      }
+    }
+  },
+  "recommendation:lusail:peugeot-9x8-2024": {
+    "name": "Lusail International Circuit · Peugeot 9X8 2024",
+    "href": "/kozekilmu/tracks#lusail",
+    "fields": {
+      "fit": {
+        "zh": "灵活空气动力学套件适合 Lusail 流畅中速路段。",
+        "en": "Its agile aero package suits Lusail's flowing medium-speed sections."
+      }
+    }
+  },
+  "recommendation:lusail:alpine-a424": {
+    "name": "Lusail International Circuit · Alpine A424",
+    "href": "/kozekilmu/tracks#lusail",
+    "fields": {
+      "fit": {
+        "zh": "紧凑响应有助于处理 Lusail 长距离负荷组合。",
+        "en": "Compact response helps manage Lusail's long loaded sequences."
+      }
+    }
+  },
+  "recommendation:monza:ford-mustang-lmgt3": {
+    "name": "Monza · Ford Mustang LMGT3",
+    "href": "/kozekilmu/tracks#monza",
+    "fields": {
+      "fit": {
+        "zh": "直线速度和扭矩适合 Monza 最高速重点。",
+        "en": "Straight-line speed and torque suit Monza's maximum-speed focus."
+      }
+    }
+  },
+  "recommendation:monza:mclaren-720s-lmgt3-evo": {
+    "name": "Monza · McLaren 720S LMGT3 Evo",
+    "href": "/kozekilmu/tracks#monza",
+    "fields": {
+      "fit": {
+        "zh": "空气动力学效率支撑 Monza 长直道和高速接近段。",
+        "en": "Aero efficiency supports Monza's long straights and fast approaches."
+      }
+    }
+  },
+  "recommendation:monza:ferrari-296-lmgt3": {
+    "name": "Monza · Ferrari 296 LMGT3",
+    "href": "/kozekilmu/tracks#monza",
+    "fields": {
+      "fit": {
+        "zh": "均衡空气动力学有助于稳定 Monza 重刹减速弯制动。",
+        "en": "Balanced aero helps stabilize Monza's heavy chicane braking."
+      }
+    }
+  },
+  "recommendation:monza:cadillac-v-series-r": {
+    "name": "Monza · Cadillac V-Series.R",
+    "href": "/kozekilmu/tracks#monza",
+    "fields": {
+      "fit": {
+        "zh": "强力制动支撑 Monza 重刹减速弯。",
+        "en": "Strong braking supports Monza's heavy chicane stops."
+      }
+    }
+  },
+  "recommendation:monza:porsche-963": {
+    "name": "Monza · Porsche 963",
+    "href": "/kozekilmu/tracks#monza",
+    "fields": {
+      "fit": {
+        "zh": "容易上手的窗口有助于处理 Monza 路肩和制动。",
+        "en": "Its approachable window helps manage Monza's kerbs and braking."
+      }
+    }
+  },
+  "recommendation:monza:ferrari-499p": {
+    "name": "Monza · Ferrari 499P",
+    "href": "/kozekilmu/tracks#monza",
+    "fields": {
+      "fit": {
+        "zh": "空气动力学性能与 Monza 最高速重刹布局相配。",
+        "en": "Aero performance pairs with Monza's maximum-speed, heavy-braking layout."
+      }
+    }
+  },
+  "recommendation:portimao:porsche-911-gt3-r": {
+    "name": "Portimão · Porsche 911 GT3 R LMGT3",
+    "href": "/kozekilmu/tracks#portimao",
+    "fields": {
+      "fit": {
+        "zh": "后置引擎牵引力有助于 Portimão 盲顶出弯和转向。",
+        "en": "Rear-engine traction helps Portimão's blind-crest exits and rotation."
+      }
+    }
+  },
+  "recommendation:portimao:ferrari-296-lmgt3": {
+    "name": "Portimão · Ferrari 296 LMGT3",
+    "href": "/kozekilmu/tracks#portimao",
+    "fields": {
+      "fit": {
+        "zh": "灵活方向变化契合 Portimão 压缩段和变化节奏。",
+        "en": "Agile direction changes fit Portimão's compression and changing rhythm."
+      }
+    }
+  },
+  "recommendation:portimao:mclaren-720s-lmgt3-evo": {
+    "name": "Portimão · McLaren 720S LMGT3 Evo",
+    "href": "/kozekilmu/tracks#portimao",
+    "fields": {
+      "fit": {
+        "zh": "高速信心支撑输入平顺时的 Portimão 盲顶。",
+        "en": "High-speed confidence supports Portimão's blind crests when inputs stay smooth."
+      }
+    }
+  },
+  "recommendation:portimao:ferrari-499p": {
+    "name": "Portimão · Ferrari 499P",
+    "href": "/kozekilmu/tracks#portimao",
+    "fields": {
+      "fit": {
+        "zh": "果断转向适合 Portimão 压缩段和盲顶。",
+        "en": "Decisive rotation suits Portimão's compression and blind crests."
+      }
+    }
+  },
+  "recommendation:portimao:alpine-a424": {
+    "name": "Portimão · Alpine A424",
+    "href": "/kozekilmu/tracks#portimao",
+    "fields": {
+      "fit": {
+        "zh": "紧凑响应有助于在 Portimão 高度变化中完成转向。",
+        "en": "Compact response helps rotate through Portimão's changing elevations."
+      }
+    }
+  },
+  "recommendation:portimao:peugeot-9x8-2024": {
+    "name": "Portimão · Peugeot 9X8 2024",
+    "href": "/kozekilmu/tracks#portimao",
+    "fields": {
+      "fit": {
+        "zh": "灵活空气动力学套件契合 Portimão 坡顶和流畅变向。",
+        "en": "Its agile aero package fits Portimão's crests and flowing changes."
+      }
+    }
+  },
+  "recommendation:sebring:bmw-m4-lmgt3": {
+    "name": "Sebring International Raceway · BMW M4 LMGT3",
+    "href": "/kozekilmu/tracks#sebring",
+    "fields": {
+      "fit": {
+        "zh": "兼容路肩的稳定平衡有助于应对 Sebring 颠簸和混凝土接缝。",
+        "en": "Kerb-friendly stable balance helps Sebring's bumps and concrete seams."
+      }
+    }
+  },
+  "recommendation:sebring:aston-martin-vantage-lmgt3": {
+    "name": "Sebring International Raceway · Aston Martin Vantage AMR LMGT3",
+    "href": "/kozekilmu/tracks#sebring",
+    "fields": {
+      "fit": {
+        "zh": "循迹性好的平台与平和制动适合 Sebring 粗糙制动路面。",
+        "en": "A compliant platform and calm braking suit Sebring's rough braking surfaces."
+      }
+    }
+  },
+  "recommendation:sebring:corvette-z06-lmgt3-r": {
+    "name": "Sebring International Raceway · Corvette Z06 LMGT3.R",
+    "href": "/kozekilmu/tracks#sebring",
+    "fields": {
+      "fit": {
+        "zh": "可预测牵引力有助于应对 Sebring 混凝土接缝和低速出弯。",
+        "en": "Predictable traction helps Sebring's concrete seams and slow exits."
+      }
+    }
+  },
+  "recommendation:sebring:cadillac-v-series-r": {
+    "name": "Sebring International Raceway · Cadillac V-Series.R",
+    "href": "/kozekilmu/tracks#sebring",
+    "fields": {
+      "fit": {
+        "zh": "强力制动和机械牵引力支撑 Sebring 粗糙路面。",
+        "en": "Strong braking and mechanical traction support Sebring's rough surfaces."
+      }
+    }
+  },
+  "recommendation:sebring:porsche-963": {
+    "name": "Sebring International Raceway · Porsche 963",
+    "href": "/kozekilmu/tracks#sebring",
+    "fields": {
+      "fit": {
+        "zh": "宽广操作窗口有助于处理一段赛程中的 Sebring 颠簸。",
+        "en": "Its broad operating window helps manage Sebring's bumps over a stint."
+      }
+    }
+  },
+  "recommendation:sebring:bmw-m-hybrid-v8": {
+    "name": "Sebring International Raceway · BMW M Hybrid V8",
+    "href": "/kozekilmu/tracks#sebring",
+    "fields": {
+      "fit": {
+        "zh": "稳定平台和路肩通过信心适合 Sebring 混凝土接缝。",
+        "en": "Stable platform and kerb confidence fit Sebring's concrete seams."
+      }
+    }
+  },
+  "recommendation:silverstone-international:mclaren-720s-lmgt3-evo": {
+    "name": "Silverstone International · McLaren 720S LMGT3 Evo",
+    "href": "/kozekilmu/tracks#silverstone-international",
+    "fields": {
+      "fit": {
+        "zh": "高速信心和空气动力学效率适合 Silverstone 反复变向。",
+        "en": "High-speed confidence and aero efficiency suit Silverstone's repeated direction changes."
+      }
+    }
+  },
+  "recommendation:silverstone-international:ferrari-296-lmgt3": {
+    "name": "Silverstone International · Ferrari 296 LMGT3",
+    "href": "/kozekilmu/tracks#silverstone-international",
+    "fields": {
+      "fit": {
+        "zh": "灵活方向变化有助于应对 Silverstone International 紧凑交通节奏。",
+        "en": "Agile direction changes help in Silverstone International's compact traffic flow."
+      }
+    }
+  },
+  "recommendation:silverstone-international:bmw-m4-lmgt3": {
+    "name": "Silverstone International · BMW M4 LMGT3",
+    "href": "/kozekilmu/tracks#silverstone-international",
+    "fields": {
+      "fit": {
+        "zh": "稳定平衡在 Silverstone 频繁交通中提供可预测参考。",
+        "en": "Stable balance gives predictable references amid Silverstone's frequent traffic."
+      }
+    }
+  },
+  "recommendation:silverstone-international:ferrari-499p": {
+    "name": "Silverstone International · Ferrari 499P",
+    "href": "/kozekilmu/tracks#silverstone-international",
+    "fields": {
+      "fit": {
+        "zh": "果断转向适合 Silverstone 紧凑反复变向。",
+        "en": "Decisive rotation fits Silverstone's compact repeated changes."
+      }
+    }
+  },
+  "recommendation:silverstone-international:porsche-963": {
+    "name": "Silverstone International · Porsche 963",
+    "href": "/kozekilmu/tracks#silverstone-international",
+    "fields": {
+      "fit": {
+        "zh": "容易上手窗口有助于处理 Silverstone 短单圈交通。",
+        "en": "Its approachable window helps manage traffic on Silverstone's short lap."
+      }
+    }
+  },
+  "recommendation:silverstone-international:peugeot-9x8-2024": {
+    "name": "Silverstone International · Peugeot 9X8 2024",
+    "href": "/kozekilmu/tracks#silverstone-international",
+    "fields": {
+      "fit": {
+        "zh": "灵活空气动力学响应支撑 Silverstone 快速变向。",
+        "en": "Agile aero response supports Silverstone's quick direction changes."
+      }
+    }
+  },
+  "recommendation:spa:mclaren-720s-lmgt3-evo": {
+    "name": "Spa-Francorchamps · McLaren 720S LMGT3 Evo",
+    "href": "/kozekilmu/tracks#spa",
+    "fields": {
+      "fit": {
+        "zh": "高速空气动力学信心适合 Spa 起伏和高速空气动力学路段。",
+        "en": "High-speed aero confidence suits Spa's elevation and fast aero sections."
+      }
+    }
+  },
+  "recommendation:spa:ferrari-296-lmgt3": {
+    "name": "Spa-Francorchamps · Ferrari 296 LMGT3",
+    "href": "/kozekilmu/tracks#spa",
+    "fields": {
+      "fit": {
+        "zh": "均衡空气动力学和灵活变向契合 Spa 漫长多变单圈。",
+        "en": "Balanced aero and agile changes fit Spa's long, variable lap."
+      }
+    }
+  },
+  "recommendation:spa:bmw-m4-lmgt3": {
+    "name": "Spa-Francorchamps · BMW M4 LMGT3",
+    "href": "/kozekilmu/tracks#spa",
+    "fields": {
+      "fit": {
+        "zh": "稳定平衡在 Spa 天气变化时保持可预测表现。",
+        "en": "Stable balance provides predictable behaviour as Spa weather changes."
+      }
+    }
+  },
+  "recommendation:spa:ferrari-499p": {
+    "name": "Spa-Francorchamps · Ferrari 499P",
+    "href": "/kozekilmu/tracks#spa",
+    "fields": {
+      "fit": {
+        "zh": "空气动力学性能和果断转向适合 Spa 高速地形起伏。",
+        "en": "Aero performance and decisive rotation fit Spa's high-speed elevation changes."
+      }
+    }
+  },
+  "recommendation:spa:porsche-963": {
+    "name": "Spa-Francorchamps · Porsche 963",
+    "href": "/kozekilmu/tracks#spa",
+    "fields": {
+      "fit": {
+        "zh": "宽广操作窗口有助于应对 Spa 长单圈和天气变化。",
+        "en": "Its broad operating window helps through Spa's long lap and weather shifts."
+      }
+    }
+  },
+  "recommendation:spa:cadillac-v-series-r": {
+    "name": "Spa-Francorchamps · Cadillac V-Series.R",
+    "href": "/kozekilmu/tracks#spa",
+    "fields": {
+      "fit": {
+        "zh": "强力制动和牵引力支撑 Spa 混合高速与湿地切换。",
+        "en": "Strong braking and traction support Spa's mixed high-speed and wet transitions."
+      }
+    }
+  },
+  "recommendation:laguna-seca:porsche-911-gt3-r": {
+    "name": "WeatherTech Raceway Laguna Seca · Porsche 911 GT3 R LMGT3",
+    "href": "/kozekilmu/tracks#laguna-seca",
+    "fields": {
+      "fit": {
+        "zh": "后置引擎牵引力有助于 Laguna Seca 低速出弯和 Corkscrew 回正。",
+        "en": "Rear-engine traction helps Laguna Seca's low-speed exits and Corkscrew recovery."
+      }
+    }
+  },
+  "recommendation:laguna-seca:corvette-z06-lmgt3-r": {
+    "name": "WeatherTech Raceway Laguna Seca · Corvette Z06 LMGT3.R",
+    "href": "/kozekilmu/tracks#laguna-seca",
+    "fields": {
+      "fit": {
+        "zh": "可预测牵引力和制动适合 Laguna Seca 地形起伏。",
+        "en": "Predictable traction and braking suit Laguna Seca's elevation changes."
+      }
+    }
+  },
+  "recommendation:laguna-seca:bmw-m4-lmgt3": {
+    "name": "WeatherTech Raceway Laguna Seca · BMW M4 LMGT3",
+    "href": "/kozekilmu/tracks#laguna-seca",
+    "fields": {
+      "fit": {
+        "zh": "稳定平衡有助于处理 Corkscrew 前的制动与路肩入口。",
+        "en": "Stable balance helps the braking and kerb approach to the Corkscrew."
+      }
+    }
+  },
+  "recommendation:laguna-seca:porsche-963": {
+    "name": "WeatherTech Raceway Laguna Seca · Porsche 963",
+    "href": "/kozekilmu/tracks#laguna-seca",
+    "fields": {
+      "fit": {
+        "zh": "宽广操作窗口让 Laguna Seca Corkscrew 组合更容易上手。",
+        "en": "Its broad operating window keeps Laguna Seca's Corkscrew sequence approachable."
+      }
+    }
+  },
+  "recommendation:laguna-seca:cadillac-v-series-r": {
+    "name": "WeatherTech Raceway Laguna Seca · Cadillac V-Series.R",
+    "href": "/kozekilmu/tracks#laguna-seca",
+    "fields": {
+      "fit": {
+        "zh": "强力制动和牵引力有助于 Laguna Seca 低速地形起伏。",
+        "en": "Strong braking and traction help at Laguna Seca's low-speed elevation changes."
+      }
+    }
+  },
+  "recommendation:laguna-seca:bmw-m-hybrid-v8": {
+    "name": "WeatherTech Raceway Laguna Seca · BMW M Hybrid V8",
+    "href": "/kozekilmu/tracks#laguna-seca",
+    "fields": {
+      "fit": {
+        "zh": "通过路肩的信心和稳定性支撑 Corkscrew 入口。",
+        "en": "Kerb confidence and stability support the Corkscrew approach."
+      }
+    }
+  }
+}

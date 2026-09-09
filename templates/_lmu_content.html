@@ -1,0 +1,22 @@
+{% macro copy(zh, en) -%}<span data-guide-copy="zh">{{ zh }}</span><span data-guide-copy="en">{{ en }}</span>{%- endmacro %}
+{% macro practice(note) -%}
+<details class="lmu-practice" data-practice>
+  <summary>{{ copy('练习要点与心得', 'Practice notes and reflection') }}</summary>
+  <p><strong>{{ copy('来源要点：', 'Source observation: ') }}</strong>{{ copy(note.observation_zh, note.observation) }}</p>
+  <p><strong>{{ copy('练习与复盘（据资料整理）：', 'Practice and reflection (editorial): ') }}</strong>{{ copy(note.exercise_zh, note.exercise) }}</p>
+  <p class="lmu-content-meta">{{ copy('来源核验：', 'Source reviewed: ') }}<time datetime="{{ note.checked_on }}">{{ note.checked_on }}</time> · {{ copy('适用游戏版本：', 'Applicable game version: ') }}{{ note.applicable_version or copy('未验证', 'Unverified') }}</p>
+  <p class="lmu-content-meta">{{ copy('资料：', 'Source: ') }}<a href="{{ note.source_url }}" target="_blank" rel="noopener noreferrer">{{ note.source_name }}</a></p>
+  {% if note.evidence_url %}<p><a href="{{ note.evidence_url }}" target="_blank" rel="noopener noreferrer">{{ copy('版本验证证据', 'Version validation evidence') }}</a></p>{% endif %}
+  <p class="lmu-content-meta">{{ copy('内容为来源摘要与练习建议，不是本站实测。', 'Source summaries and suggested exercises, not our driving tests.') }}{% if not note.applicable_version %} {{ copy('来源未明确对应当前游戏版本。', 'The source does not establish current-build compatibility.') }}{% endif %}</p>
+</details>
+{%- endmacro %}
+{% macro review(item) -%}
+<details class="lmu-review" data-content-review>
+  <summary>{{ copy('推荐来源与适用版本', 'Recommendation sources and version') }}</summary>
+  <p>{{ copy('适用游戏版本：', 'Applicable game version: ') }}{{ item.applicable_version or copy('未验证', 'Unverified') }}</p>
+  <p>{{ copy('来源核验：', 'Source reviewed: ') }}<time datetime="{{ item.checked_on }}">{{ item.checked_on }}</time></p>
+  <p>{{ copy('配对理由是本站编辑建议；以下资料提供赛道与车型背景，不代表来源认可该配对或完成圈速验证。', 'The pairing is an editorial suggestion. These sources provide circuit and car context, not endorsement of the pairing or lap-time validation.') }}</p>
+  <ul>{% for url in item.sources %}<li><a href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ copy('赛道背景', 'Circuit context') if loop.first else copy('车型驾驶指南', 'Car driving guide') }}</a></li>{% endfor %}</ul>
+  {% if item.evidence_url %}<p><a href="{{ item.evidence_url }}" target="_blank" rel="noopener noreferrer">{{ copy('版本验证证据', 'Version validation evidence') }}</a></p>{% endif %}
+</details>
+{%- endmacro %}

@@ -197,8 +197,8 @@ class BrowserReliabilityTests(unittest.TestCase):
 
     def test_recommendation_height_animation_reverses_and_releases_layout(self):
         self.page.goto(self.url + '/kozekilmu/tracks')
-        details = self.page.locator('.circuit-card details').first
-        summary = details.locator('summary')
+        details = self.page.locator('.circuit-card details[data-recommendations]').first
+        summary = details.locator(':scope > summary')
         summary.scroll_into_view_if_needed()
         summary.press('Enter')
         self.assertTrue(details.evaluate("el=>el.getAnimations({subtree:true}).some(a=>a.effect.getKeyframes().some(k=>'height' in k))"))
@@ -220,15 +220,15 @@ class BrowserReliabilityTests(unittest.TestCase):
     def test_recommendations_respect_reduced_motion_and_native_fallback(self):
         self.page.emulate_media(reduced_motion='reduce')
         self.page.goto(self.url + '/kozekilmu/tracks')
-        details = self.page.locator('.circuit-card details').first
-        details.locator('summary').click()
+        details = self.page.locator('.circuit-card details[data-recommendations]').first
+        details.locator(':scope > summary').click()
         expect(details).to_have_attribute('open', '')
         self.assertEqual(details.evaluate('el=>el.getAnimations({subtree:true}).length'), 0)
-        details.locator('summary').click()
+        details.locator(':scope > summary').click()
         expect(details).not_to_have_attribute('open', '')
         self.context.route('**/static/js/recommendations.js', lambda route: route.abort())
         self.page.reload()
-        details.locator('summary').click()
+        details.locator(':scope > summary').click()
         expect(details).to_have_attribute('open', '')
         expect(details.locator('.recommendation-group').first).to_be_visible()
 
@@ -297,7 +297,7 @@ class BrowserReliabilityTests(unittest.TestCase):
                     self.page.locator('#videoUrls').focus()
                     self.assertEqual(self.page.locator('#videoUrls').evaluate('el=>getComputedStyle(el).backgroundColor'), 'rgb(250, 252, 251)')
                 if route == '/kozekilmu/tracks':
-                    self.page.locator('details summary').first.click()
+                    self.page.locator('details[data-recommendations] > summary').first.click()
                     expect(self.page.locator('.recommendation').first).to_be_visible()
                     self.assertEqual(self.page.locator('.recommendation').first.evaluate('el=>getComputedStyle(el).backgroundColor'), 'rgb(250, 252, 251)')
             self.assertEqual(navs[0], navs[1])

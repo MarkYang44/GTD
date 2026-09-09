@@ -7,7 +7,7 @@ class LmuExtensionsBrowserTests(BrowserReliabilityTests):
     def test_catalog_shares_favorites_filters_and_comparison(self):
         self.page.goto(self.url + '/kozekilmu/tracks')
         self.page.locator('[data-favorite-circuit="bahrain"]').click()
-        self.page.locator('#bahrain summary').click()
+        self.page.locator('#bahrain details[data-recommendations] > summary').click()
         self.page.locator('#bahrain [data-favorite-car]').first.click()
         stored = self.page.evaluate('JSON.parse(localStorage.getItem("gtd_lmu_favorites_v1"))')
         car = stored['cars'][0]

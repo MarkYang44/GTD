@@ -443,7 +443,7 @@ summary::before {
   line-height: 1;
 }
 
-details[open] summary::before {
+details[open] > summary::before {
   content: "−";
   background: rgba(0, 155, 149, .12);
 }
@@ -655,7 +655,7 @@ details[open] summary::before {
 /* Clip only while the measured disclosure height changes; intrinsic height returns at rest. */
 .recommendation-content { display: flow-root; overflow: hidden; }
 details[data-recommendations][open] > .recommendation-content { animation: none; }
-details[data-recommendations] summary[aria-expanded="false"]::before { content: "＋"; background: transparent; }
+details[data-recommendations] > summary[aria-expanded="false"]::before { content: "＋"; background: transparent; }
 
 @media (prefers-reduced-motion: reduce) {
   details[data-recommendations], details[data-recommendations] *,

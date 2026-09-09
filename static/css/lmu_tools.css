@@ -74,3 +74,20 @@
 #strategy-error { margin-top: 16px; color: var(--foreground); }
 .strategy-fields input[aria-invalid="true"] { border-color: #c87763; }
 @media (max-width: 600px) { .strategy-fields { grid-template-columns: 1fr; } .strategy-metrics { gap: 12px; } }
+.lmu-content-banner { color: var(--muted); font: 13px/1.7 var(--ui-font); margin: -12px 0 24px; }
+.lmu-content-banner a, .lmu-content-notice a, .lmu-release a { color: var(--accent); }
+.lmu-practice, .lmu-review { margin: 18px 0; padding-top: 12px; border-top: 1px solid var(--border); font: 13px/1.7 var(--ui-font); }
+.lmu-practice summary, .lmu-review summary, .lmu-release summary { cursor: pointer; color: var(--muted-strong); padding: 8px 0; }
+.lmu-practice p, .lmu-review p { margin: 10px 0; font-size: 13px; }
+.lmu-practice .lmu-content-meta { color: var(--muted); font-size: 12px; }
+.lmu-review ul { padding-left: 20px; }
+.lmu-content-notice, .lmu-release { line-height: 1.7; overflow-wrap: anywhere; }
+.lmu-release h2 { font-size: 24px; }
+.lmu-release > p { margin: 16px 0; }
+.lmu-release time { color: var(--muted); font-size: 13px; }
+.lmu-change-group { border-top: 1px solid var(--border); margin-top: 16px; }
+.lmu-change { margin-left: 16px; border-top: 1px solid var(--border); }
+.lmu-change-field { margin: 16px 0; padding-left: 12px; border-left: 2px solid var(--border-strong); }
+.lmu-change-field h3 { font: 600 14px/1.5 var(--ui-font); }
+.lmu-change-field p { font-size: 13px; margin-top: 8px; white-space: pre-line; }
+[data-theme="light"] :is(.lmu-content-banner,.lmu-content-notice,.lmu-release) a { color: var(--accent-ink); }

@@ -50,6 +50,7 @@ from folder_picker import (
 )
 from guide_renderer import render_markdown_file
 from lmu_guide_data import CARS, CIRCUITS, GUIDE_UPDATED
+from lmu_content import template_context as lmu_content_context, history as lmu_content_history
 from task_control import TaskManager, TaskSeed
 from task_history import TaskHistoryStore
 from local_audio import UploadStore, extract_audio
@@ -141,6 +142,7 @@ def kozekilmu_tracks():
         circuits=CIRCUITS,
         guide_updated=GUIDE_UPDATED,
         available_images=_available_guide_images(CIRCUITS, CARS.values()),
+        **lmu_content_context(),
     )
 
 
@@ -157,6 +159,7 @@ def kozekilmu_cars():
         cars=CARS, circuits=CIRCUITS, car_recommendations=recommendations,
         guide_updated=GUIDE_UPDATED,
         available_images=_available_guide_images(CIRCUITS, CARS.values()),
+        **lmu_content_context(),
     )
 
 
@@ -167,6 +170,11 @@ def kozekilmu_strategy():
         "kozekilmu_strategy.html", page_title_zh="LMU 赛前策略",
         page_title_en="LMU Race Strategy", guide_updated=GUIDE_UPDATED,
     )
+
+
+@app.route("/kozekilmu/updates")
+def kozekilmu_updates():
+    return render_template("kozekilmu_updates.html", page_title_zh="LMU 内容更新", page_title_en="LMU Content Updates", releases=lmu_content_history(), **lmu_content_context())
 
 
 @app.route("/favicon.ico")

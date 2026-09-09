@@ -28,7 +28,7 @@ class LmuToolsBrowserTests(BrowserReliabilityTests):
         expect(self.page.locator('[data-favorite-circuit="bahrain"]')).to_have_attribute('aria-pressed','true')
         self.page.locator('#lmu-favorites').select_option('circuits')
         expect(self.page.locator('.circuit-card:visible')).to_have_count(1)
-        self.page.locator('#bahrain summary').click()
+        self.page.locator('#bahrain details[data-recommendations] > summary').click()
         buttons = self.page.locator('#bahrain [data-compare]')
         buttons.nth(0).click(); buttons.nth(1).click(); buttons.nth(2).click(); buttons.nth(3).click()
         expect(self.page.locator('#lmu-selection > *')).to_have_count(3)
@@ -45,7 +45,7 @@ class LmuToolsBrowserTests(BrowserReliabilityTests):
 
     def test_lmu_car_favorites_cross_tab_and_storage_failure(self):
         self.page.goto(self.url + '/kozekilmu/tracks')
-        self.page.locator('#bahrain summary').click()
+        self.page.locator('#bahrain details[data-recommendations] > summary').click()
         favorite = self.page.locator('#bahrain [data-favorite-car]').first
         slug = favorite.get_attribute('data-favorite-car')
         favorite.click()
@@ -56,7 +56,7 @@ class LmuToolsBrowserTests(BrowserReliabilityTests):
         expect(self.page.locator('.recommendation:not([hidden])')).to_have_count(expected)
         other = self.context.new_page()
         other.goto(self.url + '/kozekilmu/tracks')
-        other.locator('#bahrain summary').click()
+        other.locator('#bahrain details[data-recommendations] > summary').click()
         self.page.locator(f'#bahrain [data-favorite-car="{slug}"]').focus()
         other.locator(f'#bahrain [data-favorite-car="{slug}"]').click()
         expect(self.page.locator('#lmu-empty')).to_be_visible()
@@ -82,8 +82,8 @@ class LmuToolsBrowserTests(BrowserReliabilityTests):
         self.assertGreater(self.page.locator('.circuit-card:visible').count(), 1)
         first = self.page.locator('.circuit-card:visible').first
         second = self.page.locator('.circuit-card:visible').nth(1)
-        first.locator('summary').click(); first.locator('[data-compare]:visible').first.click()
-        second.locator('summary').click(); second.locator('[data-compare]:visible').first.click()
+        first.locator('details[data-recommendations] > summary').click(); first.locator('[data-compare]:visible').first.click()
+        second.locator('details[data-recommendations] > summary').click(); second.locator('[data-compare]:visible').first.click()
         self.page.locator('label[for="guide-language-toggle"]').click()
         expect(self.page.locator('#lmu-class option').first).to_have_text('全部组别')
         self.page.locator('#lmu-open-compare').click()
@@ -100,7 +100,7 @@ class LmuToolsBrowserTests(BrowserReliabilityTests):
         page.goto(self.url + '/kozekilmu/tracks')
         expect(page.locator('#lmu-tools')).not_to_be_visible()
         expect(page.locator('.circuit-card:visible')).to_have_count(16)
-        page.locator('#bahrain summary').click()
+        page.locator('#bahrain details[data-recommendations] > summary').click()
         expect(page.locator('#bahrain .recommendation').first).to_be_visible()
 
 # Only run new tests; lifecycle and API helpers above are intentionally shared.

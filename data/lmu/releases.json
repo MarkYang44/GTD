@@ -1,0 +1,16 @@
+[
+  {
+    "version": "baseline-import",
+    "date": "2026-09-09",
+    "summary_zh": "导入既有内容基线；不追认历史游戏版本或核验日期。",
+    "summary_en": "Import the existing content baseline without asserting historical game compatibility or review dates.",
+    "snapshot": "baseline-import.json"
+  },
+  {
+    "version": "2026.09.09.1",
+    "date": "2026-09-09",
+    "summary_zh": "新增 16 条赛道与 16 台车型的来源要点、练习方法；为全部推荐补充来源核验信息，适用版本标为未验证。",
+    "summary_en": "Add sourced observations and practice exercises for 16 circuits and 16 cars; attach source-review metadata to all recommendations, with game compatibility marked unverified.",
+    "snapshot": "2026.09.09.1.json"
+  }
+]
