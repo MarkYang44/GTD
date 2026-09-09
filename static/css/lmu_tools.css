@@ -91,3 +91,22 @@
 .lmu-change-field h3 { font: 600 14px/1.5 var(--ui-font); }
 .lmu-change-field p { font-size: 13px; margin-top: 8px; white-space: pre-line; }
 [data-theme="light"] :is(.lmu-content-banner,.lmu-content-notice,.lmu-release) a { color: var(--accent-ink); }
+
+/* Fuel plans reuse the shared theme; tables stay inside their cards on phones. */
+.strategy-advanced { margin: 24px 0; border-block: 1px solid var(--border); padding: 16px 0; }
+.strategy-advanced > summary, .strategy-plan > details > summary { cursor: pointer; color: var(--muted-strong); font-family: var(--ui-font); }
+.strategy-advanced .strategy-fields { margin-top: 20px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.strategy-plans { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-block: 32px; }
+.strategy-plan { min-width: 0; padding: 24px; border: 1px solid var(--border); border-radius: 20px; }
+.strategy-plan h2 { font: 600 24px/1.4 var(--ui-font); margin: 0; }
+.strategy-plan-metrics { margin: 24px 0; }
+.strategy-plan-metrics > div { display: flex; justify-content: space-between; gap: 20px; margin-block: 12px; }
+.strategy-plan-metrics dt { color: var(--muted-strong); }
+.strategy-plan-metrics dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.strategy-table-wrap { overflow-x: auto; margin-top: 16px; }
+.strategy-table { width: 100%; border-collapse: collapse; font: 14px/1.6 var(--ui-font); font-variant-numeric: tabular-nums; }
+.strategy-table th, .strategy-table td { padding: 10px 6px; text-align: right; border-bottom: 1px solid var(--border); }
+.strategy-table caption { text-align: left; color: var(--muted); margin-bottom: 12px; }
+.strategy-plan [data-plan="status"] { overflow-wrap: anywhere; }
+@media (max-width: 800px) { .strategy-plans { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .strategy-advanced .strategy-fields { grid-template-columns: 1fr; } .strategy-plan { padding: 18px; } }

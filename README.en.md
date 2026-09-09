@@ -432,7 +432,13 @@ Expand the recommendations and select 2–3 entries, then use **Compare** at the
 
 **Race Strategy** (`/kozekilmu/strategy`) accepts race duration (minutes), average lap time (seconds or `m:ss`), and fuel per lap (L). Blank fields use **30 minutes, 120 sec/lap, and 3 L/lap** respectively, with defaults identified in the result. Invalid nonempty values require correction. Accepted ranges are 1–1440 minutes, 10–1800 sec/lap, and 0.01–100 L/lap.
 
-Calculation: round duration ÷ lap time up, then add 1 lap. Base fuel is planned laps × fuel per lap. Reserve is the greater of 10% of base fuel or one lap of fuel; round total fuel up to 0.1 L. All blank fields produce **16 laps and 52.8 L**. This local browser estimate does not model tank capacity, pit stops, formation laps, weather, or fuel saving. The whole-race budget is not a starting fuel load; adjust it to measured practice data and event rules.
+Calculation: round duration ÷ lap time up, then add 1 lap. Base fuel = planned laps × fuel per lap. The regular plan reserves 5%, the conservative plan 10%, both with a minimum of one lap of fuel. Add formation fuel and round the total up to 0.1 L.
+
+Expand advanced settings for tank capacity (default **100 L**, range 0.1–1000), total formation fuel (**3 L**, 0–1000), refueling rate (**2 L/sec**, 0.01–100), and fixed loss per pit stop (**25 sec**, 0–3600). These are generic assumptions, not car specifications. Enter 0 for no formation fuel; fixed loss excludes refueling time. All blanks produce **16 laps, 54 L regular / 55.8 L conservative, with no refueling stops**. Every default is identified in the result.
+
+Both plans show whole-race fuel, starting fuel, refueling stop count, total pit loss, suggested stop laps and fuel to add. Reserve is treated as potential extra consumption spread across the planning fuel per lap, not guaranteed fuel remaining at the finish. Stops use whole laps. Starting fuel never exceeds capacity; a tank too small for formation fuel plus the first budgeted lap is flagged as infeasible. Schedules show exit fuel targets and estimated additions. Actual addition is the target minus current onboard fuel (minimum 0); estimated additions and losses use the planning consumption including reserve. Loss per stop = fixed loss + fuel added ÷ refueling rate; pit time does not reduce planned laps. Only the first 20 stops are listed, but totals include all stops.
+
+All calculations run locally in the browser. Mandatory stops, tires, repairs, driver limits, weather, fuel saving and overlapping services are not modeled; this is not a minimum-time optimization. Displayed fuel amounts are approximate. Adjust to measured practice data, the car’s refueling setting increments and event rules.
 
 ### Content versions and practice notes
 

@@ -13,6 +13,16 @@
       <label for="strategy-fuel">{{ guide_copy("每圈油耗（L）", "Fuel per lap (L)") }}<input id="strategy-fuel" type="text" inputmode="decimal" placeholder="3" aria-describedby="strategy-defaults strategy-error"></label>
     </div>
     <p id="strategy-defaults" class="strategy-note">{{ guide_copy("留空使用：30 分钟、120 秒/圈、3 L/圈。默认值仅作通用估算，请按实际练习数据调整。", "Blank fields use 30 minutes, 120 sec/lap, and 3 L/lap. These are generic estimates; adjust them to your practice data.") }}</p>
+    <details id="strategy-advanced" class="strategy-advanced">
+      <summary>{{ guide_copy("高级参数 · 油箱与进站", "Advanced · Tank and pit stops") }}</summary>
+      <div class="lmu-filters strategy-fields">
+        <label for="strategy-tank">{{ guide_copy("油箱容量（L）", "Tank capacity (L)") }}<input id="strategy-tank" type="text" inputmode="decimal" placeholder="100" aria-describedby="strategy-advanced-defaults strategy-error"></label>
+        <label for="strategy-formation">{{ guide_copy("暖胎圈总耗油（L）", "Total formation fuel (L)") }}<input id="strategy-formation" type="text" inputmode="decimal" placeholder="3" aria-describedby="strategy-advanced-defaults strategy-error"></label>
+        <label for="strategy-rate">{{ guide_copy("加油速度（L/秒）", "Refueling rate (L/sec)") }}<input id="strategy-rate" type="text" inputmode="decimal" placeholder="2" aria-describedby="strategy-advanced-defaults strategy-error"></label>
+        <label for="strategy-loss">{{ guide_copy("每次进站固定损失（秒）", "Fixed pit loss per stop (sec)") }}<input id="strategy-loss" type="text" inputmode="decimal" placeholder="25" aria-describedby="strategy-advanced-defaults strategy-error"></label>
+      </div>
+      <p id="strategy-advanced-defaults" class="strategy-note">{{ guide_copy("空项默认：油箱 100 L、暖胎圈 3 L、加油 2 L/秒、固定进站损失 25 秒。均为通用假设，不是车型规格。无暖胎圈时填 0；固定损失不包含加油时间。", "Blank fields use a 100 L tank, 3 L formation fuel, 2 L/sec refueling and 25 sec fixed pit loss. These are generic assumptions, not car specifications. Enter 0 for no formation fuel; fixed loss excludes refueling time.") }}</p>
+    </details>
     <div class="lmu-card-actions"><button type="submit">{{ guide_copy("计算策略", "Calculate strategy") }}</button><button type="reset">{{ guide_copy("恢复默认估算", "Use default estimates") }}</button></div>
     <p id="strategy-error" role="alert" hidden></p>
   </form>
@@ -22,12 +32,41 @@
   <p id="strategy-assumptions" class="strategy-note"></p>
   <div class="strategy-metrics">
     <div><span>{{ guide_copy("规划圈数", "Planned laps") }}</span><strong id="strategy-laps"></strong></div>
-    <div><span>{{ guide_copy("总燃油预算（L）", "Total fuel budget (L)") }}</span><strong id="strategy-total"></strong></div>
+    <div><span>{{ guide_copy("保守方案总燃油（L）", "Conservative total fuel (L)") }}</span><strong id="strategy-total"></strong></div>
   </div>
   <p>{{ guide_copy("时长估算圈数：", "Time-based laps: ") }}<b id="strategy-timed"></b> + {{ guide_copy("额外 1 圈", "1 extra lap") }}</p>
   <p>{{ guide_copy("基础燃油：", "Base fuel: ") }}<b id="strategy-base"></b> L · {{ guide_copy("安全余量：", "Reserve: ") }}<b id="strategy-reserve"></b> L</p>
-  <p class="strategy-note">{{ guide_copy("圈数按时长 ÷ 圈速向上取整，再加 1 圈；安全余量取基础燃油的 10% 与 1 圈油耗中的较大值，总量向上取整至 0.1 L。", "Round duration ÷ lap time up to whole laps, then add 1 lap. Reserve is the greater of 10% of base fuel or 1 lap of fuel. Round total fuel up to 0.1 L.") }}</p>
-  <p class="strategy-note">{{ guide_copy("这是全场燃油预算，未考虑油箱容量、进站、编队圈、天气或节油；不等同于起步加油量，也不保证足以完成所有赛况。", "This is a whole-race fuel budget. Tank capacity, pit stops, formation laps, weather, and fuel saving are not modeled. It is not a starting fuel load or a guarantee for every race scenario.") }}</p>
+  <p class="strategy-note">{{ guide_copy("圈数按时长 ÷ 圈速向上取整，再加 1 圈；安全余量取基础燃油的 10% 与 1 圈油耗中的较大值，加上暖胎圈耗油后，总量向上取整至 0.1 L。", "Round duration ÷ lap time up to whole laps, then add 1 lap. Reserve is the greater of 10% of base fuel or 1 lap of fuel. Add formation fuel, then round total fuel up to 0.1 L.") }}</p>
+  <div class="strategy-plans">
+    {% for name, zh, en, percent in [('regular', '常规方案', 'Regular plan', 5), ('conservative', '保守方案', 'Conservative plan', 10)] %}
+    <article id="strategy-{{ name }}" class="strategy-plan" aria-labelledby="strategy-{{ name }}-title">
+      <h2 id="strategy-{{ name }}-title">{{ guide_copy(zh, en) }}</h2>
+      <p class="strategy-note">{{ guide_copy("燃油余量 " ~ percent ~ "% · 至少 1 圈", percent ~ "% fuel reserve · at least 1 lap") }}</p>
+      <dl class="strategy-plan-metrics">
+        <div><dt>{{ guide_copy("全场燃油预算", "Whole-race fuel") }}</dt><dd><b data-plan="total"></b> L</dd></div>
+        <div><dt>{{ guide_copy("其中安全余量", "Included reserve") }}</dt><dd><b data-plan="reserve"></b> L</dd></div>
+        <div><dt>{{ guide_copy("规划油耗（含余量）", "Planning fuel (with reserve)") }}</dt><dd><b data-plan="budget"></b> L/{{ guide_copy("圈", "lap") }}</dd></div>
+        <div><dt>{{ guide_copy("起步油量", "Starting fuel") }}</dt><dd><b data-plan="start"></b> L</dd></div>
+        <div><dt>{{ guide_copy("加油进站次数", "Refueling stops") }}</dt><dd><b data-plan="stops"></b></dd></div>
+        <div><dt>{{ guide_copy("累计进站损失", "Total pit loss") }}</dt><dd><b data-plan="loss"></b> {{ guide_copy("秒", "sec") }}</dd></div>
+      </dl>
+      <p data-plan="status" class="strategy-note"></p>
+      <details data-plan-schedule hidden>
+        <summary>{{ guide_copy("查看进站计划", "View pit schedule") }}</summary>
+        <div class="strategy-table-wrap" role="region" tabindex="0" aria-label="{{ en }} / {{ zh }}">
+          <table class="strategy-table">
+            <caption>{{ guide_copy("以出站目标油量为准：实际补油 = 目标油量 − 当前余油（最小为 0）。预计补油和损失按含余量的规划油耗计算，显示值为近似值。", "Use the exit fuel target: actual addition = target minus current fuel (minimum 0). Estimated additions and losses assume the planning consumption including reserve; displayed values are approximate.") }}</caption>
+            <thead><tr><th scope="col">#</th><th scope="col">{{ guide_copy("完成圈数", "After lap") }}</th><th scope="col">{{ guide_copy("出站目标（L）", "Exit target (L)") }}</th><th scope="col">{{ guide_copy("预计补油（L）", "Est. add (L)") }}</th><th scope="col">{{ guide_copy("损失（秒）", "Loss (sec)") }}</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p data-plan="truncated" class="strategy-note"></p>
+      </details>
+    </article>
+    {% endfor %}
+  </div>
+  <p class="strategy-note">{{ guide_copy("进站计划将安全余量视为可能的额外消耗，均摊至每圈预算，并非保证冲线时剩余该油量。按整圈规划，暖胎圈耗油只计入起步油量。每次损失 = 固定进站损失 + 加油量 ÷ 加油速度；不扣减进站耗时对应的圈数。", "Pit planning treats reserve as potential extra consumption spread across laps, not guaranteed fuel remaining at the finish. Stops use whole laps. Formation fuel is included once in the starting load. Loss per stop = fixed pit loss + fuel added ÷ refueling rate. Pit time does not reduce the planned lap count.") }}</p>
+  <p class="strategy-note">{{ guide_copy("这是燃油与加油进站估算，未模拟强制进站、换胎与维修、车手时限、天气、节油或同时作业。请按实测数据与赛事规则调整，不是最低用时的最优策略。", "This estimates fuel and refueling stops, without mandatory stops, tires, repairs, driver limits, weather, fuel saving or overlapping services. Adjust to measured data and event rules; it is not a minimum-time optimization.") }}</p>
 </section>
 {% endblock %}
 {% block page_footer %}<footer class="guide-footer"><p>{{ guide_copy("所有计算在浏览器本地完成。以实际练习油耗和赛事规则为准。", "All calculations run locally in your browser. Use measured practice consumption and the event rules.") }}</p></footer>{% endblock %}
