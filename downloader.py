@@ -727,6 +727,7 @@ def _is_cdn_transport_failure(error: Exception) -> bool:
     return any(
         marker in message
         for marker in (
+            "http error 503",
             "winerror 10053",
             "winerror 10054",
             "connection reset",

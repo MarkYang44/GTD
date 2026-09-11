@@ -819,6 +819,67 @@ class BilibiliTurboDownloadTests(unittest.TestCase):
         )
         self.assertEqual(result["cdn_host"], "backup.example")
 
+    def test_http_503_retries_a_backup_cdn(self):
+        info = {
+            "id": "BV1TEST",
+            "title": "Example",
+            "url": "https://primary.example/audio.m4s",
+            "filesize": 60 * 1024 * 1024,
+            "ext": "m4a",
+            "_bilibili_cdn_candidates": (
+                "https://primary.example/audio.m4s",
+                "https://backup.example/audio.m4s",
+            ),
+        }
+        attempted_urls = []
+
+        def fake_attempt(prepared_info, options, output_dir):
+            attempted_urls.append(prepared_info["url"])
+            if len(attempted_urls) == 1:
+                raise downloader.yt_dlp.utils.DownloadError(
+                    "HTTP Error 503: Service Unavailable"
+                )
+            return prepared_info, output_dir / "Example [BV1TEST].mp3"
+
+        with (
+            patch("downloader.aria2c_path", return_value=None),
+            patch(
+                "downloader._extract_bilibili_info",
+                return_value=(Mock(), info),
+            ),
+            patch(
+                "downloader.build_acceleration_plan",
+                return_value=downloader.AccelerationPlan(
+                    adaptive=True,
+                    cdn_host="primary.example",
+                    http_chunk_size=10 * 1024 * 1024,
+                ),
+            ),
+            patch(
+                "downloader._process_bilibili_attempt",
+                side_effect=fake_attempt,
+            ),
+            patch(
+                "downloader._rename_audio_output",
+                side_effect=lambda path, profile: path,
+            ),
+            patch("downloader._format_filesize", return_value="60.00 MB"),
+        ):
+            result = downloader.download_video(
+                "https://b23.tv/example",
+                platform=downloader.BILIBILI,
+                media_type=downloader.AUDIO,
+            )
+
+        self.assertEqual(
+            attempted_urls,
+            [
+                "https://primary.example/audio.m4s",
+                "https://backup.example/audio.m4s",
+            ],
+        )
+        self.assertEqual(result["cdn_host"], "backup.example")
+
     def test_failed_attempt_cleanup_only_removes_owned_workspace(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             output_dir = Path(temp_dir)
