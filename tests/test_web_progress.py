@@ -42,6 +42,15 @@ def task_render_signature_source():
 
 
 class WebConfigurationTests(unittest.TestCase):
+    def test_url_paste_limit_harness(self):
+        result = subprocess.run(
+            ["node", "tests/js/url_paste_limit_harness.js"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_homepage_serves_the_rendered_static_assets_with_expected_mime_types(self):
         client = web_app.app.test_client()
         homepage = client.get("/")

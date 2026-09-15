@@ -153,6 +153,7 @@
   const collectionSubmitButton = document.getElementById("collectionSubmitButton");
   const collectionLoadMoreButton = document.getElementById("collectionLoadMoreButton");
   const retryFailedButton = document.getElementById("retryFailedButton");
+  const URL_PASTE_LINE_LIMIT = 20;
   const COLLECTION_PAGE_SIZE = 50;
   const DOWNLOAD_DIRECTORY_HISTORY_KEY = "multiple-video-downloader.download-directory-history.v1";
   const DOWNLOAD_DIRECTORY_HISTORY_LIMIT = 3;
@@ -319,6 +320,32 @@
     const control = downloadControls[mediaType];
     control.textarea.value = "";
     control.textarea.focus();
+  }
+
+  function handleUrlPaste(textarea, event) {
+    const pastedText = event.clipboardData && event.clipboardData.getData("text");
+    if (!pastedText) return;
+    const start = textarea.selectionStart ?? textarea.value.length;
+    const end = textarea.selectionEnd ?? start;
+    const nextValue = textarea.value.slice(0, start) + pastedText + textarea.value.slice(end);
+    const lineCount = nextValue.split("\n").map(line => line.trim()).filter(Boolean).length;
+    if (lineCount < URL_PASTE_LINE_LIMIT) return;
+    const notifyLimit = () => alert(tr(
+      "已达到 20 行链接上限，请勿继续粘贴。",
+      "The 20-line URL limit has been reached. Do not paste more links.",
+    ));
+    if (lineCount > URL_PASTE_LINE_LIMIT) {
+      event.preventDefault();
+      notifyLimit();
+      return;
+    }
+    window.setTimeout(notifyLimit, 0);
+  }
+
+  function initializeUrlPasteLimits() {
+    Object.values(downloadControls).forEach(control => {
+      control.textarea.addEventListener("paste", event => handleUrlPaste(control.textarea, event));
+    });
   }
 
   function setControlsDisabled(disabled) {
@@ -1051,6 +1078,7 @@
     updateCollectionSelection,
   });
   document.addEventListener("gtd:languagechange", refreshDownloadLanguage);
+  initializeUrlPasteLimits();
   initializeDownloadDirectoryHistory();
   loadCapabilities();
   initializeBatchHistory();
