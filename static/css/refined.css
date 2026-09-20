@@ -241,3 +241,7 @@ main[data-lmu-layout] {
   .download-page .download-grid > .card > * { flex-shrink: 0; }
   .download-page .download-grid > .card > .download-location-control { margin-top: auto; padding-top: 14px; }
 }
+
+/* Keep caption guidance compact and neutralize legacy spacer markup. */
+.download-page .download-grid .format-control-spacer { display: none; }
+.download-page #videoSubtitleHint { max-width: none; margin-top: 8px; font-size: 12px; line-height: 1.5; }
