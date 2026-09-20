@@ -369,10 +369,10 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn("formatInputs", html)
         self.assertIn("formatInput.disabled = disabled", html)
 
-    def test_desktop_cards_reserve_matching_format_row_height(self):
+    def test_desktop_cards_do_not_emit_legacy_format_spacer(self):
         html = frontend_surface_source()
 
-        self.assertIn(
+        self.assertNotIn(
             '<div class="format-control-spacer" aria-hidden="true"></div>',
             html,
         )

@@ -1099,11 +1099,10 @@
   }
 
   function initializeBatchHistory() {
+    // Opening or refreshing the homepage starts at its character empty state.
+    // Saved batches remain available through the history picker.
+    rememberCurrentBatch(null);
     refreshBatchHistory();
-    try {
-      const saved = localStorage.getItem(CURRENT_BATCH_KEY);
-      if (saved && /^[a-f0-9]{32}$/.test(saved)) selectHistoryBatch(saved);
-    } catch (_) { /* Storage may be blocked. */ }
   }
 
   Object.assign(window, {

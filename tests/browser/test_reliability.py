@@ -166,6 +166,8 @@ class BrowserReliabilityTests(unittest.TestCase):
         expect(self.page.locator('#task-container')).to_contain_text('Saved movie')
         self.assertEqual(self.page.evaluate("localStorage.getItem('gtd_current_batch_v1')"), BATCH_ID)
         self.page.reload()
+        expect(self.page.locator('#task-container .empty-state')).to_be_visible()
+        self.page.locator('#batchHistory').select_option(BATCH_ID)
         expect(self.page.locator('#task-container')).to_contain_text('Saved movie')
         self.assertEqual(self.posts.count('/api/download'), 1, 'reload must not submit downloads')
 
@@ -185,6 +187,9 @@ class BrowserReliabilityTests(unittest.TestCase):
         self.batch_status = 404
         self.context.add_init_script(f"localStorage.setItem('gtd_current_batch_v1','{BATCH_ID}')")
         self.page.goto(self.url)
+        expect(self.page.locator('#task-container .empty-state')).to_be_visible()
+        expect(self.page.locator('#task-container a[href="/kozekilmu/tracks"]')).to_be_visible()
+        self.page.locator('#batchHistory').select_option(BATCH_ID)
         expect(self.page.locator('#task-summary')).to_contain_text('missing or expired')
         expect(self.page.locator('#videoDownloadButton')).to_be_enabled()
         self.assertIsNone(self.page.evaluate("localStorage.getItem('gtd_current_batch_v1')"))

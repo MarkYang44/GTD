@@ -86,7 +86,7 @@ Only subtitles actually offered by the source and accessible with your current l
 - **Retry**: failed or canceled tasks rejoin the same queue, keeping a record of every attempt.
 - **Retry all failed tasks**: resubmit only failed tasks that can be retried.
 - **Redownload**: create a new task for a completed download, preserving the original file.
-- Task history is saved locally in `state/tasks.sqlite3` (override with the `GTD_HISTORY_PATH` environment variable), including source URLs, output paths, and task results, but excluding cookie files and downloader internals. Up to 100 batches are retained by pruning the oldest finished batches; active batches are never pruned. Refreshing the page restores the current batch, and Task history lets you select older batches. After a server restart, unfinished tasks become retryable `INTERRUPTED` failures and require a manual retry; no downloads start automatically, and downloaded files are kept.
+- Task history is saved locally in `state/tasks.sqlite3` (override with the `GTD_HISTORY_PATH` environment variable), including source URLs, output paths, and task results, but excluding cookie files and downloader internals. Up to 100 batches are retained by pruning the oldest finished batches; active batches are never pruned. Opening or refreshing the download homepage shows the character empty state instead of restoring a previous batch. Select a batch manually from Task history; refreshing does not cancel background tasks. After a server restart, unfinished tasks become retryable `INTERRUPTED` failures and require a manual retry; no downloads start automatically, and downloaded files are kept.
 
 ## Bilibili turbo mode
 
