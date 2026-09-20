@@ -93,6 +93,60 @@ class BrowserReliabilityTests(unittest.TestCase):
     def tearDown(self):
         self.assertEqual(self.errors, [], 'browser JavaScript errors')
 
+    def test_video_subtitle_options_snapshot_and_audio_exclusion(self):
+        self.page.goto(self.url)
+        subtitles = self.page.locator('#videoSubtitlesToggle')
+        automatic = self.page.locator('#videoAutomaticCaptionsToggle')
+        danmaku = self.page.locator('#videoDanmakuToggle')
+        expect(subtitles).not_to_be_checked()
+        expect(danmaku).not_to_be_checked()
+        expect(automatic).to_be_disabled()
+        subtitles.locator("..").click()
+        automatic.locator("..").click()
+        subtitles.locator("..").click()
+        expect(automatic).not_to_be_checked()
+        expect(automatic).to_be_disabled()
+        danmaku.locator("..").click()
+        self.page.locator('#videoUrls').fill('https://youtu.be/example')
+        self.page.locator('#videoDownloadButton').click()
+        expect(danmaku).to_be_disabled()
+        # Even a programmatic change after preview must not alter the snapshot.
+        danmaku.evaluate('(el) => { el.checked = false; }')
+        with self.page.expect_request('**/api/download') as request:
+            self.page.locator('#collectionSubmitButton').click()
+        self.assertEqual(request.value.post_data_json['subtitle_options'],
+                         {'subtitles': False, 'automatic': False, 'danmaku': True})
+        self.page.reload()
+        subtitles.locator("..").click()
+        automatic.locator("..").click()
+        self.page.locator('#audioUrls').fill('https://youtu.be/example')
+        self.page.locator('#audioDownloadButton').click()
+        with self.page.expect_request('**/api/download') as request:
+            self.page.locator('#collectionSubmitButton').click()
+        self.assertNotIn('subtitle_options', request.value.post_data_json)
+
+    def test_subtitle_result_language_and_mobile(self):
+        self.batch['tasks'][0]['result'].update(subtitle_status='partial', subtitle_tracks=1,
+            subtitle_warnings=['manual:en:unavailable'])
+        self.page.goto(self.url)
+        self.page.locator('#batchHistory').select_option(BATCH_ID)
+        expect(self.page.locator('#task-container')).to_contain_text('Some subtitle tracks embedded')
+        expect(self.page.locator('#task-container')).to_contain_text('Subtitles (en) unavailable')
+        self.page.locator('label[for="guide-language-toggle"]').click()
+        expect(self.page.locator('#task-container')).to_contain_text('仅嵌入部分字幕轨道')
+        self.page.locator('label[for="theme-toggle"]').click()
+        self.page.set_viewport_size({'width':375,'height':812})
+        self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
+        self.page.locator('#videoSubtitleControl').screenshot(path='/tmp/gtd-subtitles-controls.png', animations='disabled')
+
+    def test_default_video_omits_subtitle_options(self):
+        self.page.goto(self.url)
+        self.page.locator('#videoUrls').fill('https://youtu.be/example')
+        self.page.locator('#videoDownloadButton').click()
+        with self.page.expect_request('**/api/download') as request:
+            self.page.locator('#collectionSubmitButton').click()
+        self.assertNotIn('subtitle_options', request.value.post_data_json)
+
     def test_generated_preview_language_and_selection_survive_switch(self):
         self.page.goto(self.url)
         self.page.locator('#videoUrls').fill('https://youtu.be/example')

@@ -42,6 +42,8 @@ from download_progress import (
 )
 import media_sources
 import output_files
+import video_subtitles
+from subtitle_preferences import normalize_subtitle_options
 from download_errors import (
     DownloadCancelled,
     DownloadFailure,
@@ -796,6 +798,8 @@ def _build_download_result(
         "cover_source": cover_source,
         "fallback_cover": fallback_cover,
     }
+    if "_subtitle_status" in info:
+        result.update(subtitle_status=info["_subtitle_status"], subtitle_tracks=info["_subtitle_tracks"], subtitle_warnings=info["_subtitle_warnings"])
     if media_type == AUDIO:
         if audio_profile is None:
             raise ValueError("音频结果缺少输出格式信息")
@@ -922,6 +926,7 @@ def _download_bilibili(
     audio_format: str,
     cancel_token: CancellationToken | None = None,
     output_version: int = 1,
+    subtitle_options: dict | None = None,
 ) -> DownloadResult:
     if cancel_token:
         cancel_token.raise_if_cancelled()
@@ -1056,6 +1061,10 @@ def _download_bilibili(
                 options,
                 output_dir,
             )
+            if media_type == VIDEO and subtitle_options and any(subtitle_options.values()):
+                if progress_callback:
+                    progress_callback("postprocessing", {"stage_text": "正在获取并封装字幕…"})
+                filepath = video_subtitles.package_subtitles(final_info, filepath, subtitle_options, options, cancel_token, url=url)
             filepath, audio_profile, output_version_actual = (
                 _finalize_download_output(
                     final_info,
@@ -1155,8 +1164,10 @@ def download_video(
     output_version: int = 1,
     raise_errors: bool = False,
     output_dir: str | Path | None = None,
+    subtitle_options: dict | None = None,
 ) -> Optional[DownloadResult]:
     """自动识别平台并使用 yt-dlp 下载单个视频。"""
+    subtitle_options = normalize_subtitle_options(subtitle_options, media_type)
     platform = platform or detect_platform(url)
     if platform is None:
         print(f"\n❌ 无法识别视频平台: {url}")
@@ -1189,6 +1200,7 @@ def download_video(
         output_version=output_version,
         raise_errors=raise_errors,
         output_dir=prepared_dir,
+        **({"subtitle_options": subtitle_options} if subtitle_options else {}),
     )
 
 
@@ -1205,6 +1217,7 @@ def _download_video(
     output_version: int = 1,
     raise_errors: bool = False,
     output_dir: Path = DOWNLOADS_DIR,
+    subtitle_options: dict | None = None,
 ) -> Optional[DownloadResult]:
     """Download to an already prepared absolute directory."""
     platform = platform or detect_platform(url)
@@ -1234,6 +1247,7 @@ def _download_video(
                 audio_format,
                 cancel_token,
                 output_version,
+                **({"subtitle_options": subtitle_options} if subtitle_options else {}),
             )
         except DownloadCancelled as error:
             if raise_errors:
@@ -1355,6 +1369,10 @@ def _download_video(
                 output_dir,
                 media_type=media_type,
             )
+            if subtitle_options and any(subtitle_options.values()):
+                if progress_callback:
+                    progress_callback("postprocessing", {"stage_text": "正在获取并封装字幕…"})
+                filepath = video_subtitles.package_subtitles(info, filepath, subtitle_options, options, cancel_token, url=url)
             filepath, _, output_version_actual = _finalize_download_output(
                 info,
                 filepath,
@@ -1405,6 +1423,7 @@ def download_tasks(
     audio_format: str = MP3,
     speed_mode: str = STANDARD,
     output_dir: str | Path | None = None,
+    subtitle_options: dict | None = None,
 ) -> list[tuple[VideoTask, Optional[DownloadResult]]]:
     """最多并行执行三个混合平台下载任务，并保持结果顺序。
 
@@ -1489,6 +1508,7 @@ def download_tasks(
                     speed_mode=speed_mode,
                     output_dir=output_dir,
                     raise_errors=True,
+                    **({"subtitle_options": subtitle_options} if subtitle_options else {}),
                 )
                 if result is None:
                     raise DownloadFailure(

@@ -51,12 +51,24 @@ Open **Content updates** in the LMU navigation to inspect before/after fields gr
 
 ## Video, audio, and output files
 
-- Video downloads select the highest-quality video and audio streams available from the platform, then use FFmpeg to merge them into MP4.
+- Video downloads select the highest-quality video and audio streams available from the platform, then use FFmpeg to merge them into MP4, or MKV when subtitles or danmaku are enabled.
 - MP3 V0 selects the highest-quality source audio and uses FFmpeg to convert it at the highest VBR quality.
 - Source FLAC produces FLAC only when the platform actually provides it. It does not disguise AAC or Opus as lossless audio.
 - Original audio preserves the source codec and corresponding file extension. WAV is decoded PCM: it takes more space without improving source quality.
 - MP3, FLAC, and some containers that support cover art attempt to embed the video thumbnail. WebM and WAV are output normally without embedded cover art.
 - Repeated downloads do not overwrite existing files. New files receive incrementing suffixes such as `(2)` and `(3)`.
+
+
+### Subtitles and Bilibili danmaku
+
+Up to 24 manual tracks and 8 automatic tracks (original language, Chinese and English) are selected. Up to 20,000 ordinary scrolling/reverse/top/bottom comments are supported; advanced scripted danmaku is not. If MKV remuxing fails, the original video is retained and a warning is shown.
+
+The video panel offers **Download subtitles**, **Include automatic captions**, and an independent **Bilibili danmaku** option, all off by default. Enable subtitles before selecting automatic captions. Any enabled option switches output to **MKV**. Subtitles and danmaku are separate tracks you can disable or select through **IINA → Subtitles** (one selected at a time). With all options off, output remains MP4. Audio downloads do not use these options.
+
+Only subtitles actually offered by the source and accessible with your current login permissions can be downloaded; availability is not guaranteed. Automatic captions may contain recognition errors. Danmaku applies only to Bilibili and is converted into an ASS track. Text already burned into the video cannot be extracted. Completed results report track status and retrieval warnings; successful video download does not guarantee available subtitles.
+
+
+
 
 ## Download locations and history
 

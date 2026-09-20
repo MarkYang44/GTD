@@ -38,6 +38,22 @@ The web interface also includes a dedicated local video upload page for original
 - General or platform-specific cookie files
 - A completion summary with successes, failures, and file paths
 
+
+### Subtitles and Bilibili danmaku
+
+Up to 24 manual tracks and 8 automatic tracks (original language, Chinese and English) are selected. Up to 20,000 ordinary scrolling/reverse/top/bottom comments are supported; advanced scripted danmaku is not. If MKV remuxing fails, the original video is retained and a warning is shown.
+
+The video panel offers **Download subtitles**, **Include automatic captions**, and an independent **Bilibili danmaku** option, all off by default. Enable subtitles before selecting automatic captions. Any enabled option switches output to **MKV**. Subtitles and danmaku are separate tracks you can disable or select through **IINA → Subtitles** (one selected at a time). With all options off, output remains MP4. Audio downloads do not use these options.
+
+Only subtitles actually offered by the source and accessible with your current login permissions can be downloaded; availability is not guaranteed. Automatic captions may contain recognition errors. Danmaku applies only to Bilibili and is converted into an ASS track. Text already burned into the video cannot be extracted. Completed results report track status and retrieval warnings; successful video download does not guarantee available subtitles.
+
+CLI flags are video-only: `--subtitles` downloads subtitles, `--auto-subtitles` also requests automatic captions (implies `--subtitles`), and `--danmaku` requests Bilibili danmaku. For example:
+
+```bash
+python main.py --subtitles --auto-subtitles --danmaku "https://www.bilibili.com/video/BV1xRuu6fEeA"
+```
+
+
 ## Directory Structure
 
 Main files and directories; some internal helper modules are omitted:

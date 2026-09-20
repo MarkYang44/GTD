@@ -650,7 +650,7 @@ assert.deepStrictEqual(
             html,
         )
         self.assertIn('<h3><span data-guide-copy="zh">最高画质视频</span>', html)
-        self.assertIn("下载源站可获取的最高画质视频，并统一输出为 MP4。", html)
+        self.assertIn("下载源站可获取的最高画质视频，默认输出 MP4；开启字幕或弹幕时输出 MKV。", html)
         self.assertNotIn("最高质量视频", html)
         self.assertIn("粘贴链接，其余交给下载队列。", html)
         self.assertIn(

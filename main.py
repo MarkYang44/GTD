@@ -440,6 +440,15 @@ def get_urls_from_args() -> list[str]:
 # ---------------------------------------------------------------------------
 # 结果展示
 # ---------------------------------------------------------------------------
+def print_subtitle_result(result):
+    status = result.get('subtitle_status')
+    if status:
+        label = {'embedded': '字幕已内嵌', 'partial': '部分字幕已内嵌', 'unavailable': '字幕不可用'}.get(status, status)
+        print(f"     字幕: {label} · {result.get('subtitle_tracks', 0)} 条轨道")
+        if result.get('subtitle_warnings'):
+            print("     字幕提示: 部分内容无法获取或封装，视频已保留；请检查源站字幕与登录权限。")
+
+
 def print_single_result(result: DownloadResult) -> None:
     """格式化输出单个视频的下载结果。"""
     print(f"  平台:     {result['platform']}")
@@ -463,6 +472,7 @@ def print_single_result(result: DownloadResult) -> None:
     if result.get("turbo_fallback"):
         mode_name += "（极速模式已降级）"
     print(f"  下载模式: {mode_name}")
+    print_subtitle_result(result)
 
 
 def print_summary(
@@ -505,6 +515,7 @@ def print_summary(
                     mode_name += "（极速模式已降级）"
                 print(f"     下载模式: {mode_name}")
                 print(f"     路径: {result['filepath']}\n")
+                print_subtitle_result(result)
 
     if failed:
         print(f"❌ 失败 {failed}/{total}：\n")
@@ -532,6 +543,21 @@ def print_summary(
 # ---------------------------------------------------------------------------
 # 程序入口
 # ---------------------------------------------------------------------------
+def split_subtitle_flags(args):
+    """Keep the established media parser API while adding opt-in text tracks."""
+    flags = {'--subtitles': 'subtitles', '--auto-subtitles': 'automatic', '--danmaku': 'danmaku'}
+    options = {key: False for key in flags.values()}
+    remaining = []
+    for arg in args:
+        if arg in flags:
+            options[flags[arg]] = True
+        else:
+            remaining.append(arg)
+    if options['automatic']:
+        options['subtitles'] = True
+    return remaining, options if any(options.values()) else {}
+
+
 def main() -> int:
     """解析输入，确认任务并执行批量下载。"""
     if not check_ffmpeg():
@@ -541,9 +567,11 @@ def main() -> int:
         print("   Windows: 从 https://ffmpeg.org/download.html 下载并添加到 PATH")
         print("   Ubuntu: sudo apt install ffmpeg\n")
 
+    subtitle_options = {}
     command_line_mode = len(sys.argv) > 1
     if command_line_mode:
         try:
+            filtered_args, subtitle_options = split_subtitle_flags(sys.argv[1:])
             (
                 media_type,
                 audio_format,
@@ -551,7 +579,9 @@ def main() -> int:
                 url_args,
                 item_selection,
                 output_dir_value,
-            ) = parse_command_line(sys.argv[1:])
+            ) = parse_command_line(filtered_args)
+            from subtitle_preferences import normalize_subtitle_options
+            subtitle_options = normalize_subtitle_options(subtitle_options, media_type)
             output_dir = _prepare_output_dir(output_dir_value)
             tasks = resolve_cli_tasks(
                 url_args,
@@ -565,7 +595,7 @@ def main() -> int:
             print(f"❌ 错误：{error}")
             print(
                 "   用法: python main.py [--audio [--flac | --audio-format FORMAT]] "
-                "[--turbo] [--output-dir PATH] [--items all|1,3-5] <URL1> [URL2] ..."
+                "[--turbo] [--subtitles] [--auto-subtitles] [--danmaku] [--output-dir PATH] [--items all|1,3-5] <URL1> [URL2] ..."
             )
             return 1
     else:
@@ -613,6 +643,7 @@ def main() -> int:
         audio_format=audio_format,
         speed_mode=speed_mode,
         output_dir=output_dir,
+        **({"subtitle_options": subtitle_options} if subtitle_options else {}),
     )
     print_summary(results, media_type=media_type, output_dir=output_dir)
     return 1 if any(result is None for _, result in results) else 0

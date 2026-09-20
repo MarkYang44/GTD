@@ -84,9 +84,16 @@
             </span>
             <h3><span data-guide-copy="zh">最高画质视频</span><span data-guide-copy="en">Best-quality video</span></h3>
           </div>
-          <p><span data-guide-copy="zh">下载源站可获取的最高画质视频，并统一输出为 MP4。</span><span data-guide-copy="en">Download the highest-quality video available from the source and save it as MP4.</span></p>
+          <p><span data-guide-copy="zh">下载源站可获取的最高画质视频，默认输出 MP4；开启字幕或弹幕时输出 MKV。</span><span data-guide-copy="en">Download the highest-quality video available from the source. Output is MP4 by default, or MKV with subtitles or danmaku enabled.</span></p>
         </div>
         <textarea class="url-input" id="videoUrls" aria-label="视频链接" data-i18n-aria-label-zh="视频链接" data-i18n-aria-label-en="Video links" placeholder="粘贴 YouTube / Instagram / Bilibili 链接或平台分享文案，一行一个" data-i18n-placeholder-zh="粘贴 YouTube / Instagram / Bilibili 链接或平台分享文案，一行一个" data-i18n-placeholder-en="Paste YouTube / Instagram / Bilibili links or shared text, one per line"></textarea>
+        <fieldset class="format-control" id="videoSubtitleControl" aria-describedby="videoSubtitleHint">
+          <legend><span data-guide-copy="zh">可切换字幕轨道（可选）</span><span data-guide-copy="en">Switchable subtitle tracks (optional)</span></legend>
+          <label class="format-option"><input type="checkbox" id="videoSubtitlesToggle"><span><span data-guide-copy="zh">下载字幕</span><span data-guide-copy="en">Download subtitles</span></span></label>
+          <label class="format-option"><input type="checkbox" id="videoAutomaticCaptionsToggle" disabled><span><span data-guide-copy="zh">包含自动字幕</span><span data-guide-copy="en">Include automatic captions</span></span></label>
+          <label class="format-option"><input type="checkbox" id="videoDanmakuToggle"><span><span data-guide-copy="zh">Bilibili 弹幕</span><span data-guide-copy="en">Bilibili danmaku</span></span></label>
+        </fieldset>
+        <p class="section-note" id="videoSubtitleHint"><span data-guide-copy="zh">启用后输出 MKV；字幕与弹幕为独立可关闭轨道，可在 IINA 原生字幕菜单切换（每次选一条）。获取取决于源站可用性与登录权限；画面内嵌硬字幕无法提取。</span><span data-guide-copy="en">Outputs MKV when enabled. Subtitles and danmaku are separate tracks you can turn off or switch in IINA’s native subtitle menu (one selected at a time). Availability depends on the source and login permissions; burned-in text cannot be extracted.</span></p>
         <div class="format-control-spacer" aria-hidden="true"></div>
         <div class="download-location-control">
           <label class="download-location-label" for="videoDownloadDir"><span data-guide-copy="zh">下载位置</span><span data-guide-copy="en">Download location</span></label>

@@ -2,6 +2,19 @@
   const localizedLabels = new Map();
   let lastRenderedBatch = null;
   let pendingSkeletonCount = null;
+  function subtitleWarningText(code) {
+    const labels = {
+      manual: tr('字幕', 'Subtitles'), automatic: tr('自动字幕', 'Automatic captions'), danmaku: tr('弹幕', 'Danmaku'),
+      subtitle_metadata: tr('字幕列表', 'Subtitle list'), subtitle_embedding: tr('字幕封装', 'Subtitle embedding'), mkv_remux: tr('MKV 封装', 'MKV remux'),
+    };
+    const parts = code.split(':');
+    if (!labels[parts[0]]) return backendText(code);
+    const detail = parts.length > 2 ? ` (${parts[1]})` : '';
+    return labels[parts[0]] + detail + (parts.at(-1) === 'failed'
+      ? tr('失败，已保留视频。', ' failed; video retained.')
+      : tr('未获取到可用内容，请检查源站及登录权限。', ' unavailable; check the source and login permissions.'));
+  }
+
   function tr(zh, en, params = {}) {
     if (window.GtdLanguage) return window.GtdLanguage.t(zh, en, params);
     return zh.replace(/\{(\w+)\}/g, (_, key) => params[key] ?? `{${key}}`);
@@ -65,6 +78,7 @@
     };
   }
   const backendTranslations = {
+    "正在获取并封装字幕…": "Fetching and embedding subtitles…",
     '计算中': 'Calculating', '未知': 'Unknown', '内容不可访问': 'Content is inaccessible', '源站未提供可下载链接': 'The source did not provide a downloadable URL',
     '请输入一个可创建且可写的文件夹，留空则使用默认 downloads': 'Enter a folder that can be created and written to, or leave blank to use downloads',
     '请刷新任务列表后重试': 'Refresh the task list and retry',
@@ -348,7 +362,18 @@
     });
   }
 
+  const videoSubtitlesToggle = document.getElementById("videoSubtitlesToggle");
+  const videoAutomaticCaptionsToggle = document.getElementById("videoAutomaticCaptionsToggle");
+  const videoDanmakuToggle = document.getElementById("videoDanmakuToggle");
+  videoSubtitlesToggle.addEventListener("change", () => {
+    if (!videoSubtitlesToggle.checked) videoAutomaticCaptionsToggle.checked = false;
+    videoAutomaticCaptionsToggle.disabled = isDownloading || !videoSubtitlesToggle.checked;
+  });
+
   function setControlsDisabled(disabled) {
+    videoSubtitlesToggle.disabled = disabled;
+    videoDanmakuToggle.disabled = disabled;
+    videoAutomaticCaptionsToggle.disabled = disabled || !videoSubtitlesToggle.checked;
     if (batchHistory) batchHistory.disabled = disabled;
     Object.values(downloadControls).forEach(control => {
       control.textarea.disabled = disabled;
@@ -495,6 +520,11 @@
 
     pendingDownloadSettings = {
       mediaType,
+      subtitleOptions: mediaType === "video" ? {
+        subtitles: videoSubtitlesToggle.checked,
+        automatic: videoSubtitlesToggle.checked && videoAutomaticCaptionsToggle.checked,
+        danmaku: videoDanmakuToggle.checked,
+      } : null,
       speedMode,
       audioFormat,
       downloadDir: control.downloadDirInput.value.trim(),
@@ -668,6 +698,9 @@
       audio_format: pendingDownloadSettings.audioFormat,
       download_dir: pendingDownloadSettings.downloadDir || null,
     };
+    if (pendingDownloadSettings.subtitleOptions && Object.values(pendingDownloadSettings.subtitleOptions).some(Boolean)) {
+      payload.subtitle_options = pendingDownloadSettings.subtitleOptions;
+    }
     try {
       const response = await fetch("/api/download", {
         method: "POST",
@@ -867,6 +900,17 @@
         html += `${tr("大小: ", "Size: ")}${escHtml(backendText(r.filesize) || "?")}`;
         if (batch.media_type === "audio" && r.audio_format_fallback) {
           html += `<br>${tr("源站未提供 FLAC，已自动回退至 MP3 V0", "The source has no FLAC audio; automatically fell back to MP3 V0")}`;
+        }
+        const subtitleStatus = {
+          embedded: tr("已嵌入可切换字幕轨道", "Switchable subtitle tracks embedded"),
+          partial: tr("仅嵌入部分字幕轨道", "Some subtitle tracks embedded"),
+          unavailable: tr("未获取到可嵌入的字幕轨道", "No subtitle tracks available to embed"),
+        }[r.subtitle_status];
+        if (subtitleStatus) html += `<br>${escHtml(subtitleStatus)}`;
+        if (Array.isArray(r.subtitle_warnings)) {
+          r.subtitle_warnings.forEach(warning => {
+            html += `<br>${tr("字幕提示: ", "Subtitle note: ")}${escHtml(subtitleWarningText(String(warning)))}`;
+          });
         }
         if (t.platform === 'local' && typeof r.download_url === 'string' && r.download_url.startsWith('/api/extract-audio/')) html += `<br><a class="task-action" href="${escHtml(r.download_url)}" download>${tr('下载音频', 'Download audio')}</a>`;
         if (r.filepath) html += `<br>${tr("保存路径: ", "Saved to: ")}${escHtml(r.filepath)}`;

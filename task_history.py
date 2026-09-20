@@ -12,15 +12,16 @@ import sqlite3
 from pathlib import Path
 
 
-_BATCH_FIELDS = ('id', 'created_at', 'media_type', 'audio_format', 'speed_mode', 'download_dir')
+_BATCH_FIELDS = ('id', 'created_at', 'media_type', 'audio_format', 'speed_mode', 'download_dir', 'subtitle_options')
 _TASK_FIELDS = (
     'id', 'index', 'platform', 'url', 'title', 'position', 'media_type',
     'audio_format', 'speed_mode', 'download_dir', 'speed_mode_used',
     'turbo_fallback', 'output_version', 'version_key', 'base_filepath',
-    'status', 'attempt_count',
+    'status', 'attempt_count', 'subtitle_options',
 )
 _RESULT_FIELDS = (
     'platform', 'title', 'filepath', 'filesize', 'media_type',
+    'subtitle_status', 'subtitle_tracks', 'subtitle_warnings',
     'speed_mode_requested', 'speed_mode_used', 'turbo_fallback',
     'output_version_actual', 'cover_embedded', 'cover_source', 'fallback_cover',
     'format', 'acodec', 'audio_format_requested', 'audio_format_used',
@@ -32,8 +33,14 @@ _ATTEMPT_FIELDS = ('number', 'status', 'started_at', 'finished_at', 'output_vers
 
 
 def _select(value: dict, fields: tuple[str, ...]) -> dict:
-    return {key: value[key] for key in fields if key in value
-            and isinstance(value[key], (str, int, float, bool, type(None)))}
+    selected = {key: value[key] for key in fields if key in value
+                and isinstance(value[key], (str, int, float, bool, type(None)))}
+    if 'subtitle_options' in fields and isinstance(value.get('subtitle_options'), dict):
+        selected['subtitle_options'] = {key: item for key, item in value['subtitle_options'].items()
+                                        if key in ('subtitles', 'automatic', 'danmaku') and type(item) is bool}
+    if 'subtitle_warnings' in fields and isinstance(value.get('subtitle_warnings'), list):
+        selected['subtitle_warnings'] = [item[:500] for item in value['subtitle_warnings'][:20] if isinstance(item, str)]
+    return selected
 
 
 def _safe_batch(batch: dict) -> dict:

@@ -31,6 +31,8 @@ from output_files import (
 )
 
 
+from subtitle_preferences import normalize_subtitle_options
+
 MAX_PUBLIC_ATTEMPTS = 20
 
 
@@ -114,7 +116,9 @@ class TaskManager:
         audio_format: str,
         speed_mode: str,
         download_dir: str | None = None,
+        subtitle_options: dict | None = None,
     ) -> dict[str, object]:
+        subtitle_options = normalize_subtitle_options(subtitle_options, media_type)
         if not isinstance(entries, list) or not entries:
             raise ValueError("下载批次不能为空")
         if len(entries) > 100:
@@ -151,6 +155,7 @@ class TaskManager:
                         prepared_output_dir=prepared_dir,
                         output_version=output_version,
                         version_key=version_key,
+                        subtitle_options=subtitle_options,
                     )
                 )
             batch: dict[str, object] = {
@@ -160,6 +165,7 @@ class TaskManager:
                 "audio_format": audio_format,
                 "speed_mode": speed_mode,
                 "download_dir": resolved_download_dir,
+                "subtitle_options": deepcopy(subtitle_options),
                 "tasks": tasks,
             }
             self._batches[batch_id] = batch
@@ -326,6 +332,7 @@ class TaskManager:
                 prepared_output_dir=source.get("_prepared_output_dir"),
                 output_version=version,
                 version_key=reservation_key,
+                subtitle_options=source.get("subtitle_options"),
             )
             batch["tasks"].append(task)
             log_download_event(
@@ -371,6 +378,7 @@ class TaskManager:
         prepared_output_dir: object | None = None,
         output_version: int = 1,
         version_key: str | None = None,
+        subtitle_options: dict | None = None,
     ) -> dict[str, object]:
         return {
             "id": uuid.uuid4().hex,
@@ -384,6 +392,7 @@ class TaskManager:
             "speed_mode": speed_mode,
             "download_dir": download_dir,
             "_prepared_output_dir": prepared_output_dir,
+            "subtitle_options": deepcopy(subtitle_options or {}),
             "speed_mode_used": None,
             "turbo_fallback": False,
             "output_version": output_version,
@@ -536,6 +545,7 @@ class TaskManager:
                     else task["download_dir"]
                 ),
                 raise_errors=True,
+                **({"subtitle_options": deepcopy(task["subtitle_options"])} if task.get("subtitle_options") else {}),
             )
             if result is None:
                 raise DownloadFailure(
@@ -684,6 +694,7 @@ class TaskManager:
             "audio_format": batch["audio_format"],
             "speed_mode": batch["speed_mode"],
             "download_dir": batch.get("download_dir"),
+            "subtitle_options": deepcopy(batch.get("subtitle_options", {})),
             "total": len(tasks),
             **counts,
             "all_done": bool(tasks)

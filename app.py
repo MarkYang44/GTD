@@ -53,6 +53,7 @@ from lmu_guide_data import CARS, CIRCUITS, GUIDE_UPDATED
 from lmu_content import template_context as lmu_content_context, history as lmu_content_history
 from task_control import TaskManager, TaskSeed
 from task_history import TaskHistoryStore
+from subtitle_preferences import normalize_subtitle_options
 from local_audio import UploadStore, extract_audio
 from audio_extract_routes import extraction_blueprint, with_download_links
 
@@ -292,6 +293,10 @@ def api_download():
     speed_mode = body.get("speed_mode", STANDARD)
     audio_format = body.get("audio_format", MP3)
     download_dir = body.get("download_dir")
+    try:
+        subtitle_options = normalize_subtitle_options(body.get("subtitle_options"), media_type)
+    except ValueError as error:
+        return _invalid_request(str(error))
 
     if not isinstance(media_type, str) or media_type not in MEDIA_TYPES:
         return _invalid_request("不支持的下载类型")
@@ -408,6 +413,7 @@ def api_download():
             audio_format,
             speed_mode,
             prepared_download_dir,
+            **({"subtitle_options": subtitle_options} if subtitle_options else {}),
         )
     except ValueError as error:
         return _api_error(
