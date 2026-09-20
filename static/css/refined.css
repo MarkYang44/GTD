@@ -234,3 +234,10 @@ main[data-lmu-layout] {
 }
 
 .service-status:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 8px; }
+
+/* Align the paired download controls without fixed-height text spacers. */
+@media (min-width: 821px) {
+  .download-page .download-grid > .card { display: flex; flex-direction: column; }
+  .download-page .download-grid > .card > * { flex-shrink: 0; }
+  .download-page .download-grid > .card > .download-location-control { margin-top: auto; padding-top: 14px; }
+}
