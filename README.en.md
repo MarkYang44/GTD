@@ -649,7 +649,7 @@ Cookie files are login credentials. Do not upload, share, screenshot, or commit 
 | Bilibili abuse prevention or `HTTP 412` | Reduce request frequency, use a network that can access Bilibili normally, and retry later; configure `bilibili_cookies.txt` for login-required content |
 | Slow Bilibili downloads | The project uses 10 MiB HTTP chunks by default, with adaptive 4 MiB chunks for some large files and runs up to 2 Bilibili downloads concurrently; actual speed depends on the assigned CDN and network route, and client optimization cannot guarantee bypassing platform rate limits |
 | Video unavailable or 404 | Check that the link is valid and the content has not been deleted |
-| Network timeout | Check your network, proxy, or VPN configuration and retry |
+| Network timeout | Check your direct internet connection and source availability, then retry |
 | No sound after download or merging fails | Ensure FFmpeg is installed and available in the system `PATH` |
 | MP3 download fails or no audio stream found | Confirm that FFmpeg works, then check in your browser that the source contains playable audio |
 | yt-dlp suddenly fails to parse a platform | Opt into `requirements-update.txt` as described in Installation, restart the server, and retry |
@@ -684,3 +684,7 @@ The GitHub Actions configuration covers macOS / Windows and Python 3.10 / 3.13, 
 ## Acceptable Use
 
 This tool is intended for learning and downloading video or audio that you own, are authorized to use, or are permitted by the platform to download. Follow the terms of service of YouTube, Instagram, and Bilibili, as well as applicable local laws and regulations. Do not use it to bypass DRM or access controls or download copyrighted content without permission.
+
+## Network connection
+
+GTD now uses **direct connections** for downloads, collection previews, subtitles/danmaku and Bilibili turbo mode. At startup it clears `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, and `FTP_PROXY` (including lowercase variants) only within its own process and sets `NO_PROXY=*`, so FFmpeg and aria2 do not inherit stale local proxy addresses. System settings, shell configuration files and other apps remain unchanged. Restart an already running GTD service after updating. This does not disable a system VPN or transparent proxy, or guarantee that every source is reachable.

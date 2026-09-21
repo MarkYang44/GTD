@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 import yt_dlp
+import network_settings  # Apply direct networking to this process and helpers.
 
 import audio_output
 import download_progress
@@ -367,6 +368,7 @@ def _build_ydl_options(
         else _output_template(platform, output_dir, output_version)
     )
     options = {
+        "proxy": "",
         "outtmpl": output_template,
         "progress_hooks": [
             _make_progress_hook(

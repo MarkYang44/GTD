@@ -137,7 +137,7 @@ Export only the current platform's domain, select Netscape format, and confirm t
 | HTTP 403 or login required | Confirm your browser account can play the content, then update the platform's cookies |
 | HTTP 429 | Requests are too frequent; pause and try again later |
 | Bilibili HTTP 412 | Reduce request frequency and retry later; also update Bilibili cookies for login-protected content |
-| Network timeout | Check your local network, proxy, or VPN settings, then retry |
+| Network timeout | Check your direct internet connection and source availability, then retry |
 | Download has no audio or cannot be merged | Confirm FFmpeg is installed and can be found by the project |
 | Folder is not writable | Choose a folder writable by your user account; avoid protected Windows system folders |
 | Garbled progress text or outdated styling | Restart the web server and hard-refresh the page with `Ctrl+F5` |
@@ -151,3 +151,7 @@ This tool is only for downloading video or audio you own, are authorized to use,
 Choose **Extract audio from a local video** on the homepage, or open `/extract-audio`. Drop or select one local video (up to 2 GiB), choose **Original audio** or **MP3 V0**, and start extraction. Original audio copies the stream without re-encoding, using the default audio track or the first track when no default is set. AAC normally produces M4A; other extensions depend on the codec. Extraction cannot improve the source quality.
 
 Upload and processing progress are shown separately. Extraction shares the existing queue, cancellation/retry, and task history. Results are saved to the default `downloads` folder and can also be saved with **Download audio**. Upload copies are staged in `state/audio_uploads` for 24 hours; expired inactive copies are cleaned on startup, upload, or extraction-history refresh. Re-upload after expiration to retry. Staging is limited to 8 GiB / 256 files. Source videos are unchanged and completed outputs are not automatically removed.
+
+## Network connection
+
+GTD now uses **direct connections** for downloads, collection previews, subtitles/danmaku and Bilibili turbo mode. At startup it clears `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, and `FTP_PROXY` (including lowercase variants) only within its own process and sets `NO_PROXY=*`, so FFmpeg and aria2 do not inherit stale local proxy addresses. System settings, shell configuration files and other apps remain unchanged. Restart an already running GTD service after updating. This does not disable a system VPN or transparent proxy, or guarantee that every source is reachable.

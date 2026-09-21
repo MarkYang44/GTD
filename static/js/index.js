@@ -40,8 +40,8 @@
   const downloadErrors = {
     INTERRUPTED: ['服务重启导致任务中断', 'The task was interrupted by a server restart', '请手动重试', 'Retry this task manually'],
     CANCELLED: ['任务已取消', 'Task cancelled', '可以点击重试重新加入队列', 'Click Retry to rejoin the queue'],
-    NETWORK_TIMEOUT: ['网络连接源站超时', 'The connection to the source timed out', '请检查网络或代理设置后重试', 'Check your network or proxy settings and retry'],
-    NETWORK_CONNECTION_RESET: ['媒体传输连接被远端中断', 'The remote server interrupted the media transfer', '程序会尝试备用线路；如仍失败，请检查网络或代理后重试', 'The app will try an alternate connection. If it fails again, check your network or proxy and retry'],
+    NETWORK_TIMEOUT: ['网络连接源站超时', 'The connection to the source timed out', '请检查本机网络连接及源站可达性后重试', 'Check your internet connection and source availability, then retry'],
+    NETWORK_CONNECTION_RESET: ['媒体传输连接被远端中断', 'The remote server interrupted the media transfer', '程序会尝试备用线路；如仍失败，请检查本机网络连接及源站可达性后重试', 'The app will try an alternate connection. If it fails again, check your internet connection and source availability, then retry'],
     RATE_LIMITED: ['请求过于频繁', 'Too many requests', '请稍后再重试，并避免同时提交大量链接', 'Retry later and avoid submitting many links at once'],
     MEMBERSHIP_REQUIRED: ['该内容需要会员权限', 'This content requires a membership', '请确认当前 Cookie 对应账号拥有访问权限', 'Make sure the account associated with your cookies can access this content'],
     AUTH_REQUIRED: ['当前凭证无法访问该内容', 'Your current credentials cannot access this content', '请更新对应平台 Cookie 后重试', 'Update the cookies for this platform and retry'],

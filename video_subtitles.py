@@ -18,6 +18,7 @@ import time
 import xml.etree.ElementTree as ET
 
 import yt_dlp
+import network_settings  # Apply direct networking to this process and helpers.
 
 from download_errors import DownloadCancelled
 
@@ -150,7 +151,7 @@ def package_subtitles(info, source: Path, options: dict, ydl_options: dict, canc
             cancel_token.raise_if_cancelled()
         try:
             probe_opts = {key: ydl_options[key] for key in ('cookiefile', 'http_headers', 'logger', 'js_runtimes', 'remote_components') if key in ydl_options}
-            probe_opts.update(quiet=True, no_warnings=True, skip_download=True, listsubtitles=True, noplaylist=True, socket_timeout=15, retries=1, extractor_retries=1)
+            probe_opts.update(proxy="", quiet=True, no_warnings=True, skip_download=True, listsubtitles=True, noplaylist=True, socket_timeout=15, retries=1, extractor_retries=1)
             with yt_dlp.YoutubeDL(probe_opts) as ydl:
                 from media_sources import detect_platform, BILIBILI
                 if detect_platform(url) == BILIBILI:
@@ -173,7 +174,7 @@ def package_subtitles(info, source: Path, options: dict, ydl_options: dict, canc
                 opts = {key: ydl_options[key] for key in ('cookiefile', 'http_headers', 'logger', 'socket_timeout') if key in ydl_options}
                 if cancel_token:
                     opts['progress_hooks'] = [lambda _: cancel_token.raise_if_cancelled()]
-                opts.update({'quiet': True, 'no_warnings': True, 'skip_download': True, 'writesubtitles': True, 'writeautomaticsub': True, 'outtmpl': str(work / f'{i}.%(ext)s'), 'external_downloader': {'default': 'native'}, 'retries': 1, 'max_filesize': MAX_XML_BYTES})
+                opts.update({'proxy': '', 'quiet': True, 'no_warnings': True, 'skip_download': True, 'writesubtitles': True, 'writeautomaticsub': True, 'outtmpl': str(work / f'{i}.%(ext)s'), 'external_downloader': {'default': 'native'}, 'retries': 1, 'max_filesize': MAX_XML_BYTES})
                 data = copy.deepcopy(subtitle_info)
                 data.update({'requested_subtitles': {'track': subtitle}, 'ext': 'mp4', '__files_to_move': {}})
                 with yt_dlp.YoutubeDL(opts) as ydl:

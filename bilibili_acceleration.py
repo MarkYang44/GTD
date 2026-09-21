@@ -183,6 +183,10 @@ def configure_aria2(options: dict, executable: str) -> None:
     options["external_downloader"] = {"http": executable}
     options["external_downloader_args"] = {
         "aria2c": [
+            "--all-proxy=",
+            "--http-proxy=",
+            "--https-proxy=",
+            "--no-proxy=*",
             "--max-connection-per-server=4",
             "--split=4",
             "--max-concurrent-downloads=4",

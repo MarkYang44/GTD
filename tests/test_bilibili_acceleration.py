@@ -477,6 +477,10 @@ class Aria2ModeTests(unittest.TestCase):
         self.assertEqual(
             options["external_downloader_args"]["aria2c"],
             [
+                "--all-proxy=",
+                "--http-proxy=",
+                "--https-proxy=",
+                "--no-proxy=*",
                 "--max-connection-per-server=4",
                 "--split=4",
                 "--max-concurrent-downloads=4",

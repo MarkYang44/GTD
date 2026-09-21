@@ -11,6 +11,7 @@ from itertools import islice
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import yt_dlp
+import network_settings  # Apply direct networking to this process and helpers.
 
 from download_errors import DownloadFailure, classify_download_error
 import media_sources
@@ -97,6 +98,7 @@ def select_preview_entries(
 
 def _preview_options(platform: str) -> dict[str, object]:
     options: dict[str, object] = {
+        "proxy": "",
         "extract_flat": "in_playlist",
         "skip_download": True,
         "lazy_playlist": True,

@@ -64,7 +64,7 @@ def classify_download_error(
         return _info(
             "NETWORK_TIMEOUT",
             "网络连接源站超时",
-            "请检查网络或代理设置后重试",
+            "请检查本机网络连接及源站可达性后重试",
             True,
             detail,
         )
@@ -85,7 +85,7 @@ def classify_download_error(
         return _info(
             "NETWORK_CONNECTION_RESET",
             "媒体传输连接被远端中断",
-            "程序会尝试备用线路；如仍失败，请检查网络或代理后重试",
+            "程序会尝试备用线路；如仍失败，请检查本机网络连接及源站可达性后重试",
             True,
             detail,
         )
