@@ -91,7 +91,7 @@
 {% if is_catalog %}
 {% include '_lmu_catalog_cards.html' %}
 {% else %}
-{% set circuit_aliases = {'bahrain': '巴林', 'barcelona': '巴塞罗那 加泰罗尼亚', 'le-mans': '勒芒 萨尔特', 'paul-ricard': '保罗里卡尔', 'cota': '美洲 奥斯汀', 'daytona': '代托纳', 'fuji': '富士', 'imola': '伊莫拉', 'interlagos': '英特拉格斯 因特拉格斯', 'lusail': '卢赛尔 罗赛尔', 'monza': '蒙扎', 'portimao': '波尔蒂芒 阿尔加维', 'sebring': '赛百灵 塞布林', 'silverstone-international': '银石', 'spa': '斯帕 弗朗科尔尚', 'laguna-seca': '拉古纳塞卡 拉古纳·塞卡'} %}
+{% set circuit_aliases = {'bahrain': '巴林', 'barcelona': '巴塞罗那 加泰罗尼亚', 'le-mans': '勒芒 萨尔特', 'paul-ricard': '保罗里卡尔', 'cota': '美洲 奥斯汀', 'daytona': '代托纳', 'fuji': '富士', 'imola': '伊莫拉', 'interlagos': '英特拉格斯 因特拉格斯', 'lusail': '卢赛尔 罗赛尔', 'monza': '蒙扎', 'portimao': '波尔蒂芒 阿尔加维', 'sebring': '赛百灵 塞布林', 'silverstone-international': '银石', 'spa': '斯帕 弗朗科尔尚', 'laguna-seca': '拉古纳塞卡 拉古纳·塞卡', 'road-atlanta': '亚特兰大之路 罗德亚特兰大 亚特兰大公路赛道', 'long-beach': '长滩 长滩街道赛道'} %}
   <section class="circuit-list circuit-grid"
            aria-label="LMU 赛道与车型建议"
            data-i18n-aria-label-zh="LMU 赛道与车型建议"
@@ -172,6 +172,38 @@
                 </div>
               </li>
             {% endfor %}
+              {% set sleeper = circuit.sleeper_lmgt3 if class_name == "LMGT3" else circuit.sleeper_hypercar %}
+              {% set sleeper_car = cars[sleeper.car_slug] %}
+              <li class="recommendation sleeper-pick" data-class="{{ class_name }}" data-sleeper-class="{{ class_name }}" data-car="{{ sleeper_car.slug }}" data-key="sleeper:{{ circuit.slug }}:{{ class_name }}">
+                {% if sleeper_car.image in available_images %}
+                <img src="{{ url_for("static", filename=sleeper_car.image) }}"
+                     width="1024"
+                     height="576"
+                     loading="lazy"
+                     alt="{{ sleeper_car.name }} Sleeper 车型"
+                     data-i18n-alt-zh="{{ sleeper_car.name }} Sleeper 车型"
+                     data-i18n-alt-en="{{ sleeper_car.name }} Sleeper car">
+                {% else %}
+                <div class="media-placeholder"
+                     role="img"
+                     aria-label="{{ sleeper_car.name }} Sleeper 车型图片暂缺"
+                     data-i18n-aria-label-zh="{{ sleeper_car.name }} Sleeper 车型图片暂缺"
+                     data-i18n-aria-label-en="Sleeper car image unavailable for {{ sleeper_car.name }}">{{ guide_copy("官方车型图片暂缺", "Official car image unavailable") }}</div>
+                {% endif %}
+                <div>
+                  <p class="sleeper-label">{{ guide_copy("Sleeper 之选", "Sleeper Pick") }}</p>
+                  <h4>{{ sleeper_car.name }}</h4>
+                  <p>{{ guide_copy(sleeper.fit_zh, sleeper.fit) }}</p>
+                  <p>
+                    <span data-guide-copy="zh">{{ sleeper_car.strength_zh }}；注意：{{ sleeper_car.caution_zh }}。</span>
+                    <span data-guide-copy="en">{{ sleeper_car.strength }}; caution: {{ sleeper_car.caution }}.</span>
+                  </p>
+                  <a href="{{ sleeper_car.source_url }}" target="_blank" rel="noopener noreferrer">{{ guide_copy("LMU 官方车型资料", "Official LMU car page") }}</a>
+                  {{ content.review(sleeper_review(circuit, sleeper_car, class_name)) }}
+                  {{ content.practice(car_notes[sleeper_car.slug]) }}
+                  <div class="lmu-card-actions" data-lmu-enhance hidden><button type="button" class="lmu-favorite" data-favorite-car="{{ sleeper_car.slug }}" aria-pressed="false" aria-label="收藏车型" data-i18n-aria-label-zh="收藏车型" data-i18n-aria-label-en="Favorite car"><span aria-hidden="true">☆</span></button><button type="button" data-compare="sleeper:{{ circuit.slug }}:{{ class_name }}" aria-pressed="false">{{ guide_copy("加入对比", "Compare") }}</button></div>
+                </div>
+              </li>
             </ul>
           </section>
           {% endfor %}

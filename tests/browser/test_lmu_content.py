@@ -36,7 +36,7 @@ class LmuContentBrowserTests(BrowserReliabilityTests):
         expect(change).to_contain_text('之前：')
         self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
         self.page.goto(self.url + '/kozekilmu/cars')
-        expect(self.page.locator('[data-practice]')).to_have_count(16)
+        expect(self.page.locator('[data-practice]')).to_have_count(24)
         self.page.locator('[data-practice]').first.locator('summary').click()
         expect(self.page.locator('[data-practice]').first).to_contain_text('据资料整理')
         self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= innerWidth'))

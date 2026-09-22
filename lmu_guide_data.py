@@ -3,10 +3,11 @@
 from dataclasses import dataclass
 
 
-GUIDE_UPDATED = "2026-08-30"
+GUIDE_UPDATED = "2026-09-22"
 _LMU = "https://lemansultimate.com/"
 _CAR_SOURCE_SLUGS = {
     "aston-martin-vantage-lmgt3": "aston-martin-vantage-amr-lmgt3",
+    "aston-martin-valkyrie-amr-lmh": "aston-martin-valkyrie",
 }
 _CIRCUIT_SOURCE_SLUGS = {
     "bahrain": "bahrain",
@@ -25,7 +26,13 @@ _CIRCUIT_SOURCE_SLUGS = {
     "silverstone-international": "silverstone-international",
     "spa": "spa",
     "laguna-seca": "weathertech-raceway-laguna-seca",
+    "road-atlanta": "road-atlanta",
+    "long-beach": "long-beach",
 }
+_US_TRACK_PACK_TWO_SOURCE = (
+    "https://lemansultimate.com/le-mans-ultimate-adds-second-us-track-pack-dlc-"
+    "alongside-elms-2026-season-liveries/"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +75,8 @@ class Circuit:
     advice_zh: str
     lmgt3: tuple[Recommendation, Recommendation, Recommendation]
     hypercar: tuple[Recommendation, Recommendation, Recommendation]
+    sleeper_lmgt3: Recommendation
+    sleeper_hypercar: Recommendation
 
 
 def _car(
@@ -105,20 +114,104 @@ CARS: dict[str, Car] = {
         _car("lamborghini-huracan-lmgt3-evo2", "Lamborghini Huracan LMGT3 Evo2", "LMGT3", "https://lemansultimate.com/wp-content/uploads/2025/06/le-mans-ultimate.exe-Screenshot-2025.05.22-17.33.23.00-1024x576.png", "fast response in flowing corners", "rear movement requires smooth inputs", "连续弯反应迅速", "尾部动态需要平顺操作"),
         _car("lexus-rc-f-lmgt3", "Lexus RC F LMGT3", "LMGT3", "https://lemansultimate.com/wp-content/uploads/2025/06/le-mans-ultimate.exe-Screenshot-2025.05.20-12.33.09.16-1024x576.png", "reassuring stability and usable V8 delivery", "slower rotation in very tight changes", "稳定感令人安心，V8 输出易用", "极紧凑的方向变化中转向较慢"),
         _car("mclaren-720s-lmgt3-evo", "McLaren 720S LMGT3 Evo", "LMGT3", "https://lemansultimate.com/wp-content/uploads/2024/11/McLaren-70-3-1024x576.png", "aero efficiency and high-speed confidence", "low-speed traction and tall kerbs need care", "空气动力学效率（aero efficiency）高，高速信心足", "低速牵引力和高路肩需要小心"),
+        _car("mercedes-amg-lmgt3", "Mercedes-AMG LMGT3", "LMGT3", "https://lemansultimate.com/wp-content/uploads/2025/07/1920x1080Merc-1.jpg", "stable braking, strong traction, and an accessible balance", "tight direction changes can bring safe understeer", "制动稳定、牵引力强，平衡容易掌握", "紧凑变向中可能出现可控的转向不足"),
         _car("porsche-911-gt3-r", "Porsche 911 GT3 R LMGT3", "LMGT3", "https://lemansultimate.com/wp-content/uploads/2025/02/Lm100-Screenshot-2025.02.13-13.57.39.75-1024x576.png", "traction and rotation from the rear-engine layout", "trail braking can provoke the rear", "后置引擎带来牵引力（traction）和转向", "循迹刹车（trail braking）过深可能诱发车尾滑动"),
         _car("alpine-a424", "Alpine A424", "Hypercar", "https://lemansultimate.com/wp-content/uploads/2024/09/Alpine-Solo-LM-19-1024x576.png", "compact, nimble response", "braking stability is setup-sensitive", "车身紧凑，反应灵活", "制动稳定性（braking stability）取决于调校（setup）"),
+        _car("aston-martin-valkyrie-amr-lmh", "Aston Martin Valkyrie AMR-LMH", "Hypercar", "https://lemansultimate.com/wp-content/uploads/2025/06/1920x1080Valk-1.jpg", "naturally aspirated response and predictable non-hybrid delivery", "high-speed commitment still rewards smooth inputs", "自然吸气响应直接，非混合动力输出可预测", "高速攻弯仍然需要平顺操作"),
         _car("bmw-m-hybrid-v8", "BMW M Hybrid V8", "Hypercar", "https://lemansultimate.com/wp-content/uploads/2024/02/Le-Mans-Ultimate-Screenshot-2026.06.03-10.47.35.97-1024x576.png", "stable platform and kerb confidence", "needs patience to rotate in slow corners", "平台稳定，过路肩有信心", "低速弯需要耐心让车转起来"),
         _car("cadillac-v-series-r", "Cadillac V-Series.R", "Hypercar", "https://lemansultimate.com/wp-content/uploads/2024/02/le-mans-ultimate.exe-Screenshot-2025.07.15-14.16.55.62-1024x576.png", "strong braking and mechanical traction", "torque can stress the rear tyres", "制动强，机械牵引力（traction）好", "扭矩可能增加后轮负荷"),
         _car("ferrari-499p", "Ferrari 499P", "Hypercar", "https://lemansultimate.com/wp-content/uploads/2024/02/Le-Mans-Ultimate-Screenshot-2026.06.03-10.55.45.94-1024x576.png", "aero performance and decisive rotation", "rewards precise inputs more than corrections", "空气动力学性能和果断转向", "比起修正动作，更奖励精准操作"),
+        _car("genesis-gmr-001", "Genesis GMR-001", "Hypercar", "https://lemansultimate.com/wp-content/uploads/2026/08/1920x1080Genesis-12.jpg", "responsive front end and strong change of direction", "its agility asks for measured steering inputs", "前端响应敏锐，变向能力强", "灵活性要求克制而精准的转向输入"),
+        _car("glickenhaus-scg-007", "Glickenhaus SCG 007", "Hypercar", "https://lemansultimate.com/wp-content/uploads/2024/02/Glick-7.png", "simple non-hybrid delivery and useful straight-line efficiency", "low-speed rotation needs patient trail braking", "非混合动力输出直接，直线效率实用", "低速转向需要耐心控制循迹刹车"),
+        _car("isotta-fraschini-tipo-6", "Isotta Fraschini Tipo 6", "Hypercar", "https://lemansultimate.com/wp-content/uploads/2024/09/Desktop-Screenshot-2024.09.10-11.27.29.51.png", "stable high-speed platform and progressive power delivery", "slow-corner direction changes can feel deliberate", "高速平台稳定，动力输出渐进", "低速弯变向会显得较为迟缓"),
+        _car("lamborghini-sc63", "Lamborghini SC63", "Hypercar", "https://lemansultimate.com/wp-content/uploads/2024/07/Desktop-Screenshot-2024.07.16-10.52.17.50.png", "lively rotation and strong medium-speed response", "rear movement demands a smooth throttle release", "转向活跃，中速响应强", "尾部动态要求平顺地收放油门"),
+        _car("peugeot-9x8", "Peugeot 9X8", "Hypercar", "https://lemansultimate.com/wp-content/uploads/2024/02/Peugeot-9X8-4.png", "approachable balance and efficient straight-line pace", "the original wingless concept needs tidy tyre management", "平衡容易掌握，直线效率出色", "初代无尾翼方案需要整洁的轮胎管理"),
         _car("peugeot-9x8-2024", "Peugeot 9X8 2024", "Hypercar", "https://lemansultimate.com/wp-content/uploads/2024/02/Le-Mans-Ultimate-Screenshot-2026.06.03-10.20.35.91-1024x576.png", "agile modern aero package", "balance is sensitive to setup and kerb use", "现代化空气动力学套件灵活", "平衡对调校（setup）和路肩使用敏感"),
         _car("porsche-963", "Porsche 963", "Hypercar", "https://lemansultimate.com/wp-content/uploads/2024/02/Porsche-963-2-1024x576.png", "broad, approachable operating window", "tyre temperature still needs monitoring", "操作窗口（operating window）宽广，容易上手", "仍需监控轮胎温度"),
         _car("toyota-gr010-hybrid", "Toyota GR010-Hybrid", "Hypercar", "https://lemansultimate.com/wp-content/uploads/2024/02/Le-Mans-Ultimate-Screenshot-2026.06.03-12.31.24.88-1024x576.png", "stability, traction, and endurance-friendly behaviour", "slower rotation can cost time in tight sectors", "稳定、牵引力（traction）好，适合耐力赛节奏", "在紧凑路段转向较慢，可能损失时间"),
+        _car("vanwall-vandervell-680", "Vanwall Vandervell 680", "Hypercar", "https://lemansultimate.com/wp-content/uploads/2024/02/Vanwall-7.png", "direct non-hybrid power delivery and compact response", "traction and rear stability reward patient inputs", "非混合动力输出直接，车身响应紧凑", "牵引力与尾部稳定性更奖励耐心操作"),
     )
 }
 
 
 def _recommend(car_slug: str, fit: str, fit_zh: str) -> Recommendation:
     return Recommendation(car_slug, fit, fit_zh)
+
+
+_SLEEPER_PICKS = {
+    "bahrain": (
+        _recommend("mercedes-amg-lmgt3", "A stable braking platform makes repeated heavy stops accessible without giving away useful exit pace.", "稳定制动平台让连续重刹更容易掌握，同时仍保留实用的出弯速度。"),
+        _recommend("peugeot-9x8-2024", "Its approachable rotation and modern aero make tyre-conscious pace easier to repeat across a stint.", "容易掌握的转向与现代空气动力学，让兼顾轮胎的节奏更容易在长段中复现。"),
+    ),
+    "barcelona": (
+        _recommend("mercedes-amg-lmgt3", "Predictable balance reduces workload through long loaded corners while retaining competitive exit traction.", "可预测平衡降低长距离负荷弯的操作负担，同时保留有竞争力的出弯牵引力。"),
+        _recommend("porsche-963", "The broad operating window supports fast, repeatable laps across Barcelona's mixed corner speeds.", "宽广操作窗口支撑在 Barcelona 混合弯速中跑出快速且可重复的圈速。"),
+    ),
+    "le-mans": (
+        _recommend("mercedes-amg-lmgt3", "Calm braking and strong traction make the long lap manageable while preserving speed onto the straights.", "平稳制动和强牵引力让漫长单圈更易管理，并保留进入直道的速度。"),
+        _recommend("peugeot-9x8", "The approachable wingless car combines useful straight-line efficiency with a forgiving driving rhythm.", "容易掌握的无尾翼赛车把实用直线效率与宽容的驾驶节奏结合起来。"),
+    ),
+    "paul-ricard": (
+        _recommend("mercedes-amg-lmgt3", "Stable high-speed braking keeps the Mistral approach friendly without dulling traction in the final sector.", "稳定的高速制动让 Mistral 末端更友好，同时不牺牲末段牵引力。"),
+        _recommend("peugeot-9x8", "Straight-line efficiency and approachable balance suit the lap's switch from Mistral speed to slow rotation.", "直线效率和易掌握平衡适合从 Mistral 高速切换到低速转向。"),
+    ),
+    "cota": (
+        _recommend("bmw-m4-lmgt3", "Its stable, kerb-friendly platform turns COTA's varied demands into a predictable fast rhythm.", "稳定且兼容路肩的平台让 COTA 多样挑战形成可预测的快速节奏。"),
+        _recommend("porsche-963", "A broad operating window lowers the learning load through the esses while retaining strong all-round pace.", "宽广操作窗口降低连续弯学习负担，同时保留全面且快速的表现。"),
+    ),
+    "daytona": (
+        _recommend("mercedes-amg-lmgt3", "Accessible balance and traction bridge the contrast between the infield and banking without drama.", "容易掌握的平衡与牵引力平顺连接内场和倾斜弯的反差。"),
+        _recommend("peugeot-9x8", "The wingless car's straight-line efficiency makes it a quiet threat while its balance remains approachable.", "无尾翼赛车的直线效率让它成为低调威胁，同时平衡仍容易掌握。"),
+    ),
+    "fuji": (
+        _recommend("lexus-rc-f-lmgt3", "Reassuring stability makes the technical final sector easy to repeat, backed by usable speed onto the straight.", "令人安心的稳定性让技术末段容易重复，并以实用速度进入长直道。"),
+        _recommend("peugeot-9x8", "Efficient straight-line running and a friendly balance fit Fuji's extreme sector contrast.", "高效直线表现与友好平衡契合 Fuji 反差极大的赛段。"),
+    ),
+    "imola": (
+        _recommend("mercedes-amg-lmgt3", "Stable braking and traction reduce the penalty for Imola's narrow rhythm while keeping exits quick.", "稳定制动和牵引力降低 Imola 狭窄节奏的惩罚，同时保持快速出弯。"),
+        _recommend("bmw-m-hybrid-v8", "Kerb confidence and platform stability make fast laps repeatable without demanding sharp reactions.", "路肩信心与平台稳定性让快速圈可重复，不要求过度敏锐的反应。"),
+    ),
+    "interlagos": (
+        _recommend("lexus-rc-f-lmgt3", "Usable V8 delivery and calm balance reward clean exits around the short, undulating lap.", "易用的 V8 输出与平稳平衡奖励在短而起伏单圈中的干净出弯。"),
+        _recommend("porsche-963", "Its forgiving window keeps elevation changes predictable while still supporting quick rotation.", "宽容窗口让地形变化更可预测，同时仍支撑快速转向。"),
+    ),
+    "lusail": (
+        _recommend("mercedes-amg-lmgt3", "A stable platform makes sustained load less tiring while traction preserves useful stint pace.", "稳定平台降低持续负荷带来的疲劳，牵引力则保留实用长段速度。"),
+        _recommend("peugeot-9x8-2024", "Friendly rotation and agile aero suit the flowing lap without demanding constant corrections.", "友好转向与灵活空气动力学适合流畅单圈，不需要持续修正。"),
+    ),
+    "monza": (
+        _recommend("bmw-m4-lmgt3", "Predictable heavy braking and kerb tolerance make chicanes accessible while exits remain strong.", "可预测的重刹与路肩容忍度让减速弯更易掌握，同时出弯仍强。"),
+        _recommend("peugeot-9x8", "The original wingless package hides useful straight-line pace behind an approachable balance.", "初代无尾翼套件在易掌握平衡之下藏着实用直线速度。"),
+    ),
+    "portimao": (
+        _recommend("mercedes-amg-lmgt3", "Calm braking helps decode blind crests, and strong traction rewards patient exits.", "平稳制动有助于处理盲坡顶，强牵引力则奖励耐心出弯。"),
+        _recommend("bmw-m-hybrid-v8", "Platform stability makes the elevation changes readable without sacrificing useful rotation.", "平台稳定性让地形变化更易判断，同时不牺牲实用转向能力。"),
+    ),
+    "sebring": (
+        _recommend("mercedes-amg-lmgt3", "Stable braking and traction make the rough surface less intimidating while retaining consistent speed.", "稳定制动和牵引力降低粗糙路面的威慑感，同时保持稳定速度。"),
+        _recommend("cadillac-v-series-r", "Mechanical traction and strong braking turn Sebring's bumps into a manageable, fast rhythm.", "机械牵引力和强力制动让 Sebring 颠簸形成可管理的快速节奏。"),
+    ),
+    "silverstone-international": (
+        _recommend("mercedes-amg-lmgt3", "Accessible balance limits workload in traffic while preserving speed through repeated changes.", "容易掌握的平衡降低交通中的负担，同时保留反复变向速度。"),
+        _recommend("porsche-963", "The forgiving operating window makes the compact lap easy to learn and quick to repeat.", "宽容操作窗口让紧凑单圈容易学习，也容易反复跑快。"),
+    ),
+    "spa": (
+        _recommend("mercedes-amg-lmgt3", "Stable braking and a calm platform reduce risk across the long lap without blunting traction.", "稳定制动和平稳平台降低长单圈风险，同时不削弱牵引力。"),
+        _recommend("peugeot-9x8-2024", "Approachable rotation and agile aero provide quiet speed across Spa's changing elevations.", "容易掌握的转向与灵活空气动力学在 Spa 地形变化中提供低调速度。"),
+    ),
+    "laguna-seca": (
+        _recommend("lexus-rc-f-lmgt3", "Reassuring stability makes the Corkscrew less demanding while usable torque helps slow exits.", "令人安心的稳定性降低 Corkscrew 难度，易用扭矩则帮助低速出弯。"),
+        _recommend("porsche-963", "Its broad window makes the elevation and Corkscrew approachable while retaining strong pace.", "宽广窗口让地形与 Corkscrew 更易掌握，同时保留强劲速度。"),
+    ),
+    "road-atlanta": (
+        _recommend("mercedes-amg-lmgt3", "Stable braking lowers the stress of blind crests, while traction keeps the flowing lap quick.", "稳定制动降低盲坡顶压力，牵引力则让流畅单圈保持快速。"),
+        _recommend("porsche-963", "A broad operating window makes changing camber readable without giving away flowing-corner pace.", "宽广操作窗口让倾角变化更易判断，同时不损失流畅弯速度。"),
+    ),
+    "long-beach": (
+        _recommend("bmw-m4-lmgt3", "Predictable braking and kerb tolerance reduce street-circuit workload while traction supports fast exits.", "可预测制动与路肩容忍度降低街道赛负担，牵引力支撑快速出弯。"),
+        _recommend("porsche-963", "The forgiving window makes wall-lined entries approachable while retaining strong stop-start pace.", "宽容窗口让贴墙入口更易掌握，同时保留强劲启停节奏。"),
+    ),
+}
 
 
 def _circuit(
@@ -146,7 +239,11 @@ def _circuit(
         length_km=length_km,
         is_dlc=is_dlc,
         image=f"kozekilmu/guide/tracks/{slug}.webp",
-        source_url=f"{_LMU}circuit/{_CIRCUIT_SOURCE_SLUGS[slug]}/",
+        source_url=(
+            _US_TRACK_PACK_TWO_SOURCE
+            if slug in {"road-atlanta", "long-beach"}
+            else f"{_LMU}circuit/{_CIRCUIT_SOURCE_SLUGS[slug]}/"
+        ),
         image_source_url=image_source_url,
         character=character,
         character_zh=character_zh,
@@ -156,6 +253,8 @@ def _circuit(
         advice_zh=advice_zh,
         lmgt3=lmgt3,
         hypercar=hypercar,
+        sleeper_lmgt3=_SLEEPER_PICKS[slug][0],
+        sleeper_hypercar=_SLEEPER_PICKS[slug][1],
     )
 
 
@@ -176,6 +275,8 @@ CIRCUITS: tuple[Circuit, ...] = (
     _circuit("silverstone-international", "Silverstone International", "Silverstone, United Kingdom", "银石，英国（Silverstone, United Kingdom）", "2.979", True, "https://lemansultimate.com/wp-content/uploads/2025/09/le-mans-ultimate.exe-Screenshot-2025.09.24-11.03.48.85-1024x576.png", "Compact lap, frequent traffic, and repeated direction changes.", "紧凑单圈、频繁交通和反复变向。", "Short lap traffic leaves little recovery time, while repeated changes reward a responsive platform.", "短单圈里的交通几乎没有补救时间，反复变向则奖励响应灵敏的平台。", "Plan passes early, preserve exit speed, and make one clean steering input per change.", "提前规划超车，保护出弯速度，每次变向只做一次干净的转向输入。", (_recommend("mclaren-720s-lmgt3-evo", "High-speed confidence and aero efficiency suit Silverstone's repeated direction changes.", "高速信心和空气动力学效率适合 Silverstone 反复变向。"), _recommend("ferrari-296-lmgt3", "Agile direction changes help in Silverstone International's compact traffic flow.", "灵活方向变化有助于应对 Silverstone International 紧凑交通节奏。"), _recommend("bmw-m4-lmgt3", "Stable balance gives predictable references amid Silverstone's frequent traffic.", "稳定平衡在 Silverstone 频繁交通中提供可预测参考。")), (_recommend("ferrari-499p", "Decisive rotation fits Silverstone's compact repeated changes.", "果断转向适合 Silverstone 紧凑反复变向。"), _recommend("porsche-963", "Its approachable window helps manage traffic on Silverstone's short lap.", "容易上手窗口有助于处理 Silverstone 短单圈交通。"), _recommend("peugeot-9x8-2024", "Agile aero response supports Silverstone's quick direction changes.", "灵活空气动力学响应支撑 Silverstone 快速变向。"))),
     _circuit("spa", "Spa-Francorchamps", "Stavelot, Belgium", "斯塔沃洛，比利时（Stavelot, Belgium）", "7.004", False, "https://lemansultimate.com/wp-content/uploads/2024/02/Spa-11-1024x576.png", "High-speed aero, elevation, a long lap, and variable weather.", "高速空气动力学、起伏、长单圈和多变天气。", "Commitment through elevation changes must be balanced against weather and tyre variation.", "应对地形起伏的决心必须和天气、轮胎变化平衡。", "Build speed gradually in changing conditions and leave margin at the high-speed compressions.", "在变化条件中逐步提速，并在高速压缩处留出余量。", (_recommend("mclaren-720s-lmgt3-evo", "High-speed aero confidence suits Spa's elevation and fast aero sections.", "高速空气动力学信心适合 Spa 起伏和高速空气动力学路段。"), _recommend("ferrari-296-lmgt3", "Balanced aero and agile changes fit Spa's long, variable lap.", "均衡空气动力学和灵活变向契合 Spa 漫长多变单圈。"), _recommend("bmw-m4-lmgt3", "Stable balance provides predictable behaviour as Spa weather changes.", "稳定平衡在 Spa 天气变化时保持可预测表现。")), (_recommend("ferrari-499p", "Aero performance and decisive rotation fit Spa's high-speed elevation changes.", "空气动力学性能和果断转向适合 Spa 高速地形起伏。"), _recommend("porsche-963", "Its broad operating window helps through Spa's long lap and weather shifts.", "宽广操作窗口有助于应对 Spa 长单圈和天气变化。"), _recommend("cadillac-v-series-r", "Strong braking and traction support Spa's mixed high-speed and wet transitions.", "强力制动和牵引力支撑 Spa 混合高速与湿地切换。"))),
     _circuit("laguna-seca", "WeatherTech Raceway Laguna Seca", "Monterey, United States", "蒙特雷，美国（Monterey, United States）", "3.602", True, "https://lemansultimate.com/wp-content/uploads/2026/07/1920x1080LAG_3-1024x576.jpg", "Low-speed traction, elevation, and the Corkscrew sequence.", "低速牵引力、起伏和 Corkscrew 组合。", "The Corkscrew drops away quickly, so the car must rotate without compromising the next exit.", "Corkscrew 会迅速下坠，因此车身必须转过来又不牺牲下一处出弯。", "Brake early over the crest, use one smooth rotation at the Corkscrew, and protect traction.", "过坡顶提前制动，在 Corkscrew 用一次平顺转向，并保护牵引力。", (_recommend("porsche-911-gt3-r", "Rear-engine traction helps Laguna Seca's low-speed exits and Corkscrew recovery.", "后置引擎牵引力有助于 Laguna Seca 低速出弯和 Corkscrew 回正。"), _recommend("corvette-z06-lmgt3-r", "Predictable traction and braking suit Laguna Seca's elevation changes.", "可预测牵引力和制动适合 Laguna Seca 地形起伏。"), _recommend("bmw-m4-lmgt3", "Stable balance helps the braking and kerb approach to the Corkscrew.", "稳定平衡有助于处理 Corkscrew 前的制动与路肩入口。")), (_recommend("porsche-963", "Its broad operating window keeps Laguna Seca's Corkscrew sequence approachable.", "宽广操作窗口让 Laguna Seca Corkscrew 组合更容易上手。"), _recommend("cadillac-v-series-r", "Strong braking and traction help at Laguna Seca's low-speed elevation changes.", "强力制动和牵引力有助于 Laguna Seca 低速地形起伏。"), _recommend("bmw-m-hybrid-v8", "Kerb confidence and stability support the Corkscrew approach.", "通过路肩的信心和稳定性支撑 Corkscrew 入口。"))),
+    _circuit("road-atlanta", "Road Atlanta", "Braselton, United States", "布拉塞尔顿，美国（Braselton, United States）", "4.088", True, "https://mcusercontent.com/d64b6e298cfffd4e86ce086a4/images/1aeeeff8-e212-029d-6e0a-b80036dec94f.jpg", "Flowing elevation, blind crests, and changing camber across twelve corners.", "十二个弯角串联起伏、盲坡顶和不断变化的弯道倾角。", "Fast sequences compress braking and placement decisions while sightlines disappear over crests.", "高速组合会压缩制动和车身放置的决策时间，坡顶又会遮挡视线。", "Build repeatable references beyond each blind crest before reducing the safety margin.", "先固定每个盲坡顶后的可重复参照，再逐步缩小安全余量。", (_recommend("mercedes-amg-lmgt3", "Stable braking and traction make Road Atlanta's blind, loaded transitions easier to organize.", "稳定制动和牵引力让 Road Atlanta 盲区与负荷转换更容易整理。"), _recommend("bmw-m4-lmgt3", "Kerb-friendly stability supports Road Atlanta's compressions and quick elevation changes.", "兼容路肩的稳定性支撑 Road Atlanta 压缩段和快速地形变化。"), _recommend("ferrari-296-lmgt3", "Agile direction changes suit Road Atlanta's flowing sequence when inputs remain tidy.", "灵活变向适合 Road Atlanta 流畅组合，前提是操作保持整洁。")), (_recommend("porsche-963", "Its broad operating window helps make Road Atlanta's blind crests repeatable.", "宽广操作窗口有助于稳定处理 Road Atlanta 的盲坡顶。"), _recommend("bmw-m-hybrid-v8", "Platform stability and kerb confidence fit the circuit's compression and camber changes.", "平台稳定性与路肩信心契合赛道压缩和倾角变化。"), _recommend("peugeot-9x8-2024", "Agile aero response supports the fast, flowing direction changes.", "灵活空气动力学响应支撑高速流畅变向。"))),
+    _circuit("long-beach", "Long Beach", "Long Beach, United States", "长滩，美国（Long Beach, United States）", "3.167", True, "https://mcusercontent.com/d64b6e298cfffd4e86ce086a4/images/75e22a61-9950-a555-cecb-5d7ae3dc189b.jpg", "A true street circuit with concrete walls, blind entries, and minimal margin.", "真正的街道赛道，混凝土墙、盲入口和极小容错构成核心特征。", "Heavy braking and slow rotation happen beside walls, so small placement errors carry immediate consequences.", "重刹和低速转向都贴着墙完成，轻微的车身放置误差也会立刻付出代价。", "Establish repeatable braking and wall placement before reducing the safety margin.", "先建立可重复的制动与贴墙位置，再逐步缩小安全余量。", (_recommend("bmw-m4-lmgt3", "Stable braking and predictable balance suit Long Beach's tight wall-lined entries.", "稳定制动和可预测平衡适合 Long Beach 紧凑贴墙入口。"), _recommend("corvette-z06-lmgt3-r", "Confident braking and predictable traction support the street circuit's slow exits.", "自信制动和可预测牵引力支撑街道赛的低速出弯。"), _recommend("mercedes-amg-lmgt3", "Accessible balance reduces workload through Long Beach's narrow stop-start rhythm.", "容易掌握的平衡可降低 Long Beach 狭窄启停节奏中的负担。")), (_recommend("cadillac-v-series-r", "Strong braking and mechanical traction fit Long Beach's heavy stops and slow exits.", "强力制动和机械牵引力契合 Long Beach 重刹与低速出弯。"), _recommend("porsche-963", "The broad operating window helps keep wall-lined entries calm and repeatable.", "宽广操作窗口让贴墙入口更从容且可重复。"), _recommend("peugeot-9x8-2024", "Agile response helps place the car through Long Beach's compact direction changes.", "灵活响应有助于在 Long Beach 紧凑变向中准确放置车身。"))),
 )
 
 
@@ -190,6 +291,12 @@ def _is_local_guide_image(path: str, resource: str) -> bool:
 
 def _is_lmu_url(url: str) -> bool:
     return url.startswith(_LMU)
+
+
+def _is_official_image_url(url: str) -> bool:
+    return _is_lmu_url(url) or url.startswith(
+        "https://mcusercontent.com/d64b6e298cfffd4e86ce086a4/"
+    )
 
 
 def validate_guide_data() -> None:
@@ -211,7 +318,7 @@ def validate_guide_data() -> None:
             raise ValueError(f"blank car copy: {car.slug}")
         if car.image and not _is_local_guide_image(car.image, "cars"):
             raise ValueError(f"non-local car image: {car.slug}")
-        if not _is_lmu_url(car.source_url) or not _is_lmu_url(car.image_source_url):
+        if not _is_lmu_url(car.source_url) or not _is_official_image_url(car.image_source_url):
             raise ValueError(f"non-LMU car source: {car.slug}")
 
     circuit_slugs = tuple(circuit.slug for circuit in CIRCUITS)
@@ -234,7 +341,7 @@ def validate_guide_data() -> None:
             raise ValueError(f"blank circuit copy: {circuit.slug}")
         if circuit.image and not _is_local_guide_image(circuit.image, "tracks"):
             raise ValueError(f"non-local circuit image: {circuit.slug}")
-        if not _is_lmu_url(circuit.source_url) or not _is_lmu_url(circuit.image_source_url):
+        if not _is_lmu_url(circuit.source_url) or not _is_official_image_url(circuit.image_source_url):
             raise ValueError(f"non-LMU circuit source: {circuit.slug}")
         for recommendations, expected_class in ((circuit.lmgt3, "LMGT3"), (circuit.hypercar, "Hypercar")):
             if len(recommendations) != 3:
@@ -250,6 +357,17 @@ def validate_guide_data() -> None:
                     raise ValueError(f"missing recommended car: {recommendation.car_slug}")
                 if car.car_class != expected_class:
                     raise ValueError(f"class mismatch: {recommendation.car_slug}")
+        for recommendation, expected_class in (
+            (circuit.sleeper_lmgt3, "LMGT3"),
+            (circuit.sleeper_hypercar, "Hypercar"),
+        ):
+            if not recommendation.fit.strip() or not recommendation.fit_zh.strip():
+                raise ValueError(f"blank sleeper copy: {circuit.slug}")
+            car = CARS.get(recommendation.car_slug)
+            if car is None:
+                raise ValueError(f"missing sleeper car: {recommendation.car_slug}")
+            if car.car_class != expected_class:
+                raise ValueError(f"sleeper class mismatch: {recommendation.car_slug}")
 
 
 validate_guide_data()

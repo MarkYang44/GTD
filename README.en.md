@@ -436,7 +436,7 @@ The character icon in the upper-right corner of every page, and the lower charac
 
 ### LMU content tools
 
-Open `/kozekilmu/tracks` to search by English circuit name, Chinese alias, or location, and combine class, car, and favorites filters. Search ignores case and accents.
+Open `/kozekilmu/tracks` to browse 18 circuits, including Road Atlanta and Long Beach. Search by English circuit name, Chinese alias, or location, and combine class, car, and favorites filters. Search ignores case and accents. Each class at every circuit keeps three regular recommendations plus one separate **Sleeper Pick**. A Sleeper may overlap the regular top three and participates in filtering, favorites, and comparison.
 
 Use the stars to favorite circuits or cars. Car favorites apply across circuit recommendations. Favorites are saved in this browser and synchronized across same-origin tabs, not devices. When browser storage is blocked, favorites last only for the current page.
 
@@ -444,7 +444,7 @@ Expand the recommendations and select 2–3 entries, then use **Compare** at the
 
 ### Car catalog and race strategy
 
-**Car Catalog** (`/kozekilmu/cars`) displays every car in the existing dataset, its strengths and caveats, and the circuits that recommend it. Recommendation reasons come directly from the Circuit Guide. Filter by name, class, car, and favorites; compare 2–3 cars side by side. Car favorites share browser storage with the Circuit Guide; comparison selections last only for the current page.
+**Car Catalog** (`/kozekilmu/cars`) displays all 24 Hypercar and LMGT3 cars currently included for V1.4.2, their strengths and caveats, and the circuits that recommend them. Regular and Sleeper reasons come directly from the Circuit Guide. Filter by name, class, car, and favorites; compare 2–3 cars side by side. Car favorites share browser storage with the Circuit Guide; comparison selections last only for the current page.
 
 **Race Strategy** (`/kozekilmu/strategy`) accepts race duration (minutes), average lap time (seconds or `m:ss`), and fuel per lap (L). Blank fields use **30 minutes, 120 sec/lap, and 3 L/lap** respectively, with defaults identified in the result. Invalid nonempty values require correction. Accepted ranges are 1–1440 minutes, 10–1800 sec/lap, and 0.01–100 L/lap.
 
@@ -460,7 +460,7 @@ All calculations run locally in the browser. Mandatory stops, tires, repairs, dr
 
 Expand **Practice notes and reflection** on circuits and cars to read source observations, editorial exercises, source links, and review dates. Car notes use individual driving guides; circuit exercises are derived from official descriptions. These are not our driving tests.
 
-Each recommendation also has **Recommendation sources and version**. Game compatibility currently remains **Unverified**: source-review dates confirm reading, not lap-time or BoP validation. Official V1.4.1.4 release notes are the build reference checked for this update; historical driving guides may not match current physics.
+Each regular and Sleeper recommendation also has **Recommendation sources and version**. Game compatibility currently remains **Unverified**: source-review dates confirm reading, not lap-time tests, BoP validation, or measured ranking. Official V1.4.2 release notes are the build reference checked for this update; historical driving guides may not match current physics.
 
 **Content updates** (`/kozekilmu/updates`) displays releases and before/after fields from local content snapshots. Content versions are separate from game builds. See [content maintenance](docs/LMU_CONTENT_MAINTENANCE.md) for the source boundaries and publishing workflow. There is no scheduled fetching or automatic recommendation editing.
 

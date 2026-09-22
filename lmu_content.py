@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 from lmu_guide_data import CARS, CIRCUITS
-from lmu_practice_data import CAR_NOTES, TRACK_NOTES, CHECKED_ON, GAME_REFERENCE, GAME_SOURCE
+from lmu_practice_data import CAR_NOTES, TRACK_NOTES, CHECKED_ON, GAME_CHECKED_ON, GAME_REFERENCE, GAME_SOURCE
 
 CONTENT_DIR = Path(__file__).resolve().parent / 'data' / 'lmu'
 # Set an override only after reviewing evidence for the exact recommendation.
@@ -32,6 +32,13 @@ def recommendation_review(circuit, car):
     return result
 
 
+def sleeper_review(circuit, car, class_name):
+    result = dict(applicable_version=None, evidence_url=None, checked_on=GAME_CHECKED_ON,
+                  sources=[circuit.source_url, CAR_NOTES[car.slug]['source_url']])
+    result.update(RECOMMENDATION_REVIEWS.get(f'sleeper:{circuit.slug}:{class_name.lower()}', {}))
+    return result
+
+
 def current_records(include_research=True):
     records = {}
     for kind, entities, notes in [('circuit', CIRCUITS, TRACK_NOTES), ('car', CARS.values(), CAR_NOTES)]:
@@ -54,10 +61,28 @@ def current_records(include_research=True):
                 review = recommendation_review(circuit, car)
                 fields.update(applicable_version=pair(review['applicable_version'] or '未验证', review['applicable_version'] or 'Unverified'), checked_on=pair(review['checked_on'], review['checked_on']), sources=pair('\n'.join(review['sources']), '\n'.join(review['sources'])), evidence_url=pair(review['evidence_url'] or '尚无实测证据', review['evidence_url'] or 'No driving-test evidence'))
             records[f'recommendation:{circuit.slug}:{car.slug}'] = dict(name=f'{circuit.name} · {car.name}', href=f'/kozekilmu/tracks#{circuit.slug}', fields=fields)
+        for class_name, recommendation in (
+            ('LMGT3', circuit.sleeper_lmgt3),
+            ('Hypercar', circuit.sleeper_hypercar),
+        ):
+            car = CARS[recommendation.car_slug]
+            fields = {'fit': pair(recommendation.fit_zh, recommendation.fit)}
+            if include_research:
+                review = sleeper_review(circuit, car, class_name)
+                fields.update(
+                    applicable_version=pair(review['applicable_version'] or '未验证', review['applicable_version'] or 'Unverified'),
+                    checked_on=pair(review['checked_on'], review['checked_on']),
+                    sources=pair('\n'.join(review['sources']), '\n'.join(review['sources'])),
+                    evidence_url=pair(review['evidence_url'] or '尚无实测证据', review['evidence_url'] or 'No driving-test evidence'),
+                )
+            records[f'sleeper:{circuit.slug}:{class_name.lower()}'] = dict(
+                name=f'{circuit.name} · {class_name} Sleeper · {car.name}',
+                href=f'/kozekilmu/tracks#{circuit.slug}', fields=fields,
+            )
     if include_research:
         records['reference:game'] = dict(name='LMU', href='/kozekilmu/updates', fields={
             'build_reference': pair(GAME_REFERENCE, GAME_REFERENCE),
-            'checked_on': pair(CHECKED_ON, CHECKED_ON), 'sources': pair(GAME_SOURCE, GAME_SOURCE)})
+            'checked_on': pair(GAME_CHECKED_ON, GAME_CHECKED_ON), 'sources': pair(GAME_SOURCE, GAME_SOURCE)})
     return records
 
 
@@ -99,7 +124,15 @@ def history():
 def template_context():
     latest = history()[0]
     reviews = [recommendation_review(circuit, CARS[rec.car_slug]) for circuit in CIRCUITS for rec in (*circuit.lmgt3, *circuit.hypercar)]
+    reviews.extend(
+        sleeper_review(circuit, CARS[rec.car_slug], class_name)
+        for circuit in CIRCUITS
+        for class_name, rec in (
+            ('LMGT3', circuit.sleeper_lmgt3),
+            ('Hypercar', circuit.sleeper_hypercar),
+        )
+    )
     validated = sum(bool(item['applicable_version'] and item['evidence_url']) for item in reviews)
-    return dict(car_notes=CAR_NOTES, track_notes=TRACK_NOTES, recommendation_review=recommendation_review,
+    return dict(car_notes=CAR_NOTES, track_notes=TRACK_NOTES, recommendation_review=recommendation_review, sleeper_review=sleeper_review,
                 content_version=latest['version'], content_date=latest['date'],
-                game_reference=GAME_REFERENCE, game_source=GAME_SOURCE, game_checked_on=CHECKED_ON, validated_recommendations=validated, total_recommendations=len(reviews))
+                game_reference=GAME_REFERENCE, game_source=GAME_SOURCE, game_checked_on=GAME_CHECKED_ON, validated_recommendations=validated, total_recommendations=len(reviews))

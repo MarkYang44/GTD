@@ -16,7 +16,9 @@ Use the **Dark / Light** slider in the upper-right corner to switch themes. Dark
 
 ## LMU content tools
 
-Use the character icon in the upper-right corner to open the Circuit Guide. Search by circuit name, Chinese alias, or location, and combine class, car, and favorites filters. Star a circuit or car to save it in this browser; favorites synchronize across same-origin tabs.
+Use the character icon in the upper-right corner to open the Circuit Guide. It currently covers 18 circuits and 24 Hypercar/LMGT3 cars, including Road Atlanta and Long Beach. Search by circuit name, Chinese alias, or location, and combine class, car, and favorites filters. Star a circuit or car to save it in this browser; favorites synchronize across same-origin tabs.
+
+Each HY and GT3 group has three regular recommendations plus one **Sleeper Pick**. A Sleeper may overlap the regular top three and participates in filtering, favorites, and comparison. It is an editorial easy-to-drive/pace pick, not a measured lap-time ranking.
 
 Expand the recommendations, select 2–3 entries, and use **Compare** at the bottom right to view each circuit's recommendation reasons and caveats side by side. Filtering preserves favorites and comparison selections; reloading clears comparison selections. If browser storage is disabled, favorites last only for the current page.
 
@@ -36,7 +38,7 @@ All calculations run locally in the browser. Mandatory stops, tires, repairs, dr
 
 ## Content versions and practice notes
 
-Expand **Practice notes and reflection** on a circuit or car for source observations, editorial exercises, and review dates. Recommendations also expose **Recommendation sources and version**; compatibility is currently unverified, and source review does not imply driving tests.
+Expand **Practice notes and reflection** on a circuit or car for source observations, editorial exercises, and review dates. Regular and Sleeper recommendations expose **Recommendation sources and version**; compatibility is currently unverified, and source review does not imply driving tests. The current content release is `2026.09.22.1`, with V1.4.2 as its checked game reference.
 
 Open **Content updates** in the LMU navigation to inspect before/after fields grouped by circuits, cars, and pairings. The website does not automatically fetch or update online content; content releases and game builds are tracked separately.
 

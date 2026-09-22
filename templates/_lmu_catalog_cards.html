@@ -18,8 +18,8 @@
           <div class="catalog-circuits">
             <h5>{{ guide_copy("推荐它的赛道", "Recommended at") }} · {{ car_recommendations[slug]|length }}</h5>
             <ul>
-            {% for circuit, recommendation in car_recommendations[slug] %}
-              <li><a href="{{ url_for('kozekilmu_tracks') }}#{{ circuit.slug }}">{{ circuit.name }}</a><p>{{ guide_copy(recommendation.fit_zh, recommendation.fit) }}</p>{{ content.review(recommendation_review(circuit, car)) }}</li>
+            {% for circuit, recommendation, is_sleeper, class_name in car_recommendations[slug] %}
+              <li{% if is_sleeper %} data-catalog-sleeper="true"{% endif %}><a href="{{ url_for('kozekilmu_tracks') }}#{{ circuit.slug }}">{{ circuit.name }}</a>{% if is_sleeper %}<span class="sleeper-label">{{ guide_copy("Sleeper 之选", "Sleeper Pick") }}</span>{% endif %}<p>{{ guide_copy(recommendation.fit_zh, recommendation.fit) }}</p>{{ content.review(sleeper_review(circuit, car, class_name) if is_sleeper else recommendation_review(circuit, car)) }}</li>
             {% else %}<li>{{ guide_copy("现有指南暂无赛道推荐记录。", "No circuit recommendations in the current guide.") }}</li>{% endfor %}
             </ul>
           </div>

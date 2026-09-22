@@ -22,15 +22,10 @@ class AssetSyncError(RuntimeError):
 
 
 def _asset_sources() -> tuple[tuple[str, str], ...]:
-    recommended_slugs = {
-        recommendation.car_slug
-        for circuit in CIRCUITS
-        for recommendation in (*circuit.lmgt3, *circuit.hypercar)
-    }
     circuits = tuple((circuit.image, circuit.image_source_url) for circuit in CIRCUITS)
     cars = tuple(
-        (CARS[slug].image, CARS[slug].image_source_url)
-        for slug in sorted(recommended_slugs)
+        (car.image, car.image_source_url)
+        for car in sorted(CARS.values(), key=lambda item: item.slug)
     )
     return circuits + cars
 

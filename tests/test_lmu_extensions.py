@@ -16,8 +16,9 @@ class LmuExtensionsTests(unittest.TestCase):
             self.assertIn(car.strength, html)
             self.assertIn(car.caution, html)
         for circuit in CIRCUITS:
-            expected = len(circuit.lmgt3) + len(circuit.hypercar)
+            expected = len(circuit.lmgt3) + len(circuit.hypercar) + 2
             self.assertEqual(html.count(f'href="/kozekilmu/tracks#{circuit.slug}"'), expected)
+        self.assertEqual(html.count('data-catalog-sleeper="true"'), len(CIRCUITS) * 2)
 
     def test_new_routes_have_shared_navigation_and_active_page(self):
         for path in ['/kozekilmu/cars', '/kozekilmu/strategy']:

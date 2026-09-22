@@ -5,10 +5,10 @@ The website reads local, reviewed content. It does not fetch external pages at s
 
 ## Source and verification boundaries / 来源与核验边界
 
-- `lmu_guide_data.py`: existing circuit, car and editorial pairing data. `GUIDE_UPDATED` is its original content date, not a new verification date.
-- `lmu_practice_data.py`: all 16 circuit and 16 car notes, individually linked to sources read on 2026-09-09. Each has a source observation and a separately labeled editorial practice/reflection exercise. Circuit sources are official descriptions; car sources are Coach Dave Academy's original LMU driving guides. No lap-time testing was performed. Use `NOTE_REVIEWS` for later per-record review overrides; do not bump `CHECKED_ON` globally to imply all notes were rechecked.
-- `lmu_content.py`: recommendation review metadata and snapshots. Pairing source links establish background, not endorsement of a specific recommendation. `RECOMMENDATION_REVIEWS` supports overrides keyed by `circuit-slug:car-slug` after exact-version validation.
-- `GAME_REFERENCE` points to the official V1.4.1.4 notes checked during this update. This is a reference build, not a claim of latest-version monitoring or tested compatibility. Many driving guides originate in 2025; do not carry forward their numerical setup settings or BoP rankings as current facts.
+- `lmu_guide_data.py`: 18 circuits, 24 cars, ordinary editorial pairings, and 36 independent Sleeper picks. `GUIDE_UPDATED` is the guide content date, not proof of driving validation.
+- `lmu_practice_data.py`: legacy notes retain the global 2026-09-09 review date. New V1.4.2 entities use explicit `NOTE_REVIEWS` dates of 2026-09-22. Circuit sources are official descriptions; car sources are either official car descriptions or individually identified driving guides. No lap-time testing was performed; do not bump `CHECKED_ON` globally to imply all notes were rechecked.
+- `lmu_content.py`: recommendation review metadata and immutable snapshots. Pairing source links establish background, not endorsement of a specific recommendation. Ordinary override keys use `circuit-slug:car-slug`; Sleeper overrides use `sleeper:circuit-slug:class` so overlap never overwrites an ordinary record.
+- `GAME_REFERENCE` points to the official V1.4.2 release checked on `GAME_CHECKED_ON=2026-09-22`. This is a reference build, not tested compatibility. Historical driving guides may not match current physics or BoP; do not carry forward their numerical settings or pace rankings as current facts.
 
 `checked_on` 表示资料阅读核验日期；不表示来源发布日期、实测日期或游戏兼容认证。当前全部适用版本为未验证。仅在获得对应推荐的版本验证证据后填写 `applicable_version` 和 `evidence_url`，并重新核验日期。不得仅因修改文案或发布快照，就把核验日期更新为今天。
 

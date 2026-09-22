@@ -1,4 +1,4 @@
-"""Short paraphrases of sources read on 2026-09-09; exercises are editorial.
+"""Short source paraphrases with per-record review dates; exercises are editorial.
 
 These notes are not driving tests or confirmation of compatibility with a build.
 Source URLs are retained per entity; no remote fetching occurs at runtime.
@@ -6,8 +6,9 @@ Source URLs are retained per entity; no remote fetching occurs at runtime.
 from lmu_guide_data import CARS, CIRCUITS
 
 CHECKED_ON = '2026-09-09'
-GAME_REFERENCE = 'V1.4.1.4'
-GAME_SOURCE = 'https://guide.lemansultimate.com/hc/en-gb/articles/17478704157071-V1-4-1-4-Update-V1-4-Patch-1-Hotfix-4'
+GAME_REFERENCE = 'V1.4.2'
+GAME_CHECKED_ON = '2026-09-22'
+GAME_SOURCE = 'https://motorsportgames.com/le-mans-ultimate-releases-version-1-2-update-introducing-paul-ricard-racing-circuit-ginetta-lmp3-race-car-alongside-physics-overhaul-online-competition-refinement-and-team-online-championships-dup/'
 
 # slug: source observation (zh/en), proposed exercise (zh/en)
 _TRACK_ROWS = {
@@ -27,6 +28,8 @@ _TRACK_ROWS = {
 'silverstone-international': ('官方强调快速流畅的走向及 Copse、Maggots–Becketts 等弯。', 'The overview emphasizes flowing speed, Copse, and Maggots–Becketts.', '确认使用包含这些弯的布局后，连贯练习换向，记录每个出口是否为下一弯留好位置。', 'On a layout containing these corners, practice linked changes of direction and check positioning for the next turn.'),
 'spa': ('海拔起伏、长赛道和快速变化的天气是官方提示的挑战。', 'Elevation, a long lap, and rapidly changing weather are highlighted.', '按赛段检查抓地变化，先留制动余量，再逐步确认高速弯入口速度。', 'Check grip by sector, retain braking margin, and build confidence in fast-corner entry speeds progressively.'),
 'laguna-seca': ('Corkscrew 是有明显落差的盲左—右组合，赛道缓冲空间有限。', 'The Corkscrew is a blind left-right drop, with limited runoff around the circuit.', '低速熟悉 Corkscrew 的参照和落点，连跑无越界圈后再提速。', 'Learn the Corkscrew references and landing at reduced speed, then build pace after consecutive clean laps.'),
+'road-atlanta': ('官方强调连续起伏弯、盲坡顶和不断变化的弯道倾角。', 'The official overview highlights flowing elevation, blind crests, and changing camber.', '先用保守速度固定盲坡顶后的参照，再以连续干净圈比较起伏路段的一致性。', 'Fix references beyond blind crests at conservative speed, then compare consistency over consecutive clean laps.'),
+'long-beach': ('这是 LMU 首条真正街道赛道，混凝土墙、盲入口和极小容错构成主要挑战。', "LMU's first true street circuit is defined by concrete walls, blind entries, and minimal margin.", '先建立可重复的制动与贴墙位置，再逐步缩小安全余量，不以偶然一圈替代稳定性。', 'Establish repeatable braking and wall placement before reducing margin; do not trade consistency for one lucky lap.'),
 }
 
 # Each linked guide was opened and its handling section read; version unspecified.
@@ -39,22 +42,52 @@ _CAR_ROWS = {
 'lamborghini-huracan-lmgt3-evo2': ('lmu-lamborghini-huracan-gt3-evo-2-the-inside-line', '指南区分入弯车尾活动与给油后出弯推头，也提醒过度拖刹。', 'The guide distinguishes a mobile rear on entry from power-on exit understeer and warns against excessive trail braking.', '分开记录入弯和出弯问题，先平顺释放刹车，再调整给油时机。', 'Log entry and exit problems separately; smooth brake release before adjusting throttle timing.'),
 'lexus-rc-f-lmgt3': ('lmu-lexus-rc-f-lmgt3-guide-the-inside-line', '指南建议重视出口速度，并对路肩保持谨慎。', 'The guide emphasizes exit speed and caution over kerbs.', '先用少吃路肩的路线稳定跑圈，再单独试验路肩是否真的带来收益。', 'Build consistency with modest kerb use, then test kerbs one at a time for actual gains.'),
 'mclaren-720s-lmgt3-evo': ('lmu-mclaren-720s-gt3-evo-the-inside-line', '指南建议直线制动并保持弯速，注意过度转向消耗后胎。', 'The guide favors straight-line braking and carried corner speed, while noting rear-tire costs from oversteer.', '比较流畅过弯与弯心过度减速，记录后胎滑移而不只看最快圈。', 'Compare flowing cornering with excessive apex slowing; track rear sliding as well as peak pace.'),
+'mercedes-amg-lmgt3': ('lmu-mercedes-amg-gt3-evo-the-inside-line', '指南强调稳定制动、牵引力和容易掌握的平衡，同时提醒紧凑变向中的推头。', 'The guide highlights stable braking, traction, and an accessible balance, while noting understeer in tight direction changes.', '先用平顺刹车释放建立稳定入口，再比较减少额外转向是否改善紧凑组合弯。', 'Establish a stable entry with smooth brake release, then test whether less steering improves tight sequences.'),
 'porsche-911-gt3-r': ('lmu-porsche-911-gt3-r-guide-the-inside-line', '指南强调平顺控制重心转移，给油前先让车身稳定并完成转向。', 'The guide stresses smooth weight transfer and settling and rotating the car before acceleration.', '固定油量练习缓慢衔接松刹与给油，比较长段后半程是否仍能稳定出弯。', 'Practice a smooth brake-to-throttle transition at fixed fuel and check exit consistency late in a stint.'),
 'alpine-a424': ('lmu-alpine-a424-guide-the-inside-line', '指南描述默认设置下的推头，并建议为制动留出更长距离。', 'The guide describes default-setup understeer and a need for more deliberate braking distance.', '先采用保守制动参照；确认能持续到达弯心后，再逐步缩短减速距离。', 'Start with conservative braking references and shorten the zone only after consistently reaching the apex.'),
+'aston-martin-valkyrie-amr-lmh': ('https://lemansultimate.com/cars/aston-martin-valkyrie/', '官方车型页将其列为自然吸气、非混合动力 LMH。', 'The official car page identifies it as a naturally aspirated, non-hybrid LMH.', '先用渐进给油熟悉非混合动力输出，再以连续干净圈调整高速入口。', 'Learn the non-hybrid delivery with progressive throttle, then tune fast-corner entry over consecutive clean laps.'),
 'bmw-m-hybrid-v8': ('lmu-bmw-m-hybrid-v8-guide-the-inside-line', '指南强调冷胎、冷刹车阶段的控制，特别是夜间。', 'The guide highlights cold tires and brakes, particularly during night running.', '分别记录出站圈与热态圈的制动参照，不把热胎经验直接用于冷胎。', 'Record out-lap and warmed-up braking references separately instead of transferring warm-tire assumptions.'),
 'cadillac-v-series-r': ('lmu-cadillac-v-series-r-guide-the-inside-line', '指南提醒重刹后轮锁死及高速段车尾敏感。', 'The guide warns about rear locking under heavy braking and rear sensitivity at speed.', '从直线渐进制动开始，记录锁死发生阶段，再练转向与松刹衔接。', 'Begin with progressive straight-line braking, log where lockups occur, then practice the turn-in transition.'),
 'ferrari-499p': ('lmu-ferrari-499p-guide-the-inside-line', '指南提醒出弯给油时车尾可能突发滑动，雨地和旧胎更需留意。', 'The guide flags power-on exit snaps, especially in rain or on worn tires.', '比较新旧胎下的给油坡度，优先找到不用反复修方向的加速方式。', 'Compare throttle ramps on fresh and worn tires, aiming for acceleration without repeated corrections.'),
+'genesis-gmr-001': ('https://lemansultimate.com/cars/genesis-gmr-001/', '官方车型页将 GMR-001 收录为 Hypercar 级别车型。', 'The official car page lists the GMR-001 in the Hypercar class.', '固定设置练习连续变向，比较减少方向修正后能否稳定保留出口速度。', 'With setup fixed, practice linked direction changes and test whether fewer corrections preserve exit speed.'),
+'glickenhaus-scg-007': ('https://lemansultimate.com/cars/glickenhaus-scg-007/', '官方车型页将 SCG 007 收录为非混合动力 LMH。', 'The official car page lists the SCG 007 as a non-hybrid LMH.', '用相同油量比较直道末端制动与低速转向，优先建立可重复参照。', 'At equal fuel, compare end-of-straight braking and slow rotation, prioritizing repeatable references.'),
+'isotta-fraschini-tipo-6': ('https://lemansultimate.com/cars/isotta-fraschini-tipo-6/', '官方车型页将 Tipo 6 收录为 Hypercar 级别车型。', 'The official car page lists the Tipo 6 in the Hypercar class.', '从保守制动点开始，记录低速组合中一次转向能否完成车身放置。', 'Start from conservative braking points and log whether one steering input places the car through slow sequences.'),
+'lamborghini-sc63': ('https://lemansultimate.com/cars/lamborghini-sc63/', '官方车型页将 SC63 收录为 LMDh Hypercar。', 'The official car page lists the SC63 as an LMDh Hypercar.', '分开测试收油转向与出弯给油，避免同时改变两个阶段的操作。', 'Test lift-off rotation and exit throttle separately rather than changing both phases at once.'),
+'peugeot-9x8': ('https://lemansultimate.com/cars/peugeot-9x8/', '官方车型页保留初代无尾翼 9X8，与 2024 版分列。', 'The official car page keeps the original wingless 9X8 separate from the 2024 version.', '以固定油量跑连续圈，比较直线效率与轮胎滑移，不用单圈结论代替长段表现。', 'Run consecutive laps at fixed fuel and compare straight-line efficiency with tire sliding rather than judging one lap.'),
 'peugeot-9x8-2024': ('lmu-peugeot-9x8-2024-guide-the-inside-line', '指南认为车头未转好就给油会加重推头，迫使二次收油。', 'The guide explains that accelerating before rotation is complete increases understeer and forces another lift.', '在同一弯延后一点给油，检查是否减少二次收油并改善出口位置。', 'Delay throttle slightly at one corner and check whether it reduces second lifts and improves exit position.'),
 'porsche-963': ('lmu-porsche-963-guide-the-inside-line', '指南描述较中性的平衡，但过于激进的出弯仍会诱发转向过度。', 'The guide describes neutral balance but notes that aggressive exits can still induce oversteer.', '保留相同设置，比较不同给油速度下的出弯稳定性，记录连续圈而非偶然最快圈。', 'Keep setup fixed and compare throttle application rates over consecutive laps, not one exceptional lap.'),
 'toyota-gr010-hybrid': ('lmu-toyota-gr010-guide-the-inside-line', '指南提醒入弯过快会转为推头，刹车锁死时需释放压力恢复滚动。', 'The guide warns that excessive entry speed induces understeer and advises releasing pressure to recover from locking.', '先降低入口速度，比较是否更早稳定给油；单独练习识别并释放锁死。', 'Reduce entry speed and compare how soon stable acceleration becomes possible; separately practice lockup recognition and release.'),
+'vanwall-vandervell-680': ('https://lemansultimate.com/cars/vanwall-vandervell-680/', '官方车型页将 Vandervell 680 收录为非混合动力 LMH。', 'The official car page lists the Vandervell 680 as a non-hybrid LMH.', '先用渐进刹车和给油建立稳定圈，再单独缩短制动区，观察牵引力是否受损。', 'Build stable laps with progressive braking and throttle, then shorten braking zones separately and monitor traction.'),
 }
 
 TRACK_NOTES = {slug: dict(observation_zh=row[0], observation=row[1], exercise_zh=row[2], exercise=row[3], checked_on=CHECKED_ON, applicable_version=None, source_url=next(c.source_url for c in CIRCUITS if c.slug == slug), source_name='Le Mans Ultimate', basis='official-description') for slug, row in _TRACK_ROWS.items()}
-CAR_NOTES = {slug: dict(observation_zh=row[1], observation=row[2], exercise_zh=row[3], exercise=row[4], checked_on=CHECKED_ON, applicable_version=None, source_url=f'https://coachdaveacademy.com/tutorials/{row[0]}/', source_name='Coach Dave Academy / The Inside Line', basis='driving-guide') for slug, row in _CAR_ROWS.items()}
+CAR_NOTES = {
+    slug: dict(
+        observation_zh=row[1], observation=row[2],
+        exercise_zh=row[3], exercise=row[4], checked_on=CHECKED_ON,
+        applicable_version=None,
+        source_url=row[0] if row[0].startswith('https://') else f'https://coachdaveacademy.com/tutorials/{row[0]}/',
+        source_name='Le Mans Ultimate' if row[0].startswith('https://') else 'Coach Dave Academy / The Inside Line',
+        basis='official-description' if row[0].startswith('https://') else 'driving-guide',
+    )
+    for slug, row in _CAR_ROWS.items()
+}
 
 # Future per-record reviews must be explicit; do not bump CHECKED_ON globally.
 # Example key: car:bmw-m4-lmgt3; values: checked_on, applicable_version, evidence_url.
-NOTE_REVIEWS = {}
+NOTE_REVIEWS = {
+    **{
+        f'car:{slug}': {'checked_on': '2026-09-22'}
+        for slug in (
+            'aston-martin-valkyrie-amr-lmh', 'genesis-gmr-001',
+            'glickenhaus-scg-007', 'isotta-fraschini-tipo-6',
+            'lamborghini-sc63', 'mercedes-amg-lmgt3', 'peugeot-9x8',
+            'vanwall-vandervell-680',
+        )
+    },
+    'circuit:road-atlanta': {'checked_on': '2026-09-22'},
+    'circuit:long-beach': {'checked_on': '2026-09-22'},
+}
 for _kind, _notes in [('circuit', TRACK_NOTES), ('car', CAR_NOTES)]:
     for _slug, _note in _notes.items():
         _note.update(NOTE_REVIEWS.get(f'{_kind}:{_slug}', {}))

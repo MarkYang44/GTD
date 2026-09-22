@@ -79,21 +79,66 @@ EXPECTED_SLUGS = (
     "bahrain", "barcelona", "le-mans", "paul-ricard", "cota", "daytona",
     "fuji", "imola", "interlagos", "lusail", "monza", "portimao",
     "sebring", "silverstone-international", "spa", "laguna-seca",
+    "road-atlanta", "long-beach",
 )
 EXPECTED_DLC = {
     "barcelona", "paul-ricard", "cota", "daytona", "imola",
     "interlagos", "lusail", "silverstone-international", "laguna-seca",
+    "road-atlanta", "long-beach",
+}
+EXPECTED_CAR_SLUGS = {
+    "aston-martin-vantage-lmgt3", "bmw-m4-lmgt3",
+    "corvette-z06-lmgt3-r", "ferrari-296-lmgt3",
+    "ford-mustang-lmgt3", "lamborghini-huracan-lmgt3-evo2",
+    "lexus-rc-f-lmgt3", "mclaren-720s-lmgt3-evo",
+    "mercedes-amg-lmgt3", "porsche-911-gt3-r",
+    "alpine-a424", "aston-martin-valkyrie-amr-lmh",
+    "bmw-m-hybrid-v8", "cadillac-v-series-r", "ferrari-499p",
+    "genesis-gmr-001", "glickenhaus-scg-007", "isotta-fraschini-tipo-6",
+    "lamborghini-sc63", "peugeot-9x8", "peugeot-9x8-2024",
+    "porsche-963", "toyota-gr010-hybrid", "vanwall-vandervell-680",
+}
+EXPECTED_SLEEPERS = {
+    "bahrain": ("mercedes-amg-lmgt3", "peugeot-9x8-2024"),
+    "barcelona": ("mercedes-amg-lmgt3", "porsche-963"),
+    "le-mans": ("mercedes-amg-lmgt3", "peugeot-9x8"),
+    "paul-ricard": ("mercedes-amg-lmgt3", "peugeot-9x8"),
+    "cota": ("bmw-m4-lmgt3", "porsche-963"),
+    "daytona": ("mercedes-amg-lmgt3", "peugeot-9x8"),
+    "fuji": ("lexus-rc-f-lmgt3", "peugeot-9x8"),
+    "imola": ("mercedes-amg-lmgt3", "bmw-m-hybrid-v8"),
+    "interlagos": ("lexus-rc-f-lmgt3", "porsche-963"),
+    "lusail": ("mercedes-amg-lmgt3", "peugeot-9x8-2024"),
+    "monza": ("bmw-m4-lmgt3", "peugeot-9x8"),
+    "portimao": ("mercedes-amg-lmgt3", "bmw-m-hybrid-v8"),
+    "sebring": ("mercedes-amg-lmgt3", "cadillac-v-series-r"),
+    "silverstone-international": ("mercedes-amg-lmgt3", "porsche-963"),
+    "spa": ("mercedes-amg-lmgt3", "peugeot-9x8-2024"),
+    "laguna-seca": ("lexus-rc-f-lmgt3", "porsche-963"),
+    "road-atlanta": ("mercedes-amg-lmgt3", "porsche-963"),
+    "long-beach": ("bmw-m4-lmgt3", "porsche-963"),
 }
 
 
 class LmuGuideDataTests(unittest.TestCase):
+    def test_current_v142_car_snapshot_has_fourteen_hypercars_and_ten_lmgt3s(self):
+        self.assertEqual(set(guide.CARS), EXPECTED_CAR_SLUGS)
+        self.assertEqual(
+            sum(car.car_class == "Hypercar" for car in guide.CARS.values()),
+            14,
+        )
+        self.assertEqual(
+            sum(car.car_class == "LMGT3" for car in guide.CARS.values()),
+            10,
+        )
+
     def test_all_english_guide_data_is_han_free(self):
         english = []
         for car in guide.CARS.values():
             english.extend((car.name, car.car_class, car.strength, car.caution))
         for circuit in guide.CIRCUITS:
             english.extend((circuit.name, circuit.location, circuit.character, circuit.challenge, circuit.advice))
-            english.extend(item.fit for item in (*circuit.lmgt3, *circuit.hypercar))
+            english.extend(item.fit for item in (*circuit.lmgt3, *circuit.hypercar, circuit.sleeper_lmgt3, circuit.sleeper_hypercar))
         self.assertEqual([value for value in english if HAN.search(value)], [])
 
     def test_every_guide_entry_has_complete_chinese_copy(self):
@@ -111,6 +156,8 @@ class LmuGuideDataTests(unittest.TestCase):
                 self.assertTrue(circuit.advice_zh.strip())
                 for recommendation in (*circuit.lmgt3, *circuit.hypercar):
                     self.assertTrue(recommendation.fit_zh.strip())
+                self.assertTrue(circuit.sleeper_lmgt3.fit_zh.strip())
+                self.assertTrue(circuit.sleeper_hypercar.fit_zh.strip())
 
     def test_data_validation_rejects_blank_chinese_copy(self):
         invalid = replace(guide.CIRCUITS[0], advice_zh="")
@@ -162,7 +209,7 @@ class LmuGuideDataTests(unittest.TestCase):
         )
         self.assertIn("低阻力", circuits["le-mans"].character_zh)
         self.assertNotIn("低下压力", circuits["le-mans"].character_zh)
-        self.assertEqual(len({item.fit_zh for item in fits}), 96)
+        self.assertEqual(len({item.fit_zh for item in fits}), 108)
         self.assertFalse(any("可应对" in item.fit_zh for item in fits))
 
     def test_portimao_throttle_advice_is_natural_and_not_self_contradictory(self):
@@ -181,6 +228,16 @@ class LmuGuideDataTests(unittest.TestCase):
             EXPECTED_DLC,
         )
 
+    def test_us_track_pack_two_circuits_have_current_official_metadata(self):
+        circuits = {item.slug: item for item in guide.CIRCUITS}
+
+        self.assertEqual(circuits["road-atlanta"].length_km, "4.088")
+        self.assertEqual(circuits["road-atlanta"].location, "Braselton, United States")
+        self.assertEqual(circuits["long-beach"].length_km, "3.167")
+        self.assertEqual(circuits["long-beach"].location, "Long Beach, United States")
+        self.assertTrue(circuits["road-atlanta"].is_dlc)
+        self.assertTrue(circuits["long-beach"].is_dlc)
+
     def test_each_circuit_has_three_unique_recommendations_per_requested_class(self):
         for circuit in guide.CIRCUITS:
             with self.subTest(circuit=circuit.slug):
@@ -190,6 +247,37 @@ class LmuGuideDataTests(unittest.TestCase):
                 self.assertEqual(len({item.car_slug for item in circuit.hypercar}), 3)
                 self.assertTrue(all(guide.CARS[item.car_slug].car_class == "LMGT3" for item in circuit.lmgt3))
                 self.assertTrue(all(guide.CARS[item.car_slug].car_class == "Hypercar" for item in circuit.hypercar))
+
+    def test_each_circuit_has_one_first_class_sleeper_per_class(self):
+        self.assertEqual(
+            {
+                circuit.slug: (
+                    circuit.sleeper_lmgt3.car_slug,
+                    circuit.sleeper_hypercar.car_slug,
+                )
+                for circuit in guide.CIRCUITS
+            },
+            EXPECTED_SLEEPERS,
+        )
+        for circuit in guide.CIRCUITS:
+            with self.subTest(circuit=circuit.slug):
+                self.assertEqual(guide.CARS[circuit.sleeper_lmgt3.car_slug].car_class, "LMGT3")
+                self.assertEqual(guide.CARS[circuit.sleeper_hypercar.car_slug].car_class, "Hypercar")
+                self.assertTrue(circuit.sleeper_lmgt3.fit.strip())
+                self.assertTrue(circuit.sleeper_lmgt3.fit_zh.strip())
+                self.assertTrue(circuit.sleeper_hypercar.fit.strip())
+                self.assertTrue(circuit.sleeper_hypercar.fit_zh.strip())
+
+    def test_data_validation_rejects_a_sleeper_with_the_wrong_class(self):
+        invalid = replace(
+            guide.CIRCUITS[0],
+            sleeper_lmgt3=guide.Recommendation(
+                "porsche-963", "Wrong class sleeper.", "错误组别 Sleeper。"
+            ),
+        )
+        with patch.object(guide, "CIRCUITS", (invalid, *guide.CIRCUITS[1:])):
+            with self.assertRaisesRegex(ValueError, "sleeper class mismatch"):
+                guide.validate_guide_data()
 
     def test_copy_and_sources_are_complete_without_fastest_claims(self):
         guide.validate_guide_data()
@@ -251,18 +339,27 @@ class LmuGuideRouteTests(unittest.TestCase):
         self.assertIn('href="/kozekilmu"', html)
         self.assertIn('href="/kozekilmu/tracks"', html)
         self.assertIn('href="/kozekilmu/tracks" aria-current="page"', html)
-        self.assertEqual(html.count('class="circuit-card"'), 16)
-        self.assertEqual(html.count("<details data-recommendations>"), 16)
-        self.assertEqual(html.count('<li class="recommendation" data-class="LMGT3"'), 48)
-        self.assertEqual(html.count('<li class="recommendation" data-class="Hypercar"'), 48)
+        self.assertEqual(html.count('class="circuit-card"'), 18)
+        self.assertEqual(html.count("<details data-recommendations>"), 18)
+        self.assertEqual(html.count('<li class="recommendation" data-class="LMGT3"'), 54)
+        self.assertEqual(html.count('<li class="recommendation" data-class="Hypercar"'), 54)
+        self.assertEqual(len(re.findall(r'<li class="recommendation(?: sleeper-pick)?" data-class="LMGT3"', html)), 72)
+        self.assertEqual(len(re.findall(r'<li class="recommendation(?: sleeper-pick)?" data-class="Hypercar"', html)), 72)
+        self.assertEqual(html.count('class="recommendation sleeper-pick"'), 36)
+        self.assertEqual(html.count('data-sleeper-class="LMGT3"'), 18)
+        self.assertEqual(html.count('data-sleeper-class="Hypercar"'), 18)
+        keys = re.findall(r'data-key="([^"]+)"', html)
+        self.assertEqual(len(keys), len(set(keys)))
+        for alias in ("亚特兰大之路", "罗德亚特兰大", "长滩", "长滩街道赛道"):
+            self.assertIn(alias, html)
 
     def test_circuit_reveal_stagger_is_bounded_per_grid_row(self):
         html = self.client.get("/kozekilmu/tracks").get_data(as_text=True)
         cards = re.findall(r'<article class="circuit-card"[^>]*>', html)
-        self.assertEqual(len(cards), 16)
+        self.assertEqual(len(cards), 18)
         self.assertTrue(all('data-motion-group="lmu-circuits"' in card for card in cards))
         orders = [re.search(r'data-motion-order="(\d+)"', card).group(1) for card in cards]
-        self.assertEqual(orders, [str(index % 2) for index in range(16)])
+        self.assertEqual(orders, [str(index % 2) for index in range(18)])
         self.assertLessEqual(max(map(int, orders)), 1)
 
     def test_blank_and_missing_circuit_images_render_placeholders_without_static_urls(self):
@@ -425,6 +522,8 @@ class LmuGuidePresentationTests(unittest.TestCase):
         self.assertIn("details[open]", css)
         self.assertIn(":focus-visible", css)
         self.assertIn(".media-placeholder", css)
+        self.assertIn(".sleeper-pick", css)
+        self.assertIn(".sleeper-label", css)
         self.assertNotIn("display: none", reduced_motion_block)
 
     def test_media_motion_and_attribution_contracts(self):
@@ -433,8 +532,8 @@ class LmuGuidePresentationTests(unittest.TestCase):
         self.assertIn('loading="lazy"', html)
         self.assertIn('width="1024"', html)
         self.assertIn('height="576"', html)
-        self.assertEqual(html.count("data-motion-surface"), 16)
-        self.assertEqual(html.count('data-motion-sheen aria-hidden="true"'), 16)
+        self.assertEqual(html.count("data-motion-surface"), 18)
+        self.assertEqual(html.count('data-motion-sheen aria-hidden="true"'), 18)
         self.assertIn("Balance of Performance（BoP）或物理版本更新后可能变化", html)
         self.assertIn('href="https://lemansultimate.com/circuits/"', html)
         self.assertIn('href="https://lemansultimate.com/cars/"', html)
@@ -503,6 +602,7 @@ class LmuGuideAssetTests(unittest.TestCase):
                 self.assertTrue(item.image_source_url.startswith((
                     "https://lemansultimate.com/",
                     "https://lemansultimate.com/wp-content/uploads/",
+                    "https://mcusercontent.com/d64b6e298cfffd4e86ce086a4/",
                 )))
                 path = Path("static") / item.image
                 self.assertTrue(path.is_file(), item.image)
@@ -513,19 +613,23 @@ class LmuGuideAssetTests(unittest.TestCase):
     def test_all_circuit_assets_are_local_webp_files(self):
         self._assert_local_webp_assets(guide.CIRCUITS, "tracks")
 
-    def test_all_recommended_car_assets_are_local_webp_files(self):
-        recommended_car_slugs = {
-            recommendation.car_slug
-            for circuit in guide.CIRCUITS
-            for recommendation in (*circuit.lmgt3, *circuit.hypercar)
-        }
-        self._assert_local_webp_assets(
-            (guide.CARS[slug] for slug in recommended_car_slugs),
-            "cars",
-        )
+    def test_all_catalog_car_assets_are_local_webp_files(self):
+        self._assert_local_webp_assets(guide.CARS.values(), "cars")
 
 
 class LmuGuideAssetSyncTests(unittest.TestCase):
+    def test_asset_sync_covers_every_circuit_and_catalog_car(self):
+        sources = asset_sync._asset_sources()
+
+        self.assertEqual(len(sources), len(guide.CIRCUITS) + len(guide.CARS))
+        self.assertEqual(
+            {relative_path for relative_path, _ in sources},
+            {
+                *(circuit.image for circuit in guide.CIRCUITS),
+                *(car.image for car in guide.CARS.values()),
+            },
+        )
+
     def test_detects_a_libwebp_capable_ffmpeg(self):
         with patch.object(asset_sync.subprocess, "run", return_value=type("Result", (), {"stdout": " libwebp WebP image"})()) as run:
             self.assertTrue(asset_sync._ffmpeg_supports_libwebp("ffmpeg"))

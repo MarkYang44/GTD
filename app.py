@@ -152,8 +152,21 @@ def kozekilmu_cars():
     """Browse every catalog car with its source-derived circuit recommendations."""
     recommendations = {slug: [] for slug in CARS}
     for circuit in CIRCUITS:
-        for recommendation in (*circuit.lmgt3, *circuit.hypercar):
-            recommendations[recommendation.car_slug].append((circuit, recommendation))
+        for class_name, class_recommendations in (
+            ("LMGT3", circuit.lmgt3),
+            ("Hypercar", circuit.hypercar),
+        ):
+            for recommendation in class_recommendations:
+                recommendations[recommendation.car_slug].append(
+                    (circuit, recommendation, False, class_name)
+                )
+        for class_name, recommendation in (
+            ("LMGT3", circuit.sleeper_lmgt3),
+            ("Hypercar", circuit.sleeper_hypercar),
+        ):
+            recommendations[recommendation.car_slug].append(
+                (circuit, recommendation, True, class_name)
+            )
     return render_template(
         "kozekilmu_tracks.html", is_catalog=True,
         page_title_zh="LMU 车型图鉴", page_title_en="LMU Car Catalog",

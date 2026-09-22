@@ -12,5 +12,12 @@
     "summary_zh": "新增 16 条赛道与 16 台车型的来源要点、练习方法；为全部推荐补充来源核验信息，适用版本标为未验证。",
     "summary_en": "Add sourced observations and practice exercises for 16 circuits and 16 cars; attach source-review metadata to all recommendations, with game compatibility marked unverified.",
     "snapshot": "2026.09.09.1.json"
+  },
+  {
+    "version": "2026.09.22.1",
+    "date": "2026-09-22",
+    "summary_zh": "新增亚特兰大之路与长滩，补齐 24 辆 HY/LMGT3 车型，并为 18 条赛道各添加 HY、GT3 Sleeper 之选。",
+    "summary_en": "Add Road Atlanta and Long Beach, complete the 24-car Hypercar/LMGT3 catalog, and add one Hypercar and LMGT3 Sleeper Pick for all 18 circuits.",
+    "snapshot": "2026.09.22.1.json"
   }
 ]
