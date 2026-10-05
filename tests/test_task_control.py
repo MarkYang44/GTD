@@ -16,6 +16,50 @@ from task_control import MAX_PUBLIC_ATTEMPTS, TaskManager, TaskSeed
 
 
 class TaskManagerTests(unittest.TestCase):
+    def test_instagram_limit_is_shared_across_batches_without_blocking_youtube(self):
+        release = threading.Event()
+        instagram_started = threading.Event()
+        youtube_started = threading.Event()
+        lock = threading.Lock()
+        entered = []
+
+        def runner(url, platform=None, **kwargs):
+            if platform == "instagram":
+                with lock:
+                    entered.append(url)
+                instagram_started.set()
+                release.wait(2)
+            else:
+                youtube_started.set()
+            return {"title": url, "filepath": "/tmp/out.mp4"}
+
+        manager = TaskManager(runner)
+        try:
+            manager.create_batch(
+                [TaskSeed("instagram", "https://instagram.com/reel/first")],
+                "video", "mp3", "standard",
+            )
+            self.assertTrue(instagram_started.wait(1))
+            batch = manager.create_batch(
+                [TaskSeed("instagram", f"https://instagram.com/reel/{index}")
+                 for index in range(3)]
+                + [TaskSeed("youtube", "https://youtu.be/x")],
+                "audio", "mp3", "standard",
+            )
+            self.assertTrue(youtube_started.wait(1))
+            with lock:
+                self.assertEqual(len(entered), 1)
+            self.assertTrue(all(
+                task["status"] == "queued"
+                for task in manager.snapshot(batch["id"])["tasks"][:3]
+            ))
+        finally:
+            release.set()
+            idle = manager.wait_for_idle()
+            manager.shutdown()
+        self.assertTrue(idle)
+        self.assertEqual(len(entered), 4)
+
     def test_custom_task_manager_never_imports_downloader(self):
         program = """
 import sys

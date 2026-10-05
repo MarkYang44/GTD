@@ -80,7 +80,7 @@ LMU 导航中的 **车型图鉴** 可浏览全部已收录车型、优缺点及�
 
 ## 任务队列与操作
 
-- 所有 Web 批次共用最多 3 个工作槽，其中 Bilibili 最多同时运行 2 项。
+- 所有 Web 批次共用最多 3 个工作槽，其中 Bilibili 最多同时运行 2 项，Instagram 最多同时运行 1 项（视频和音频共用）。
 - **取消**：等待任务立即取消；标准下载会在下一个安全检查点停止。
 - **重试**：失败或已取消任务重新进入同一队列，并保留每一次尝试记录。
 - **重试全部失败项**：只重新提交可重试的失败任务。
@@ -154,3 +154,17 @@ LMU 导航中的 **车型图鉴** 可浏览全部已收录车型、优缺点及�
 ## 网络连接方式
 
 当前项目使用**直连**：下载、合集预览、字幕/弹幕及 Bilibili 极速模式均不继承代理。启动时仅在项目进程内清除 `HTTP_PROXY`、`HTTPS_PROXY`、`ALL_PROXY`、`FTP_PROXY`（含小写形式），并设置 `NO_PROXY=*`，避免旧的本地代理地址影响 FFmpeg、aria2 等子进程。不会修改系统设置、终端配置文件或其他应用。更新后请重启已运行的 GTD 服务。此设置不关闭系统 VPN 或透明代理，也不能保证所有源站在当前网络可达。
+
+
+## LMU 每周赛历（手动维护）
+
+`/kozekilmu/calendar` 展示人工核对的赛事、多个开赛时段、车型建议与按车型估算的燃油策略。时间统一为 Europe/London，自动区分 GMT/BST；页面共用中英文与深浅主题。初始为空，不填入虚构赛事。
+
+先准备 JSON，再校验并发布：
+
+```bash
+venv/bin/python scripts/update_lmu_calendar.py /absolute/path/to/candidate.json --check
+venv/bin/python scripts/update_lmu_calendar.py /absolute/path/to/candidate.json
+```
+
+赛历保存在 `data/lmu/calendar/`；更新失败保留有效数据，跨周成功更新归档上一周。没有自动更新、抓取或定时任务。车型排序是编辑建议，燃油与进站结果标记为估算。结构示例、字段解释与测试方法见 [赛历维护文档](LMU_CALENDAR_MAINTENANCE.md)。

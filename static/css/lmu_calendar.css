@@ -1,0 +1,27 @@
+.calendar-meta { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.25rem 2rem; font-size:.9rem; }
+.calendar-meta p { margin:.3rem 0; }
+.calendar-notices { margin:1.5rem 0 3rem; }
+.calendar-overview-grid,.calendar-car-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem; }
+.calendar-overview-card { display:flex; flex-direction:column; gap:.7rem; color:inherit; text-decoration:none; padding:1.3rem; min-width:0; }
+.calendar-overview-card strong { color:var(--accent-ink,var(--accent)); font-size:1.3rem; }
+.calendar-overview-card:hover { border-color:var(--accent-ink,var(--accent)); }
+.calendar-events { display:grid; gap:2rem; margin:2rem 0; }
+.calendar-event { padding:clamp(1rem,3vw,2rem); scroll-margin-top:6rem; }
+.calendar-event h2 { font-family:'Cormorant Garamond',Georgia,serif; font-style:italic; font-size:clamp(2rem,4vw,3rem); margin:.5rem 0; }
+.calendar-event h3 { margin:1.4rem 0 .8rem; }
+.calendar-fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem; margin:1.5rem 0; }
+.calendar-fields div,.calendar-car,.calendar-strategy { min-width:0; }
+.calendar-fields dt { opacity:.7; font-size:.85rem; margin-bottom:.4rem; }
+.calendar-fields dd { margin:0; line-height:1.6; }
+.calendar-details { border-top:1px solid var(--border,#344047); padding:1rem 0; }
+.calendar-details summary,.calendar-car summary { cursor:pointer; line-height:1.6; }
+.calendar-sessions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.7rem; list-style:none; padding:0; }
+.calendar-car { border:1px solid var(--border,#344047); padding:1rem; border-radius:16px; }
+.calendar-car .calendar-fields { grid-template-columns:1fr; }
+.calendar-strategy + .calendar-strategy { border-top:1px solid var(--border,#344047); margin-top:2rem; }
+.calendar-plan { border-left:2px solid var(--accent-ink,var(--accent)); padding-left:1rem; margin:1rem 0; }
+.calendar-event p,.calendar-event dd,.calendar-overview-card span,.calendar-meta p,.guide-footer a { overflow-wrap:anywhere; }
+@media(max-width:1000px) { .calendar-car-grid { grid-template-columns:1fr; } .calendar-overview-grid,.calendar-fields,.calendar-sessions { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:600px) { .calendar-meta,.calendar-overview-grid,.calendar-fields,.calendar-sessions { grid-template-columns:1fr; } .calendar-event { border-radius:20px; } }
+
+.calendar-event a,.guide-footer a { color:var(--accent-ink,var(--accent)); }

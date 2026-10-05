@@ -80,8 +80,9 @@ class TaskManager:
             [str | Path | None], _PreparedOutputDir
         ] = prepare_output_dir,
         history_store=None,
+        max_instagram: int = 1,
     ) -> None:
-        if max_workers < 1 or max_bilibili < 1 or max_batches < 1:
+        if max_workers < 1 or max_bilibili < 1 or max_instagram < 1 or max_batches < 1:
             raise ValueError("任务管理器容量必须大于零")
         if not isinstance(capability_aware_runner, bool):
             raise ValueError("能力感知下载器标记必须是布尔值")
@@ -97,6 +98,10 @@ class TaskManager:
         self._bilibili_executor = ThreadPoolExecutor(
             max_workers=max_bilibili,
             thread_name_prefix="bilibili-download",
+        )
+        self._instagram_executor = ThreadPoolExecutor(
+            max_workers=max_instagram,
+            thread_name_prefix="instagram-download",
         )
         self._global_slots = threading.BoundedSemaphore(max_workers)
         self._batches: dict[str, dict[str, object]] = {}
@@ -366,6 +371,7 @@ class TaskManager:
     def shutdown(self, wait: bool = True) -> None:
         self._executor.shutdown(wait=wait)
         self._bilibili_executor.shutdown(wait=wait)
+        self._instagram_executor.shutdown(wait=wait)
 
     def _new_task(
         self,
@@ -417,11 +423,12 @@ class TaskManager:
         self._generations[task_id] = generation
         token = CancellationToken()
         self._tokens[task_id] = token
-        executor = (
-            self._bilibili_executor
-            if task["platform"] == "bilibili"
-            else self._executor
-        )
+        if task["platform"] == "bilibili":
+            executor = self._bilibili_executor
+        elif task["platform"] == "instagram":
+            executor = self._instagram_executor
+        else:
+            executor = self._executor
         self._futures[task_id] = executor.submit(
             self._execute,
             batch_id,

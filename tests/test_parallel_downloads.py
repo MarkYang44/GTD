@@ -12,6 +12,41 @@ from download_errors import DownloadCancelled, DownloadErrorInfo, DownloadFailur
 
 
 class ParallelDownloadTests(unittest.TestCase):
+    def test_instagram_downloads_run_one_at_a_time_for_video_and_audio(self):
+        for media_type in (downloader.VIDEO, downloader.AUDIO):
+            with self.subTest(media_type=media_type):
+                lock = threading.Lock()
+                active = 0
+                maximum_active = 0
+
+                def fake_download(url, **kwargs):
+                    nonlocal active, maximum_active
+                    with lock:
+                        active += 1
+                        maximum_active = max(maximum_active, active)
+                    time.sleep(0.02)
+                    with lock:
+                        active -= 1
+                    if url.endswith("0"):
+                        raise RuntimeError("failed first download")
+                    return {"title": url}
+
+                tasks = [
+                    (downloader.INSTAGRAM, f"https://instagram.com/reel/{index}")
+                    for index in range(4)
+                ]
+                with patch("downloader.download_video", side_effect=fake_download):
+                    results = downloader.download_tasks(
+                        tasks, media_type=media_type,
+                        progress_callback=lambda *args: None,
+                    )
+                self.assertEqual(maximum_active, 1)
+                self.assertIsNone(results[0][1])
+                self.assertEqual(
+                    [result["title"] for _, result in results[1:]],
+                    [url for _, url in tasks[1:]],
+                )
+
     def test_batch_uses_public_download_video_mock_with_one_directory_probe(self):
         tasks = [
             (downloader.YOUTUBE, "https://youtu.be/first"),

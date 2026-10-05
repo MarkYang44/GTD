@@ -17,7 +17,7 @@ The web interface also includes a dedicated local video upload page for original
 ## Features
 
 - Enter multiple YouTube, Instagram, and Bilibili links at once
-- All web batches share up to 3 worker slots, including local audio extraction; the CLI processes up to 3 items per batch concurrently, queuing additional work
+- All web batches share up to 3 worker slots, including local audio extraction; the CLI processes up to 3 items per batch concurrently; Instagram is limited to 1 download across web batches or within each CLI batch, queuing additional work
 - Mix links from all three platforms; the platform is detected automatically
 - Preview and select playlist, collection, and multipart entries before submitting; select up to 100 items per batch, with previews capped at the first 1,000 items and an explicit truncation notice
 - Automatically select the highest available video and audio quality on YouTube
@@ -485,7 +485,7 @@ This README uses separate Markdown files: follow **中文 | English** at the top
 3. Enter a Windows or macOS directory under **Download Location**, or click **Choose Folder** to open the system picker on the computer running the web server. Leave it blank to use the default `downloads/` shown on the page.
 4. Clicking download first resolves the input. Individual content keeps one-click submission; playlists, collections, and multipart videos open a shared preview panel with item selection, select-all, and counts. Submit up to 100 items at once.
 5. The video and audio cards each have an independent **Turbo Mode** switch. It is disabled if aria2c is unavailable and applies only to Bilibili.
-6. All backend batches share up to 3 worker slots, with at most 2 Bilibili tasks running concurrently. Additional tasks remain queued and start when a slot becomes available.
+6. All backend batches share up to 3 worker slots, with at most 2 Bilibili tasks and 1 Instagram task running concurrently. Additional tasks remain queued and start when a slot becomes available.
 7. The task list shows queued, downloading, non-interruptible turbo download, completed, failed, and canceled states, along with speed, estimated time remaining, progress, output specifications, and save paths.
 8. Failed tasks show a stable `error_code`, an explanation, and suggestions in the selected website language. Expand each attempt to view its status and time.
 9. Cancel queued or standard download tasks; retry failed or canceled tasks, or retry all eligible failed tasks in a batch. Download completed tasks again while keeping the original files.
@@ -688,3 +688,17 @@ This tool is intended for learning and downloading video or audio that you own, 
 ## Network connection
 
 GTD now uses **direct connections** for downloads, collection previews, subtitles/danmaku and Bilibili turbo mode. At startup it clears `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, and `FTP_PROXY` (including lowercase variants) only within its own process and sets `NO_PROXY=*`, so FFmpeg and aria2 do not inherit stale local proxy addresses. System settings, shell configuration files and other apps remain unchanged. Restart an already running GTD service after updating. This does not disable a system VPN or transparent proxy, or guarantee that every source is reachable.
+
+
+## LMU weekly calendar (manual maintenance)
+
+`/kozekilmu/calendar` displays manually reviewed races, multiple start times, editorial car suggestions and per-car fuel estimates. Times use Europe/London with automatic GMT/BST conversion; language/theme preferences are shared. The initial calendar is empty, with no invented races.
+
+Prepare a candidate JSON, validate, then publish:
+
+```bash
+venv/bin/python scripts/update_lmu_calendar.py /absolute/path/to/candidate.json --check
+venv/bin/python scripts/update_lmu_calendar.py /absolute/path/to/candidate.json
+```
+
+Files live in `data/lmu/calendar/`. Failed imports preserve valid data; successful week transitions archive the previous week. No automatic fetching, updating or scheduled jobs are configured. Fuel/pit results are estimates; car order is editorial advice. See the [calendar maintenance guide](docs/LMU_CALENDAR_MAINTENANCE.md) for the schema, complete example and test commands.

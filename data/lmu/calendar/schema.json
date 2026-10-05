@@ -1,0 +1,652 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:gtd:lmu:calendar:1",
+  "$comment": "lmu_calendar.validate_calendar additionally checks unique event/car/rank IDs, week range, UK session dates, catalog class and eligibility, duration consistency, safe source URLs and finite numbers.",
+  "$ref": "#/$defs/Calendar",
+  "$defs": {
+    "Copy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "zh",
+        "en"
+      ],
+      "properties": {
+        "zh": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000,
+          "pattern": "\\S"
+        },
+        "en": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000,
+          "pattern": "\\S"
+        }
+      }
+    },
+    "Eligibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "minimumSR",
+        "badge",
+        "subscription"
+      ],
+      "properties": {
+        "minimumSR": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "badge": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "subscription": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "Evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gameVersion",
+        "bop",
+        "recentPerformance",
+        "sources",
+        "trackCharacteristics"
+      ],
+      "properties": {
+        "gameVersion": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bop": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Copy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "recentPerformance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Copy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sources": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "maxLength": 4000,
+            "pattern": "^https://(?:[a-zA-Z0-9-]+\\.)*(?:lemansultimate\\.com|racecontrol\\.gg|studio-397\\.com)(?::\\d+)?(?:/|\\?|#|$)"
+          }
+        },
+        "trackCharacteristics": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Copy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "RecommendedCar": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "carId",
+        "rank",
+        "summary",
+        "drivingCharacteristics",
+        "driverType",
+        "evidence"
+      ],
+      "properties": {
+        "carId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000,
+          "pattern": "\\S"
+        },
+        "rank": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3
+        },
+        "summary": {
+          "$ref": "#/$defs/Copy"
+        },
+        "drivingCharacteristics": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Copy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "driverType": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Copy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evidence": {
+          "$ref": "#/$defs/Evidence"
+        }
+      }
+    },
+    "StrategyInputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "minutes",
+        "lap",
+        "fuel",
+        "tank",
+        "formation",
+        "rate",
+        "loss"
+      ],
+      "properties": {
+        "minutes": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 1440
+        },
+        "lap": {
+          "type": "number",
+          "minimum": 10,
+          "maximum": 1800
+        },
+        "fuel": {
+          "type": "number",
+          "minimum": 0.01,
+          "maximum": 100
+        },
+        "tank": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 1000
+        },
+        "formation": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "rate": {
+          "type": "number",
+          "minimum": 0.01,
+          "maximum": 100
+        },
+        "loss": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 3600
+        }
+      }
+    },
+    "Strategy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "carId",
+        "inputs",
+        "calculationNotes",
+        "pitStopRequirement",
+        "tireStrategy",
+        "tireChangeRecommendation",
+        "trafficManagement",
+        "fasterClassAdvice",
+        "slowerClassAdvice",
+        "overtakingAdvice",
+        "beingLappedAdvice",
+        "sources",
+        "pitWindow"
+      ],
+      "properties": {
+        "carId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000,
+          "pattern": "\\S"
+        },
+        "inputs": {
+          "$ref": "#/$defs/StrategyInputs"
+        },
+        "calculationNotes": {
+          "$ref": "#/$defs/Copy"
+        },
+        "pitStopRequirement": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Copy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tireStrategy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Copy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tireChangeRecommendation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Copy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "trafficManagement": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Copy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fasterClassAdvice": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Copy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "slowerClassAdvice": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Copy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "overtakingAdvice": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Copy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "beingLappedAdvice": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Copy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sources": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "maxLength": 4000,
+            "pattern": "^https://(?:[a-zA-Z0-9-]+\\.)*(?:lemansultimate\\.com|racecontrol\\.gg|studio-397\\.com)(?::\\d+)?(?:/|\\?|#|$)"
+          }
+        },
+        "pitWindow": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Copy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "Event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "track",
+        "trackId",
+        "layout",
+        "eventType",
+        "sessions",
+        "durationMinutes",
+        "classes",
+        "eventLevel",
+        "eligibility",
+        "weather",
+        "trackConditions",
+        "allowedCars",
+        "recommendedCars",
+        "strategy",
+        "sources"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000,
+          "pattern": "\\S"
+        },
+        "track": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000,
+          "pattern": "\\S"
+        },
+        "trackId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "layout": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "eventType": {
+          "enum": [
+            "Daily",
+            "Weekly",
+            "Special",
+            "Championship"
+          ]
+        },
+        "sessions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)$"
+          },
+          "maxItems": 2000,
+          "uniqueItems": true
+        },
+        "durationMinutes": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 1440
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "classes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000,
+            "pattern": "\\S"
+          },
+          "minItems": 1,
+          "maxItems": 10,
+          "uniqueItems": true
+        },
+        "eventLevel": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "eligibility": {
+          "$ref": "#/$defs/Eligibility"
+        },
+        "weather": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Copy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "trackConditions": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Copy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "allowedCars": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000,
+              "pattern": "\\S"
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          }
+        },
+        "recommendedCars": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/RecommendedCar"
+            },
+            "maxItems": 3
+          }
+        },
+        "strategy": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Strategy"
+          },
+          "maxItems": 30
+        },
+        "sources": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "maxLength": 4000,
+            "pattern": "^https://(?:[a-zA-Z0-9-]+\\.)*(?:lemansultimate\\.com|racecontrol\\.gg|studio-397\\.com)(?::\\d+)?(?:/|\\?|#|$)"
+          }
+        }
+      }
+    },
+    "Calendar": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "weekStart",
+        "weekEnd",
+        "lastUpdated",
+        "timezone",
+        "gameVersion",
+        "sources",
+        "events"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "weekStart": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "weekEnd": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lastUpdated": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "timezone": {
+          "const": "Europe/London"
+        },
+        "gameVersion": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sources": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "maxLength": 4000,
+            "pattern": "^https://(?:[a-zA-Z0-9-]+\\.)*(?:lemansultimate\\.com|racecontrol\\.gg|studio-397\\.com)(?::\\d+)?(?:/|\\?|#|$)"
+          }
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Event"
+          },
+          "maxItems": 100
+        }
+      }
+    }
+  }
+}

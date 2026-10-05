@@ -1,0 +1,120 @@
+{% extends 'kozekilmu_tracks.html' %}
+{% macro published(value) -%}
+{% if value is mapping %}{{ guide_copy(value.zh, value.en) }}{% elif value is not none %}{{ value }}{% else %}{{ guide_copy('未发布', 'Not Published') }}{% endif %}
+{%- endmacro %}
+{% macro field(zh, en, value) -%}<div><dt>{{ guide_copy(zh, en) }}</dt><dd>{{ published(value) }}</dd></div>{%- endmacro %}
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/lmu_calendar.css') }}">{% endblock %}
+{% block main_content %}
+<header class="guide-hero">
+  <p class="guide-kicker">LE MANS ULTIMATE / {{ guide_copy('每周赛历', 'WEEKLY CALENDAR') }}</p>
+  <h1>{{ guide_copy('LMU 每周赛历', 'LMU Weekly Race Calendar') }}</h1>
+  <p>{{ guide_copy('本周赛事、可选车型与赛前准备。仅展示人工核对后发布的数据。', 'This week’s races, car suggestions and preparation. Data is published after manual review.') }}</p>
+  <div class="calendar-meta">
+    <p>{{ guide_copy('本周：', 'Week: ') }}{% if calendar_data.weekStart %}{{ calendar_data.weekStart }} — {{ calendar_data.weekEnd }}{% else %}{{ guide_copy('未发布', 'Not Published') }}{% endif %}</p>
+    <p>{{ guide_copy('最后成功更新：', 'Last successfully updated: ') }}<time>{{ uk_time(calendar_data.lastUpdated) }}</time></p>
+    <p>{{ guide_copy('时区：英国当地时间', 'Timezone: UK Local Time') }} · Europe/London</p>
+    <p>{{ guide_copy('游戏版本：', 'Game version: ') }}{{ published(calendar_data.gameVersion) }}</p>
+  </div>
+</header>
+<section class="lmu-tools calendar-notices" aria-live="polite">
+  {% if calendar.state == 'update-failed' %}<p role="status">{{ guide_copy('上次更新失败，正在保留最后一份有效赛历。请检查手动导入文件。', 'Update failed. The last valid calendar is retained. Review the manual import file.') }}</p>{% endif %}
+  {% if calendar.fallback %}<p>{{ guide_copy('当前文件不可用，已回退到本地有效备份。', 'Current file unavailable; displaying a valid local backup.') }}</p>{% endif %}
+  {% if calendar.stale %}<p>{{ guide_copy('这份赛历已过期，仅作历史参考。请手动更新本周数据。', 'This calendar has expired and is shown for historical reference. Import the current week manually.') }}</p>{% endif %}
+  {% if calendar_missing %}<p>{{ guide_copy('部分数据尚未发布；车型建议属于编辑建议，燃油结果属于估算。', 'Partial data: some fields are not published. Car suggestions are editorial; fuel results are estimates.') }}</p>{% endif %}
+  <p id="calendar-offline" hidden>{{ guide_copy('当前离线。本地赛历仍可查看；来源链接可能无法打开。', 'Offline. The local calendar remains readable; source links may be unavailable.') }}</p>
+  {% if not calendar_data.events %}<h2>{{ guide_copy('暂无已发布赛历', 'No calendar published') }}</h2><p>{{ guide_copy('准备官方赛事数据后，通过手动更新脚本发布。不会填入虚构赛事。', 'Prepare official event data and publish with the manual updater. No invented races are displayed.') }}</p>{% endif %}
+</section>
+{% if calendar_data.events %}
+<section class="calendar-overview" aria-labelledby="calendar-overview-title">
+  <h2 id="calendar-overview-title">{{ guide_copy('本周总览', 'Weekly overview') }}</h2>
+  <div class="calendar-overview-grid">
+  {% for event in calendar_data.events %}
+    <a class="lmu-tools calendar-overview-card" href="#event-{{ event.id }}">
+      <strong>{{ event.track }}</strong><span>{{ event.name }}</span>
+      <span>{% if event.sessions %}{{ uk_time(ordered_sessions(event.sessions)|first) }}{% else %}{{ guide_copy('时间未发布', 'Time not published') }}{% endif %}</span>
+      <span>{{ published(event.durationMinutes) }} {% if event.durationMinutes is not none %}min{% endif %} · {{ event.classes|join(' / ') }}</span>
+      <span>{{ published(event.eventLevel) }} · {{ published(event.weather) }}</span>
+      {% if event.sessions|length > 1 %}<span>{{ event.sessions|length }} {{ guide_copy('个时段 · 展开查看', 'sessions · view details') }}</span>{% endif %}
+    </a>
+  {% endfor %}
+  </div>
+</section>
+<section class="calendar-events">
+{% for event in calendar_data.events %}
+<article id="event-{{ event.id }}" class="lmu-tools calendar-event">
+  <header><p class="guide-kicker">{{ event.eventType }} · {{ published(event.eventLevel) }}</p><h2>{{ event.track }}</h2><p>{{ event.name }}</p></header>
+  <dl class="calendar-fields">
+    {{ field('赛道布局', 'Track layout', event.layout) }}
+    {{ field('比赛时长（分钟）', 'Race duration (min)', event.durationMinutes) }}
+    {{ field('组别', 'Classes', event.classes|join(' / ')) }}
+    {{ field('最低安全等级', 'Minimum Safety Rank', event.eligibility.minimumSR) }}
+    {{ field('徽章要求', 'Badge requirement', event.eligibility.badge) }}
+    {{ field('订阅要求', 'Subscription requirement', event.eligibility.subscription) }}
+    {{ field('天气', 'Weather', event.weather) }}
+    {{ field('赛道状态', 'Track conditions', event.trackConditions) }}
+  </dl>
+  <details class="calendar-details"><summary>{{ guide_copy('比赛日期与开赛时间', 'Race dates and start times') }} · {{ event.sessions|length }}</summary>
+    {% if event.sessions %}<ul class="calendar-sessions">{% for session in ordered_sessions(event.sessions) %}<li><time datetime="{{ session }}">{{ uk_time(session) }}</time></li>{% endfor %}</ul>{% else %}<p>{{ guide_copy('未发布', 'Not Published') }}</p>{% endif %}
+  </details>
+  <details class="calendar-details"><summary>{{ guide_copy('推荐车型 · 编辑建议', 'Recommended cars · editorial suggestions') }}</summary>
+    {% for class_name in event.classes %}
+    <h3>{{ class_name }}</h3>
+    {% if event.recommendedCars.get(class_name) %}
+    <div class="calendar-car-grid">
+    {% for rec in event.recommendedCars[class_name]|sort(attribute='rank') %}{% set car = cars[rec.carId] %}
+    <section class="calendar-car"><h4>#{{ rec.rank }} · {{ car.name }}</h4><p>{{ published(rec.summary) }}</p>
+      <p class="strategy-note">{% if class_name not in event.allowedCars %}{{ guide_copy('可用车型名单未发布，参赛资格未核验。', 'Eligible-car list not published; car eligibility is unverified.') }}{% endif %} {{ guide_copy('排序不是当前 BoP 圈速排名。', 'Order is not a current BoP pace ranking.') }}</p>
+      <details><summary>{{ guide_copy('驾驶特点与推荐依据', 'Characteristics and evidence') }}</summary>
+        <dl class="calendar-fields">
+          {{ field('优点', 'Strengths', {'zh': car.strength_zh, 'en': car.strength}) }}
+          {{ field('注意事项', 'Weaknesses', {'zh': car.caution_zh, 'en': car.caution}) }}
+          {{ field('驾驶特点', 'Driving characteristics', rec.drivingCharacteristics) }}
+          {{ field('适合车手', 'Driver type', rec.driverType) }}
+          {{ field('赛道特性依据', 'Track characteristics evidence', rec.evidence.trackCharacteristics) }}
+          {{ field('版本依据', 'Version evidence', rec.evidence.gameVersion) }}
+          {{ field('BoP 依据', 'BoP evidence', rec.evidence.bop) }}
+          {{ field('近期表现依据', 'Recent performance evidence', rec.evidence.recentPerformance) }}
+        </dl>
+        {% for url in rec.evidence.sources %}<p><a href="{{ url }}" rel="noopener noreferrer" target="_blank">{{ url }}</a></p>{% endfor %}
+      </details>
+    </section>{% endfor %}
+    </div>
+    {% else %}<p>{{ guide_copy('暂无有依据的车型建议。', 'No supported car suggestions published.') }}</p>{% endif %}
+    {% endfor %}
+  </details>
+  <details class="calendar-details"><summary>{{ guide_copy('比赛策略 · 估算', 'Race strategy · Estimated') }}</summary>
+  {% if not event.strategy %}<p>{{ guide_copy('未发布。请使用实际练习数据准备策略。', 'Not Published. Use measured practice data to prepare a strategy.') }}</p>{% endif %}
+  {% for strategy in event.strategy %}
+    <section class="calendar-strategy" data-calendar-strategy="{{ strategy.inputs|tojson|forceescape }}">
+      <h3>{{ cars[strategy.carId].name }} · {{ guide_copy('估算', 'Estimated') }}</h3>
+      <p>{{ published(strategy.calculationNotes) }}</p>
+      <dl class="calendar-fields">
+        {{ field('估算比赛时长（分钟）', 'Estimated race duration (min)', strategy.inputs.minutes) }}
+        {{ field('平均圈速（秒）', 'Average lap time (sec)', strategy.inputs.lap) }}
+        {{ field('每圈油耗（L）', 'Fuel per lap (L)', strategy.inputs.fuel) }}
+        {{ field('油箱容量（L）', 'Tank capacity (L)', strategy.inputs.tank) }}
+        {{ field('暖胎圈耗油（L）', 'Formation fuel (L)', strategy.inputs.formation) }}
+        {{ field('加油速度（L/秒）', 'Refueling rate (L/sec)', strategy.inputs.rate) }}
+        {{ field('固定进站损失（秒）', 'Fixed pit loss (sec)', strategy.inputs.loss) }}
+      </dl>
+      <div data-calendar-result aria-live="polite"></div>
+      <noscript><p>{{ guide_copy('启用 JavaScript 后，根据上述明确输入计算燃油与进站预算。', 'Enable JavaScript to calculate fuel and pit budgets from the explicit inputs above.') }}</p></noscript>
+      <p class="strategy-note">{{ guide_copy('常规/保守余量为 5%/10%，至少一圈油耗；时长估算圈数再加一圈。进站计划把余量均摊至每圈预算，并非最低用时解。实际补油 = 出站目标 − 仪表余油（最小为 0）。未模拟天气、轮胎、维修或强制进站。', 'Regular/conservative reserve is 5%/10%, at least one lap of fuel; time-based laps include one extra lap. Pit planning spreads reserve across laps and does not optimize race time. Actual fuel addition = exit target minus dashboard fuel (minimum 0). Weather, tires, repairs and mandatory stops are not simulated.') }}</p>
+      <dl class="calendar-fields">
+      {% for key, zh, en in [('pitStopRequirement','官方进站要求','Official pit requirement'),('pitWindow','进站窗口（规则或人工建议）','Pit window (rule or reviewed advice)'),('tireStrategy','轮胎策略','Tire strategy'),('tireChangeRecommendation','换胎建议','Tire change recommendation'),('trafficManagement','交通管理','Traffic management'),('fasterClassAdvice','更快组别建议','Faster-class advice'),('slowerClassAdvice','较慢组别建议','Slower-class advice'),('overtakingAdvice','超车建议','Overtaking advice'),('beingLappedAdvice','被套圈建议','Being-lapped advice')] %}{{ field(zh,en,strategy[key]) }}{% endfor %}
+      </dl>
+      {% for url in strategy.sources %}<p><a href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ url }}</a></p>{% endfor %}
+    </section>
+  {% endfor %}
+  <a href="{{ url_for('kozekilmu_strategy') }}">{{ guide_copy('打开个人策略计算器', 'Open the personal strategy calculator') }}</a>
+  </details>
+  <details class="calendar-details"><summary>{{ guide_copy('赛事数据来源', 'Event data sources') }}</summary>
+  {% for url in event.sources %}<p><a href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ url }}</a></p>{% else %}<p>{{ guide_copy('来源未发布', 'Sources not published') }}</p>{% endfor %}
+  </details>
+</article>
+{% endfor %}
+</section>
+{% endif %}
+{% endblock %}
+{% block page_footer %}<footer class="guide-footer"><p>{{ guide_copy('数据来源', 'Data Sources') }}</p>{% for url in calendar_data.sources %}<p><a href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ url }}</a></p>{% else %}<p>{{ guide_copy('暂无已发布数据来源。', 'No data sources published.') }}</p>{% endfor %}<p>{{ guide_copy('最后成功更新：', 'Last successfully updated: ') }}{{ uk_time(calendar_data.lastUpdated) }}</p></footer>{% endblock %}
+{% block page_scripts %}<script defer src="{{ url_for('static', filename='js/lmu_strategy.js') }}"></script><script defer src="{{ url_for('static', filename='js/lmu_calendar.js') }}"></script>{% endblock %}

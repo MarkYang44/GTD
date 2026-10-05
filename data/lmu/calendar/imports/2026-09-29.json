@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "weekStart": "2026-09-29",
+  "weekEnd": "2026-10-05",
+  "lastUpdated": "2026-10-01T14:39:10+00:00",
+  "timezone": "Europe/London",
+  "gameVersion": null,
+  "sources": [
+    "https://www.racecontrol.gg/"
+  ],
+  "events": [
+    {
+      "id": "lmgt3-fixed",
+      "name": "LMGT3 Fixed",
+      "track": "Spa Francorchamps",
+      "trackId": "spa",
+      "layout": null,
+      "eventType": "Daily",
+      "sessions": [],
+      "durationMinutes": null,
+      "classes": [
+        "LMGT3"
+      ],
+      "eventLevel": "Beginner",
+      "eligibility": {
+        "minimumSR": null,
+        "badge": null,
+        "subscription": null
+      },
+      "weather": null,
+      "trackConditions": null,
+      "allowedCars": {},
+      "recommendedCars": {},
+      "strategy": [],
+      "sources": [
+        "https://www.racecontrol.gg/"
+      ]
+    },
+    {
+      "id": "lmp3-fixed",
+      "name": "LMP3 Fixed",
+      "track": "Bahrain Wec 2023",
+      "trackId": "bahrain",
+      "layout": "WEC 2023",
+      "eventType": "Daily",
+      "sessions": [],
+      "durationMinutes": null,
+      "classes": [
+        "LMP3"
+      ],
+      "eventLevel": "Beginner",
+      "eligibility": {
+        "minimumSR": null,
+        "badge": null,
+        "subscription": null
+      },
+      "weather": null,
+      "trackConditions": null,
+      "allowedCars": {},
+      "recommendedCars": {},
+      "strategy": [],
+      "sources": [
+        "https://www.racecontrol.gg/"
+      ]
+    },
+    {
+      "id": "lmgt3-sprint-cup",
+      "name": "LMGT3 Sprint Cup",
+      "track": "Long Beach 2026",
+      "trackId": "long-beach",
+      "layout": "2026",
+      "eventType": "Daily",
+      "sessions": [],
+      "durationMinutes": null,
+      "classes": [
+        "LMGT3"
+      ],
+      "eventLevel": "Intermediate",
+      "eligibility": {
+        "minimumSR": null,
+        "badge": null,
+        "subscription": null
+      },
+      "weather": null,
+      "trackConditions": null,
+      "allowedCars": {},
+      "recommendedCars": {},
+      "strategy": [],
+      "sources": [
+        "https://www.racecontrol.gg/"
+      ]
+    }
+  ]
+}

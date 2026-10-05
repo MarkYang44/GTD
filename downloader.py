@@ -94,6 +94,7 @@ AUDIO_FORMATS = {MP3, FLAC, SOURCE, WAV}
 PLATFORM_NAMES = media_sources.PLATFORM_NAMES
 MAX_PARALLEL_DOWNLOADS = 3
 MAX_PARALLEL_BILIBILI_DOWNLOADS = 2
+MAX_PARALLEL_INSTAGRAM_DOWNLOADS = 1
 SHARE_URL_RE = media_sources.SHARE_URL_RE
 TRAILING_URL_PUNCTUATION = media_sources.TRAILING_URL_PUNCTUATION
 ATTEMPT_OUTPUT_MARKER_RE = output_files.ATTEMPT_OUTPUT_MARKER_RE
@@ -1427,7 +1428,7 @@ def download_tasks(
     output_dir: str | Path | None = None,
     subtitle_options: dict | None = None,
 ) -> list[tuple[VideoTask, Optional[DownloadResult]]]:
-    """最多并行执行三个混合平台下载任务，并保持结果顺序。
+    """最多并行执行三个任务，Instagram 同时一项，并保持结果顺序。
 
     Parameters
     ----------
@@ -1467,6 +1468,9 @@ def download_tasks(
 
     bilibili_slots = threading.BoundedSemaphore(
         MAX_PARALLEL_BILIBILI_DOWNLOADS
+    )
+    instagram_slots = threading.BoundedSemaphore(
+        MAX_PARALLEL_INSTAGRAM_DOWNLOADS
     )
     logger = get_download_logger()
 
@@ -1599,6 +1603,9 @@ def download_tasks(
 
         if platform == BILIBILI:
             with bilibili_slots:
+                result = _download_current_task()
+        elif platform == INSTAGRAM:
+            with instagram_slots:
                 result = _download_current_task()
         else:
             result = _download_current_task()

@@ -83,7 +83,7 @@ Only subtitles actually offered by the source and accessible with your current l
 
 ## Task queue and actions
 
-- All web batches share up to 3 worker slots, with at most 2 Bilibili tasks running simultaneously.
+- All web batches share up to 3 worker slots, with at most 2 Bilibili tasks and 1 Instagram task running simultaneously (video and audio share this limit).
 - **Cancel**: queued tasks are canceled immediately; standard downloads stop at the next safe checkpoint.
 - **Retry**: failed or canceled tasks rejoin the same queue, keeping a record of every attempt.
 - **Retry all failed tasks**: resubmit only failed tasks that can be retried.
@@ -157,3 +157,17 @@ Upload and processing progress are shown separately. Extraction shares the exist
 ## Network connection
 
 GTD now uses **direct connections** for downloads, collection previews, subtitles/danmaku and Bilibili turbo mode. At startup it clears `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, and `FTP_PROXY` (including lowercase variants) only within its own process and sets `NO_PROXY=*`, so FFmpeg and aria2 do not inherit stale local proxy addresses. System settings, shell configuration files and other apps remain unchanged. Restart an already running GTD service after updating. This does not disable a system VPN or transparent proxy, or guarantee that every source is reachable.
+
+
+## LMU weekly calendar (manual maintenance)
+
+`/kozekilmu/calendar` displays manually reviewed races, multiple start times, editorial car suggestions and per-car fuel estimates. Times use Europe/London with automatic GMT/BST conversion; language/theme preferences are shared. The initial calendar is empty, with no invented races.
+
+Prepare a candidate JSON, validate, then publish:
+
+```bash
+venv/bin/python scripts/update_lmu_calendar.py /absolute/path/to/candidate.json --check
+venv/bin/python scripts/update_lmu_calendar.py /absolute/path/to/candidate.json
+```
+
+Files live in `data/lmu/calendar/`. Failed imports preserve valid data; successful week transitions archive the previous week. No automatic fetching, updating or scheduled jobs are configured. Fuel/pit results are estimates; car order is editorial advice. See the [calendar maintenance guide](LMU_CALENDAR_MAINTENANCE.md) for the schema, complete example and test commands.

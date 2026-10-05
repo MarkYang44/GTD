@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "weekStart": "2026-10-20",
+  "weekEnd": "2026-10-26",
+  "lastUpdated": "2026-10-20T12:30:00Z",
+  "timezone": "Europe/London",
+  "gameVersion": null,
+  "sources": [],
+  "events": [
+    {
+      "id": "test-only",
+      "name": "Example only — replace with a verified official event",
+      "track": "Fuji",
+      "trackId": "fuji",
+      "layout": null,
+      "eventType": "Daily",
+      "sessions": [
+        "2026-10-25T00:30:00Z",
+        "2026-10-25T01:30:00Z"
+      ],
+      "durationMinutes": 30,
+      "classes": [
+        "LMGT3"
+      ],
+      "eventLevel": "Beginner",
+      "eligibility": {
+        "minimumSR": null,
+        "badge": null,
+        "subscription": null
+      },
+      "weather": null,
+      "trackConditions": null,
+      "allowedCars": {
+        "LMGT3": [
+          "ferrari-296-lmgt3"
+        ]
+      },
+      "recommendedCars": {
+        "LMGT3": [
+          {
+            "carId": "ferrari-296-lmgt3",
+            "rank": 1,
+            "summary": {
+              "zh": "练习建议",
+              "en": "Practice suggestion"
+            },
+            "drivingCharacteristics": null,
+            "driverType": null,
+            "evidence": {
+              "gameVersion": null,
+              "bop": null,
+              "recentPerformance": null,
+              "sources": [],
+              "trackCharacteristics": null
+            }
+          }
+        ]
+      },
+      "strategy": [
+        {
+          "carId": "ferrari-296-lmgt3",
+          "inputs": {
+            "minutes": 30,
+            "lap": 120,
+            "fuel": 3,
+            "tank": 30,
+            "formation": 0,
+            "rate": 2,
+            "loss": 25
+          },
+          "calculationNotes": {
+            "zh": "仅为演示的通用假设，不是官方赛事或实测车型数据。",
+            "en": "Generic example assumptions only, not official event or measured car data."
+          },
+          "pitStopRequirement": null,
+          "tireStrategy": null,
+          "tireChangeRecommendation": null,
+          "trafficManagement": null,
+          "fasterClassAdvice": null,
+          "slowerClassAdvice": null,
+          "overtakingAdvice": null,
+          "beingLappedAdvice": null,
+          "sources": [],
+          "pitWindow": null
+        }
+      ],
+      "sources": []
+    }
+  ]
+}

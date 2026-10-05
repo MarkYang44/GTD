@@ -56,6 +56,7 @@
     return {values, usedDefaults, timedLaps, plannedLaps, baseFuel, reserve, totalFuel, plans};
   }
   if (typeof module !== 'undefined' && module.exports) module.exports = {calculate, defaults};
+  if (typeof window !== 'undefined') window.GtdLmuStrategy = {calculate, defaults};
   if (typeof document === 'undefined') return;
   const form = document.getElementById('strategy-form');
   if (!form) return;

@@ -100,6 +100,7 @@ task_manager = TaskManager(
     run_media_task,
     max_workers=3,
     max_bilibili=2,
+    max_instagram=1,
     max_batches=MAX_STORED_BATCHES,
     capability_aware_runner=True,
     directory_preparer=_prepare_output_dir,
@@ -183,6 +184,19 @@ def kozekilmu_strategy():
     return render_template(
         "kozekilmu_strategy.html", page_title_zh="LMU 赛前策略",
         page_title_en="LMU Race Strategy", guide_updated=GUIDE_UPDATED,
+    )
+
+
+@app.route("/kozekilmu/calendar")
+def kozekilmu_calendar():
+    """Render manually maintained schedules from the last valid local file."""
+    from lmu_calendar import load_calendar, uk_time, missing_fields, ordered_sessions
+    calendar = load_calendar()
+    return render_template(
+        "kozekilmu_calendar.html", page_title_zh="LMU 每周赛历",
+        page_title_en="LMU Weekly Race Calendar", calendar=calendar,
+        calendar_data=calendar['data'], calendar_missing=missing_fields(calendar['data']),
+        uk_time=uk_time, ordered_sessions=ordered_sessions, cars=CARS,
     )
 
 
