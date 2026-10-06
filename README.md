@@ -694,3 +694,12 @@ venv/bin/python scripts/update_lmu_calendar.py /absolute/path/to/candidate.json
 ```
 
 赛历保存在 `data/lmu/calendar/`；更新失败保留有效数据，跨周成功更新归档上一周。没有自动更新、抓取或定时任务。车型排序是编辑建议，燃油与进站结果标记为估算。结构示例、字段解释与测试方法见 [赛历维护文档](docs/LMU_CALENDAR_MAINTENANCE.md)。
+
+
+## 桌面程序版本
+
+桌面版保留完整下载、字幕/弹幕、音频提取、任务历史及 LMU 功能，使用独立原生窗口、侧栏、中英文和深浅主题。macOS Apple Silicon 为 `GTD.app`；Windows x64 为包含 `GTD.exe` 的完整便携目录，打包版无需安装 Python 或系统媒体工具。
+
+Windows 可下载 GitHub Actions **Desktop Windows build** 的 `GTD-windows-x64` Artifact；解压内部 ZIP 后运行 `GTD/GTD.exe`。源码构建入口为 **Build Desktop.cmd**，需要 Python 3.13 x64。完整使用、构建和 Windows 验收步骤见 [桌面版说明](docs/DESKTOP.md)。
+
+![GTD Desktop](docs/screenshots/gtd-desktop.png)

@@ -8,7 +8,9 @@ from typing import Callable, Optional
 from urllib.parse import parse_qs, urlparse
 
 
-PROJECT_DIR = Path(__file__).resolve().parent
+from gtd_paths import runtime_root, downloads_root
+
+PROJECT_DIR = runtime_root()
 
 YOUTUBE = "youtube"
 INSTAGRAM = "instagram"

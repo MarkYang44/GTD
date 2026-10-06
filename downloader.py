@@ -76,8 +76,10 @@ from bilibili_acceleration import (
 # ---------------------------------------------------------------------------
 # 常量
 # ---------------------------------------------------------------------------
-PROJECT_DIR = Path(__file__).resolve().parent
-DOWNLOADS_DIR = PROJECT_DIR / "downloads"
+from gtd_paths import runtime_root, downloads_root
+
+PROJECT_DIR = runtime_root()
+DOWNLOADS_DIR = downloads_root()
 logger = logging.getLogger(__name__)
 
 YOUTUBE = media_sources.YOUTUBE

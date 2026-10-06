@@ -6,6 +6,7 @@
   const slides = Array.from(track.querySelectorAll('.shot'));
   if (slides.length < 2) return;
   let current = 0;
+  let pending = null;
   let frame = 0;
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   const controls = document.createElement('div');
@@ -44,6 +45,7 @@
   }
   function go(index, instant = false) {
     current = Math.max(0, Math.min(slides.length - 1, index));
+    pending = current;
     track.scrollTo({left: current * track.clientWidth, behavior: instant || reduced.matches ? 'instant' : 'smooth'});
     update();
   }
@@ -59,10 +61,19 @@
     if (frame) return;
     frame = requestAnimationFrame(() => {
       frame = 0;
+      // Smooth scrolling crosses intermediate slides. Keep the requested slide
+      // stable so a resize cannot snap back to one of those transient positions.
+      if (pending !== null) {
+        if (Math.abs(track.scrollLeft - pending * track.clientWidth) >= 2) return;
+        pending = null;
+      }
       current = Math.max(0, Math.min(slides.length - 1, Math.round(track.scrollLeft / track.clientWidth)));
       update();
     });
   }, {passive: true});
+  ['pointerdown', 'wheel', 'touchstart'].forEach(type => {
+    track.addEventListener(type, () => { pending = null; }, {passive: true});
+  });
   new ResizeObserver(() => go(current, true)).observe(track);
   function language() {
     const en = document.documentElement.dataset.guideLanguage === 'en';

@@ -10,8 +10,10 @@ from pathlib import Path
 from typing import Any, Callable
 
 
-PROJECT_DIR = Path(__file__).resolve().parent
-DOWNLOADS_DIR = PROJECT_DIR / "downloads"
+from gtd_paths import runtime_root, downloads_root
+
+PROJECT_DIR = runtime_root()
+DOWNLOADS_DIR = downloads_root()
 ATTEMPT_OUTPUT_MARKER_RE = re.compile(r" \[\.__mvd_[A-Za-z0-9_-]+\]$")
 
 _PREPARED_OUTPUT_DIR_CAPABILITY = object()

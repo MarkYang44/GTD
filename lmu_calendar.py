@@ -13,7 +13,9 @@ from zoneinfo import ZoneInfo
 from lmu_guide_data import CARS
 
 TIMEZONE = 'Europe/London'
-DEFAULT_DIR = Path(__file__).resolve().parent / 'data' / 'lmu' / 'calendar'
+from gtd_paths import runtime_root
+
+DEFAULT_DIR = runtime_root() / 'data' / 'lmu' / 'calendar'
 OFFICIAL_HOSTS = ('lemansultimate.com', 'racecontrol.gg', 'studio-397.com')
 INPUT_BOUNDS = {'minutes': (1, 1440), 'lap': (10, 1800), 'fuel': (.01, 100),
                 'tank': (.1, 1000), 'formation': (0, 1000), 'rate': (.01, 100), 'loss': (0, 3600)}

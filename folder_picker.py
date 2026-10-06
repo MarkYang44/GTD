@@ -14,7 +14,9 @@ from pathlib import Path
 PROJECT_DIR = Path(__file__).resolve().parent
 WINDOWS_PICKER_SOURCE = PROJECT_DIR / "native" / "windows_folder_picker.cs"
 WINDOWS_PICKER_MANIFEST = PROJECT_DIR / "native" / "windows_folder_picker.manifest"
-WINDOWS_PICKER_RUNTIME = PROJECT_DIR / "tools" / "folder-picker-runtime"
+from gtd_paths import runtime_root
+
+WINDOWS_PICKER_RUNTIME = runtime_root() / "tools" / "folder-picker-runtime"
 _WINDOWS_PICKER_LOCK = threading.Lock()
 _WINDOWS_PICKER_EXECUTABLE: Path | None = None
 

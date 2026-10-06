@@ -57,7 +57,9 @@ from subtitle_preferences import normalize_subtitle_options
 from local_audio import UploadStore, extract_audio
 from audio_extract_routes import extraction_blueprint, with_download_links
 
-app = Flask(__name__)
+from gtd_paths import resource_root, runtime_root
+
+app = Flask(__name__, template_folder=str(resource_root() / "templates"), static_folder=str(resource_root() / "static"))
 WEB_HOST = "0.0.0.0"
 WEB_PORT = 8233
 MAX_STORED_BATCHES = 100
@@ -86,7 +88,7 @@ def _available_guide_images(circuits, cars) -> frozenset[str]:
     image_paths.update(item.image for item in cars)
     return frozenset(path for path in image_paths if _guide_static_image_exists(path))
 
-upload_store = UploadStore(Path(__file__).resolve().parent / "state" / "audio_uploads")
+upload_store = UploadStore(runtime_root() / "state" / "audio_uploads")
 
 
 def run_media_task(url, **kwargs):
@@ -104,7 +106,7 @@ task_manager = TaskManager(
     max_batches=MAX_STORED_BATCHES,
     capability_aware_runner=True,
     directory_preparer=_prepare_output_dir,
-    history_store=TaskHistoryStore(os.environ.get("GTD_HISTORY_PATH", str(Path(__file__).resolve().parent / "state" / "tasks.sqlite3"))),
+    history_store=TaskHistoryStore(os.environ.get("GTD_HISTORY_PATH", str(runtime_root() / "state" / "tasks.sqlite3"))),
 )
 
 app.register_blueprint(extraction_blueprint(task_manager, upload_store))

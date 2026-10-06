@@ -19,3 +19,9 @@ state/
 data/lmu/calendar/status.json
 data/lmu/calendar/.update.lock/
 data/lmu/calendar/**/.*
+
+# Desktop build outputs and downloaded tool distributions
+.venv-desktop/
+tools/desktop-bin/
+build/
+dist/

@@ -1,0 +1,41 @@
+name: Desktop Windows build
+on:
+  push:
+    branches: [codex/gtd-desktop]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install pinned dependencies
+        run: python -m pip install -r requirements-build.txt
+      - name: Public resource audit
+        run: python -m unittest discover -s tests -p test_desktop_build.py
+      - name: Prepare bundled tools
+        run: python scripts/prepare_desktop_tools.py
+      - name: Build desktop and console companion
+        run: python scripts/build_desktop.py
+      - name: Frozen runtime self-test
+        shell: pwsh
+        run: |
+          $env:GTD_DATA_DIR = "$env:RUNNER_TEMP/GTD-test"
+          $env:GTD_DOWNLOAD_DIR = "$env:RUNNER_TEMP/GTD-downloads"
+          $report = "$env:RUNNER_TEMP/gtd-frozen-report.json"
+          $process = Start-Process -FilePath "dist/GTD/GTD.exe" -ArgumentList @('--self-test', '--report', $report) -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Frozen self-test failed: $($process.ExitCode)" }
+          if (-not (Test-Path $report)) { throw 'Frozen self-test did not write a report' }
+          Get-Content $report
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GTD-windows-x64
+          path: |
+            dist/GTD-windows-*.zip
+            dist/GTD-windows-*.zip.sha256
+            dist/resource-manifest.json
+          if-no-files-found: error

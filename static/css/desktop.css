@@ -1,0 +1,10 @@
+/* Desktop-only overlay; all content and controls remain available. */
+:root{--desktop-lime:#bfd754;--desktop-charcoal:#242522;--desktop-paper:#eeece5}
+html[data-theme="dark"]{--bg:#242522;--surface:#30312b;--text:#efeee7;--accent:#bfd754;color-scheme:dark}
+html[data-theme="light"]{--bg:#eeece5;--surface:#f8f6ef;--text:#252623;--accent:#6a7c22;color-scheme:light}
+body{background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.card,.panel,.tool-card,.task-card{border-radius:3px;border-color:#76786a}
+button,.btn,input,select,textarea{border-radius:3px}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--desktop-lime);outline-offset:3px}
+::selection{background:#bfd754;color:#242522}
+@media(min-width:900px){.container{max-width:1500px}}

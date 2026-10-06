@@ -27,6 +27,21 @@ class GalleryBrowserTests(BrowserReliabilityTests):
         self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
         self.assertEqual(self.errors, [])
 
+    def test_resize_during_home_navigation_preserves_requested_slide(self):
+        self.page.emulate_media(reduced_motion='reduce')
+        self.page.goto(self.url + '/kozekilmu')
+        track = self.page.locator('#race-gallery')
+        track.scroll_into_view_if_needed()
+        self.page.get_by_role('button', name='View image 5', exact=True).click()
+        self.page.wait_for_function("Math.abs(document.querySelector('#race-gallery').scrollLeft - 4 * document.querySelector('#race-gallery').clientWidth) < 2")
+        self.page.emulate_media(reduced_motion='no-preference')
+        track.focus()
+        self.page.keyboard.press('Home')
+        self.page.wait_for_function("(() => { const el=document.querySelector('#race-gallery'); return el.scrollLeft < 3.8 * el.clientWidth && el.scrollLeft > el.clientWidth; })()")
+        self.page.set_viewport_size({'width': 850, 'height': 700})
+        self.page.wait_for_function("document.querySelector('#race-gallery').scrollLeft < 2", timeout=3000)
+        expect(self.page.locator('.gallery-count')).to_have_text('1 / 5')
+
     def test_gallery_native_fallback_and_reduced_motion(self):
         context = self.browser.new_context(java_script_enabled=False, viewport={'width': 375, 'height': 667})
         try:

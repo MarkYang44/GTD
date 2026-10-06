@@ -702,3 +702,12 @@ venv/bin/python scripts/update_lmu_calendar.py /absolute/path/to/candidate.json
 ```
 
 Files live in `data/lmu/calendar/`. Failed imports preserve valid data; successful week transitions archive the previous week. No automatic fetching, updating or scheduled jobs are configured. Fuel/pit results are estimates; car order is editorial advice. See the [calendar maintenance guide](docs/LMU_CALENDAR_MAINTENANCE.md) for the schema, complete example and test commands.
+
+
+## Desktop application
+
+The desktop edition preserves the downloader, subtitles/danmaku, local audio extraction, task history and every LMU page in a native window with a sidebar, English/Chinese and dark/light themes. macOS Apple Silicon uses `GTD.app`; Windows x64 uses the complete portable directory containing `GTD.exe`. Packaged use needs no Python or system media tools.
+
+Download the `GTD-windows-x64` artifact from GitHub Actions **Desktop Windows build**, extract its inner ZIP and run `GTD/GTD.exe`. Source builds use **Build Desktop.cmd** with Python 3.13 x64. See [desktop usage/build/validation](docs/DESKTOP.md).
+
+![GTD Desktop](docs/screenshots/gtd-desktop.png)

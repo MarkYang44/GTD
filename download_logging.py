@@ -12,7 +12,9 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
-PROJECT_DIR = Path(__file__).resolve().parent
+from gtd_paths import runtime_root, downloads_root
+
+PROJECT_DIR = runtime_root()
 SENSITIVE_KEYS = {
     "access_token",
     "api_key",
