@@ -13,7 +13,7 @@ class DesktopBuildTests(unittest.TestCase):
                 path = root / name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text('fixture')
-            actual = {str(source.relative_to(root)) for source, destination in public_resources(root)}
+            actual = {source.relative_to(root).as_posix() for source, destination in public_resources(root)}
             self.assertEqual(actual, set(allowed))
     def test_tools_required(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -24,8 +24,8 @@ class DesktopRealManifestTests(unittest.TestCase):
     def test_actual_release_snapshots_and_web_manifest_are_bundled(self):
         import json
         root = Path(__file__).resolve().parents[1]
-        resources = {str(source.relative_to(root)) for source, _ in public_resources(root)}
-        for release in json.loads((root / 'data/lmu/releases.json').read_text()):
+        resources = {source.relative_to(root).as_posix() for source, _ in public_resources(root)}
+        for release in json.loads((root / 'data/lmu/releases.json').read_text(encoding='utf-8')):
             self.assertIn('data/lmu/' + release['snapshot'], resources)
         self.assertIn('static/site.webmanifest', resources)
 

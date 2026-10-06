@@ -19,14 +19,14 @@ def public_resources(root=ROOT):
     for folder in ('templates', 'static', 'assets/fallback_covers'):
         for path in sorted((root / folder).rglob('*')):
             if path.is_file() and not path.is_symlink() and path.suffix.lower() in PUBLIC_EXTENSIONS and not any(p.startswith('.') for p in path.relative_to(root).parts):
-                result.append((path, str(path.relative_to(root).parent)))
+                result.append((path, path.relative_to(root).parent.as_posix()))
     for path in sorted((root / 'data/lmu').glob('*.json')):
         if path.name == 'releases.json' or path.name == 'baseline-import.json' or (path.name[0:4].isdigit() and len(path.name.split('.')) == 5):
             result.append((path, 'data/lmu'))
     for relative in ('data/lmu/calendar/current.json', 'data/lmu/calendar/schema.json', 'docs/WEB_GUIDE.md', 'docs/WEB_GUIDE.en.md', 'docs/DESKTOP.md', 'native/windows_folder_picker.cs', 'native/windows_folder_picker.manifest'):
         path = root / relative
         if path.is_file() and not path.is_symlink():
-            result.append((path, str(Path(relative).parent)))
+            result.append((path, Path(relative).parent.as_posix()))
     return result
 
 def validate_tools(directory, windows=None):
@@ -73,7 +73,7 @@ def build(tools_dir):
     with zip_path.open('rb') as archive:
         digest = hashlib.file_digest(archive, 'sha256').hexdigest()
     zip_path.with_suffix('.zip.sha256').write_text(f'{digest}  {zip_path.name}\n')
-    (ROOT / 'dist/resource-manifest.json').write_text(json.dumps([str(p.relative_to(ROOT)) for p, _ in resources], indent=2))
+    (ROOT / 'dist/resource-manifest.json').write_text(json.dumps([p.relative_to(ROOT).as_posix() for p, _ in resources], indent=2))
     print(zip_path)
 
 if __name__ == '__main__':
