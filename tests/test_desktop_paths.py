@@ -19,7 +19,7 @@ class DesktopPathsTests(unittest.TestCase):
 
     def test_initialization_preserves_edited_calendar_and_uses_private_tool_path(self):
         import gtd_paths
-        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {}, clear=True):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {}, clear=True), patch.object(Path, 'home', return_value=Path(tmp).resolve()):
             root=Path(tmp).resolve()
             initialized=gtd_paths.initialize_desktop(root)
             current=root/'data/lmu/calendar/current.json'

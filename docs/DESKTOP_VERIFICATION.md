@@ -37,6 +37,8 @@ codesign --verify --deep --strict dist/GTD.app
 
 本轮日志：`/tmp/gtd-desktop-delivery-unit.log`、`/tmp/gtd-browser-gallery-fix.log`、`/tmp/gtd-desktop-build-delivery.log`、`/tmp/gtd-delivery-proof/report.json`、`/tmp/gtd-window-smoke.json`、`/tmp/gtd-preferences-smoke.json`。临时文件可能被系统清理；本文件保留验证结论与复现方式。
 
-Windows 已核对依赖、下载来源及工具归档 SHA256，准备了 GitHub Actions Windows 构建与冻结自检流程。这里没有运行 Windows 原生窗口，实体机验收由用户执行，步骤见 DESKTOP.md。也没有把各外站真实下载成功率或 Cookie 权限当成跨平台打包验证结论；网络下载仍复用原有执行器和已通过的相关回归。
+Windows 已实际在 GitHub Actions 构建成功（3a9d1cc；运行 37529896544）：EXE/CLI、9 个页面、包内 FFmpeg/ffprobe 9.0.2、aria2 1.37.0、Node 22.16.0，以及 MP4 上传→MP3 提取→结果下载均通过冻结自检。便携包 Artifact 为 GTD-windows-x64（11444710414）。这里没有运行 Windows 原生窗口，实体机验收由用户执行，步骤见 DESKTOP.md。也没有把各外站真实下载成功率或 Cookie 权限当成跨平台打包验证结论；网络下载仍复用原有执行器和已通过的相关回归。
 
 源码上传目标：GitHub 的 codex/gtd-desktop 分支。macOS ZIP 不加入 Git 仓库；Windows 构建产物通过 Actions Artifact 获取，不自动发布 Release。
+
+Windows 首次资源审计因反斜杠路径与默认字符集失败，已修复为统一 POSIX 清单路径和明确 UTF-8；修复后 Windows 构建成功。原测试矩阵另发现缺少 FFmpeg、Windows 环境大小写差异及测试清空 HOME 的假设，已补齐 CI 工具依赖并修正测试隔离；后续 CI 状态以 GitHub 为准。

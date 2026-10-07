@@ -13,7 +13,10 @@ class DirectNetworkTests(TestCase):
     def test_process_and_child_environment_disables_stale_proxies(self):
         with patch.dict(os.environ, {'HTTPS_PROXY':'http://127.0.0.1:7897', 'http_proxy':'http://127.0.0.1:7897', 'ALL_PROXY':'socks5://127.0.0.1:7897'}, clear=True):
             configure_direct_network()
-            self.assertEqual(dict(os.environ), {'NO_PROXY':'*', 'no_proxy':'*'})
+            # Windows environment keys are case-insensitive; both spellings resolve.
+            self.assertEqual({key.lower(): value for key, value in os.environ.items()}, {'no_proxy':'*'})
+            self.assertEqual(os.environ.get('NO_PROXY'), '*')
+            self.assertEqual(os.environ.get('no_proxy'), '*')
 
     def test_video_and_preview_explicitly_override_environment_proxy(self):
         with patch.dict(os.environ, {'https_proxy':'http://127.0.0.1:7897'}):

@@ -742,6 +742,7 @@ def _is_cdn_transport_failure(error: Exception) -> bool:
             "connection broken",
             "forcibly closed",
             "remote host closed",
+            "remote end closed connection without response",
             "incomplete read",
             "远程主机强迫关闭",
         )

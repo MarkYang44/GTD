@@ -28,6 +28,27 @@ jobs:
           node-version: '22'
       - name: Install dependencies
         run: python -m pip install -r requirements.txt -r requirements-dev.txt
+      - name: Install FFmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ffmpeg
+      - name: Install verified media tools (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          @'
+          from pathlib import Path
+          from scripts.prepare_desktop_tools import windows
+          output = Path('tools/ci-bin')
+          for name in ('bin', 'notices'):
+              (output / name).mkdir(parents=True, exist_ok=True)
+          windows(output)
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw 'Verified media tool preparation failed' }
+          (Resolve-Path 'tools/ci-bin/bin').Path | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Verify FFmpeg and ffprobe
+        run: |
+          ffmpeg -version
+          ffprobe -version
       - name: Check dependency compatibility
         run: python -m pip check
       - name: Unit tests and JavaScript harnesses
