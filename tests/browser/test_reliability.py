@@ -259,10 +259,21 @@ class BrowserReliabilityTests(unittest.TestCase):
         details = self.page.locator('.circuit-card details[data-recommendations]').first
         summary = details.locator(':scope > summary')
         summary.scroll_into_view_if_needed()
+        body = details.locator('.recommendation-content')
+        # Pause the first animation as it is created, before any driver round trip.
+        # Otherwise a busy CI worker can finish all 260 ms before we inspect it.
+        body.evaluate("""el => {
+            const animate = el.animate;
+            el.animate = function (...args) {
+                delete this.animate;
+                const animation = animate.apply(this, args);
+                animation.pause();
+                animation.currentTime = 130;
+                return animation;
+            };
+        }""")
         summary.press('Enter')
         self.assertTrue(details.evaluate("el=>el.getAnimations({subtree:true}).some(a=>a.effect.getKeyframes().some(k=>'height' in k))"))
-        body = details.locator('.recommendation-content')
-        body.evaluate("el=>{const a=el.getAnimations()[0]; a.pause(); a.currentTime=130;}")
         middle = body.bounding_box()['height']
         self.assertGreater(middle, 0)
         self.assertLess(middle, body.evaluate('el=>el.scrollHeight'))
