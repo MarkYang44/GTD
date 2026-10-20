@@ -78,6 +78,7 @@ def classify_download_error(
             "connection broken",
             "forcibly closed",
             "remote host closed",
+            "remote end closed connection without response",
             "incomplete read",
             "远程主机强迫关闭",
         )

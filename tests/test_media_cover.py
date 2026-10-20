@@ -22,9 +22,9 @@ EXPECTED_ASSETS = {
 
 class FallbackCoverResourceTests(unittest.TestCase):
     def test_readme_documents_fallback_cover_contract(self):
-        readme = (Path(__file__).resolve().parent.parent / "README.md").read_text(
-            encoding="utf-8"
-        )
+        root = Path(__file__).resolve().parent.parent
+        readme = (root / "README.md").read_text(encoding="utf-8")
+        readme += (root / "docs/REFERENCE.md").read_text(encoding="utf-8")
         for statement in (
             "源封面始终优先，绝不会被兜底图片替换",
             "MP3、FLAC、M4A、OGG、Opus 和 MP4",

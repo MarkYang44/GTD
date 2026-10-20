@@ -759,65 +759,70 @@ class BilibiliTurboDownloadTests(unittest.TestCase):
         self.assertEqual(result["cdn_host"], "primary.example")
 
     def test_connection_reset_retries_a_backup_cdn(self):
-        info = {
-            "id": "BV1TEST",
-            "title": "Example",
-            "url": "https://primary.example/audio.m4s",
-            "filesize": 1024 * 1024 * 1024,
-            "ext": "m4a",
-            "_bilibili_cdn_candidates": (
-                "https://primary.example/audio.m4s",
-                "https://backup.example/audio.m4s",
-            ),
-        }
-        attempted_urls = []
-
-        def fake_attempt(prepared_info, options, output_dir):
-            attempted_urls.append(prepared_info["url"])
-            if len(attempted_urls) == 1:
-                raise downloader.yt_dlp.utils.DownloadError(
-                    "[WinError 10054] 远程主机强迫关闭了一个现有的连接"
-                )
-            return prepared_info, output_dir / "Example [BV1TEST].mp3"
-
-        with (
-            patch("downloader.aria2c_path", return_value=None),
-            patch(
-                "downloader._extract_bilibili_info",
-                return_value=(Mock(), info),
-            ),
-            patch(
-                "downloader.build_acceleration_plan",
-                return_value=downloader.AccelerationPlan(
-                    adaptive=True,
-                    cdn_host="primary.example",
-                    http_chunk_size=10 * 1024 * 1024,
-                ),
-            ),
-            patch(
-                "downloader._process_bilibili_attempt",
-                side_effect=fake_attempt,
-            ),
-            patch(
-                "downloader._rename_audio_output",
-                side_effect=lambda path, profile: path,
-            ),
-            patch("downloader._format_filesize", return_value="1000.00 MB"),
+        for error_message in (
+            "[WinError 10054] 远程主机强迫关闭了一个现有的连接",
+            "[download] Got error: Remote end closed connection without response. Giving up after 10 retries",
         ):
-            result = downloader.download_video(
-                "https://b23.tv/ofoghaj",
-                platform=downloader.BILIBILI,
-                media_type=downloader.AUDIO,
-            )
+            with self.subTest(error_message=error_message):
+                info = {
+                    "id": "BV1TEST",
+                    "title": "Example",
+                    "url": "https://primary.example/audio.m4s",
+                    "filesize": 1024 * 1024 * 1024,
+                    "ext": "m4a",
+                    "_bilibili_cdn_candidates": (
+                        "https://primary.example/audio.m4s",
+                        "https://backup.example/audio.m4s",
+                    ),
+                }
+                attempted_urls = []
 
-        self.assertEqual(
-            attempted_urls,
-            [
-                "https://primary.example/audio.m4s",
-                "https://backup.example/audio.m4s",
-            ],
-        )
-        self.assertEqual(result["cdn_host"], "backup.example")
+                def fake_attempt(prepared_info, options, output_dir):
+                    attempted_urls.append(prepared_info["url"])
+                    if len(attempted_urls) == 1:
+                        raise downloader.yt_dlp.utils.DownloadError(
+                            error_message
+                        )
+                    return prepared_info, output_dir / "Example [BV1TEST].mp3"
+
+                with (
+                    patch("downloader.aria2c_path", return_value=None),
+                    patch(
+                        "downloader._extract_bilibili_info",
+                        return_value=(Mock(), info),
+                    ),
+                    patch(
+                        "downloader.build_acceleration_plan",
+                        return_value=downloader.AccelerationPlan(
+                            adaptive=True,
+                            cdn_host="primary.example",
+                            http_chunk_size=10 * 1024 * 1024,
+                        ),
+                    ),
+                    patch(
+                        "downloader._process_bilibili_attempt",
+                        side_effect=fake_attempt,
+                    ),
+                    patch(
+                        "downloader._rename_audio_output",
+                        side_effect=lambda path, profile: path,
+                    ),
+                    patch("downloader._format_filesize", return_value="1000.00 MB"),
+                ):
+                    result = downloader.download_video(
+                        "https://b23.tv/ofoghaj",
+                        platform=downloader.BILIBILI,
+                        media_type=downloader.AUDIO,
+                    )
+
+                self.assertEqual(
+                    attempted_urls,
+                    [
+                        "https://primary.example/audio.m4s",
+                        "https://backup.example/audio.m4s",
+                    ],
+                )
+                self.assertEqual(result["cdn_host"], "backup.example")
 
     def test_http_503_retries_a_backup_cdn(self):
         info = {
@@ -951,7 +956,8 @@ class BilibiliSurfaceIntegrationTests(unittest.TestCase):
 
 class BilibiliDocumentationTests(unittest.TestCase):
     def test_readme_documents_audio_formats_covers_and_fallback(self):
-        readme = Path("README.md").read_text(encoding="utf-8")
+        readme = (Path("README.md").read_text(encoding="utf-8")
+                  + Path("docs/REFERENCE.md").read_text(encoding="utf-8"))
 
         required = [
             "MP3 V0 / 源 FLAC",
@@ -969,7 +975,8 @@ class BilibiliDocumentationTests(unittest.TestCase):
                 self.assertIn(text, readme)
 
     def test_readme_documents_bilibili_workflow_and_boundaries(self):
-        readme = Path("README.md").read_text(encoding="utf-8")
+        readme = (Path("README.md").read_text(encoding="utf-8")
+                  + Path("docs/REFERENCE.md").read_text(encoding="utf-8"))
 
         required = [
             "YouTube + Instagram + Bilibili",
@@ -1006,7 +1013,8 @@ class BilibiliDocumentationTests(unittest.TestCase):
 
 class CookieExtensionDocumentationTests(unittest.TestCase):
     def test_readme_documents_cookie_extension_install_and_export(self):
-        readme = Path("README.md").read_text(encoding="utf-8")
+        readme = (Path("README.md").read_text(encoding="utf-8")
+                  + Path("docs/REFERENCE.md").read_text(encoding="utf-8"))
         cookie_section = readme.split(
             "## 六、需要登录时配置 Cookie",
             maxsplit=1,
@@ -1059,7 +1067,8 @@ class ShareTextSurfaceTests(unittest.TestCase):
 
     def test_page_and_readme_explain_share_text_input(self):
         html = frontend_template_source()
-        readme = Path("README.md").read_text(encoding="utf-8")
+        readme = (Path("README.md").read_text(encoding="utf-8")
+                  + Path("docs/REFERENCE.md").read_text(encoding="utf-8"))
 
         self.assertGreaterEqual(html.count("链接或平台分享文案"), 2)
         self.assertIn("可以直接粘贴平台生成的分享文案", readme)

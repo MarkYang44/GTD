@@ -1,696 +1,227 @@
-# GTD
+<p align="center">
+  <img src="static/icons/android-chrome-192x192.png" width="88" alt="GTD 图标">
+</p>
 
-**中文** | [English](README.en.md)
+<h1 align="center">GTD</h1>
 
-**Generalized Transmedia Downloader**
+<p align="center"><strong>Generalized Transmedia Downloader</strong><br>多平台媒体下载、本地音频提取与 LMU 赛事工具。</p>
 
-GTD stands for Generalized Transmedia Downloader.
+<p align="center"><strong>简体中文</strong> · <a href="README.en.md">English</a></p>
 
-A multi-platform media downloader designed for downloading and processing media from multiple online platforms.
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&amp;logoColor=white" alt="Python 3.10+">
+  <img src="https://img.shields.io/badge/Interface-Web%20%2B%20CLI-008C88" alt="Web 与 CLI">
+  <img src="https://img.shields.io/badge/Language-中文%20%7C%20English-59636E" alt="中文与 English">
+</p>
 
-YouTube + Instagram + Bilibili 视频与多格式音频批量下载工具，同时支持从本地视频提取音频。
+GTD 基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp)、Flask 和 FFmpeg，为 YouTube、Instagram 与 Bilibili 提供统一的批量下载流程。通过浏览器管理任务，或从命令行直接下载；本地视频也可独立提取音轨。附带的 Le Mans Ultimate 内容区提供赛道指南、车型图鉴、赛前策略和人工维护的每周赛历。
 
-这是一个基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 的程序，支持**命令行**和**网页**两种使用方式。它可以在同一批任务中自动识别 YouTube、Instagram 和 Bilibili 链接，预览播放列表、合集与分 P，既能下载视频，也能按用户选择输出 **MP3 V0 / 源 FLAC / 原始音频 / WAV PCM**。下载位置可手动输入或通过系统界面选择；不配置时仍保存到项目内的 `downloads/` 文件夹。
+**运行方式：源码启动 Web / CLI，适用于 macOS 与 Windows。** 安装 Python 依赖和媒体工具后即可使用。
 
-网页另提供独立的本地视频音频提取页，可上传视频并输出原始音轨或 MP3 V0，复用现有任务队列。
+[完整使用参考](docs/REFERENCE.md) · [网页使用指南](docs/WEB_GUIDE.md) · [赛历维护](docs/LMU_CALENDAR_MAINTENANCE.md) · [LMU 内容维护](docs/LMU_CONTENT_MAINTENANCE.md) · [问题反馈](https://github.com/MarkYang44/GTD/issues)
 
-## 功能
+## 功能概览
 
-- 一次输入多个 YouTube、Instagram 与 Bilibili 链接
-- Web 所有批次共用最多 3 个工作槽（包括本地音频提取），CLI 每批最多同时处理 3 项；Instagram 在 Web 跨批次及 CLI 每批均最多同时下载 1 项，超过上限自动排队
-- 三个平台的链接可以任意混合，程序自动识别平台
-- 提交前预览并选择播放列表、合集与分 P 条目；每批最多选择 100 项，单次预览最多汇总前 1000 项并明确提示截断
-- YouTube 自动选择可用的最高画质与最高音质
-- 音频模式选择源站可获取的最高质量音轨，可输出 MP3 V0、真实源 FLAC、原始音频或 WAV PCM
-- 链接下载的音频与 MP4 视频优先嵌入源封面；源站无封面时随机使用内置兜底图
-- Instagram 支持 Reels、视频帖子、IGTV 和有效期内的 Stories
-- Bilibili 支持 `BV`、`av`、移动端视频、分 P 链接和 `b23.tv` 短链接
-- Bilibili 大于 50 MiB 的文件可在源站返回的最多 4 个 CDN 主机间自适应测速；aria2c 极速模式为可选功能
-- 使用 FFmpeg 合并音视频并输出 MP4，或处理 MP3 / FLAC / WAV 音频
-- **命令行模式**：交互式输入和命令行参数两种运行方式
-- **网页模式**：视频与音频使用两个独立输入区，支持合集选择、取消、重试与重新下载，并实时显示任务状态、下载速度和预计剩余时间
-- **本地视频提取音频**：独立页面上传/拖放视频，提取原始音轨或转换 MP3 V0，显示上传和处理进度，支持结果下载
-- **全站语言切换**：下载首页、使用说明、视频提取音频、赛道指南、冠军档案、车型图鉴、赛前策略、内容更新共享中英文开关，浏览器记住选择并跨页面生效
-- **深浅主题**：默认深色，可用全局滑块切换浅色；保留马石油绿点缀和花体标题，偏好跨页面保存
-- **自定义下载位置**：CLI 与 Web 均可输入路径；Windows 使用预编译并缓存的 DPI-aware 现代资源管理器式文件夹窗口，macOS 使用系统文件夹选择器，留空保持使用 `downloads/`
-- 单个链接下载失败时继续处理后续任务
-- 错误使用稳定错误码和可执行建议；脱敏 JSONL 日志自动轮转
-- 支持通用或平台专用 Cookie 文件
-- 下载完成后显示成功、失败及文件路径汇总
+| 模块 | 能力 |
+| --- | --- |
+| 多平台下载 | 混合提交 YouTube、Instagram、Bilibili 链接或分享文案，自动识别平台；支持播放列表、合集和分 P 预览与选择 |
+| 视频与音频 | 下载最高可用质量的视频与音轨；视频默认输出 MP4，音频可选 MP3 V0、源 FLAC、原始音频或 WAV PCM；支持封面写入与缺失封面兜底 |
+| 字幕与弹幕 | 可选下载人工字幕、自动字幕及 Bilibili 弹幕，封装为可切换的 MKV 轨道 |
+| 任务管理 | 显示进度、速度、预计剩余时间与结构化错误；支持取消、重试、重新下载和持久化历史 |
+| 本地音频提取 | 上传或拖放本地视频，提取原始音轨或转换为 MP3 V0，并下载处理结果 |
+| LMU 内容工具 | 赛道指南、车型图鉴、收藏与对比、练习笔记、燃油和进站估算、内容修订记录、每周赛历及冠军档案 |
+| 界面与输出 | 中英文、深浅主题跨页面保存；支持自定义输出路径和 macOS / Windows 原生文件夹选择器 |
 
+所有 Web 批次共用最多 **3 个工作槽**，本地音频提取也使用该队列；Bilibili 最多同时下载 **2 项**，Instagram 最多 **1 项**。CLI 每批采用相同并发上限。每批最多选择 100 项，合集预览最多列出前 1000 项并提示截断。
 
-### 字幕与 Bilibili 弹幕
+## 快速开始
 
-视频区提供 **下载字幕**、**包含自动字幕** 和独立的 **Bilibili 弹幕** 开关，默认全部关闭。自动字幕需先开启下载字幕。开启任一功能时输出 **MKV**；字幕与弹幕作为独立可关闭轨道写入，可在 **IINA → 字幕** 原生菜单中选择（每次一条）。关闭所有选项时保持原有 MP4 输出；音频下载不使用这些选项。
+### 1. 准备环境
 
-只下载源站实际提供且当前登录权限可访问的字幕，不保证每个视频都有字幕；自动字幕可能有识别错误。弹幕仅适用于 Bilibili，并转换为 ASS 轨道。无法提取已经烧录在画面中的硬字幕。完成结果会显示轨道状态和获取失败提示，视频下载成功不代表字幕一定可用。 人工字幕最多 24 条，自动字幕优先原语言及中英文、最多 8 条；弹幕最多处理 20,000 条普通滚动、逆向、顶部或底部文字，高级脚本弹幕不支持。MKV 封装失败时保留原视频并提示，不会将失败伪报为内嵌成功。
+| 依赖 | 用途 |
+| --- | --- |
+| Python 3.10+ 与 pip | 运行 Web 服务和命令行工具 |
+| FFmpeg 与 ffprobe | 音视频合并、媒体检查、音频转换与提取 |
+| aria2c（可选） | Bilibili 极速模式；未安装时仍可使用标准下载 |
+| Node.js 22（开发检查） | 运行 JavaScript 回归脚本 |
 
-命令行仅视频模式可用：`--subtitles` 下载字幕，`--auto-subtitles` 同时请求自动字幕（隐含 `--subtitles`），`--danmaku` 请求 Bilibili 弹幕。例如：
+macOS 可通过已安装的 Homebrew 准备媒体工具：
 
 ```bash
-python main.py --subtitles --auto-subtitles --danmaku "https://www.bilibili.com/video/BV1xRuu6fEeA"
+brew install ffmpeg
+# 可选
+brew install aria2
 ```
 
+Windows 请从 [Python 官网](https://www.python.org/downloads/windows/) 安装 Python，并按 [FFmpeg 下载页](https://ffmpeg.org/download.html) 的 Windows 链接安装包含 `ffmpeg.exe` 和 `ffprobe.exe` 的发行版，将其 `bin` 目录加入 `PATH`。安装后重新打开终端，确认以下命令可用：
 
-## 目录结构
-
-主要文件与目录（省略部分内部辅助模块）：
-
-```text
-GTD/
-├── main.py                      # 命令行入口
-├── app.py                       # Web 服务入口
-├── downloader.py                # 通用下载核心逻辑（main.py 与 app.py 共用）
-├── media_cover.py               # 最终媒体封面检测与随机兜底写入
-├── bilibili_acceleration.py     # Bilibili CDN 测速、缓存与极速模式策略
-├── collection_resolver.py       # 播放列表、合集与分 P 预览/选择
-├── task_control.py              # Web 共享队列、取消、重试与重新下载
-├── task_history.py              # SQLite 任务历史
-├── audio_output.py              # 音频格式和后处理配置
-├── local_audio.py               # 本地视频暂存、FFprobe 检查与 FFmpeg 提取
-├── audio_extract_routes.py      # 本地视频上传、提取历史与结果下载 API
-├── download_errors.py           # 结构化错误码与用户建议
-├── download_logging.py          # 脱敏 JSONL 轮转日志
-├── folder_picker.py             # Windows / macOS 原生文件夹选择器
-├── guide_renderer.py            # 项目内网页说明 Markdown 安全渲染器
-├── assets/fallback_covers/      # 6 张内置封面兜底图片
-├── docs/
-│   ├── WEB_GUIDE.md             # 中文网页使用说明
-│   └── WEB_GUIDE.en.md          # 英文网页使用说明
-├── templates/
-│   ├── index.html               # Web 主界面
-│   ├── guide.html               # Web 使用说明页面
-│   ├── extract_audio.html       # 本地视频提取音频页面
-│   ├── kozekilmu_tracks.html    # LMU 赛道指南
-│   └── kozekilmu.html           # LMU 冠军档案
-├── static/css/                  # 共用样式、主题和页面样式
-├── static/js/                   # 语言、主题、动画及页面交互
-├── tests/                       # 单元、JS 与浏览器回归测试
-├── requirements.txt             # 固定直接依赖基线
-├── requirements-dev.txt         # 浏览器测试依赖
-├── requirements-update.txt      # 可选 yt-dlp 上游更新通道
-├── README.md                    # 中文说明
-├── README.en.md                 # 英文说明
-├── cookies.txt                  # 可选：通用 Cookie
-├── youtube_cookies.txt          # 可选：YouTube 专用 Cookie
-├── instagram_cookies.txt        # 可选：Instagram 专用 Cookie
-├── bilibili_cookies.txt         # 可选：Bilibili 专用 Cookie
-├── downloads/                   # 默认下载与提取输出目录，自动创建
-├── state/                       # tasks.sqlite3 任务历史及 audio_uploads 暂存
-└── logs/                        # 首次记录任务事件时自动创建
+```bash
+ffmpeg -version
+ffprobe -version
 ```
 
-Cookie 文件均为可选文件，不配置时无需创建。平台专用 Cookie 的优先级高于 `cookies.txt`。
-
-## 一、准备运行环境
-
-需要安装：
-
-- Python 3.10 或更高版本
-- pip
-- FFmpeg 和 ffprobe（通常随 FFmpeg 一同安装）
-
-先将本项目下载或克隆到本机，然后在终端中进入项目根目录：
+### 2. 获取源码并安装依赖
 
 ```bash
 git clone https://github.com/MarkYang44/GTD.git
 cd GTD
 ```
 
-如果项目已经位于本机，下面的路径只是示例，请替换为项目在你电脑上的实际位置。
-
-macOS（Terminal）：
-
-```bash
-cd /path/to/GTD
-```
-
-Windows（PowerShell）：
-
-```powershell
-cd "C:\path\to\GTD"
-```
-
-> 路径中包含空格时，macOS 和 Windows 都应使用引号包住完整路径。
-
-确认 Python 版本：
-
-macOS：
-
-```bash
-python3 --version
-python3 -m pip --version
-```
-
-Windows（PowerShell）：
-
-```powershell
-python --version
-python -m pip --version
-```
-
-创建并启用虚拟环境：
-
 macOS：
 
 ```bash
 python3 -m venv venv
 source venv/bin/activate
-```
-
-Windows PowerShell：
-
-```powershell
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-```
-
-如果 Windows PowerShell 的执行策略不允许运行激活脚本，可以不激活虚拟环境，直接使用其中的 Python：
-
-```powershell
-.\venv\Scripts\python.exe -m pip --version
-```
-
-安装 Python 依赖：
-
-macOS（已激活虚拟环境）：
-
-```bash
 python -m pip install -r requirements.txt
 ```
 
-Windows PowerShell（无需激活虚拟环境）：
+Windows PowerShell：
 
 ```powershell
+py -3 -m venv venv
 .\venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-`requirements.txt` 会同时安装 yt-dlp 和 `mutagen`；后者用于检测并写入 MP3、FLAC、M4A/MP4、OGG 与 Opus 的封面元数据。请通过依赖文件安装，不要只单独安装 yt-dlp。
+Windows 无须修改 PowerShell 执行策略或激活虚拟环境。下文命令中的 `python`，在未激活环境时替换为 `.\venv\Scripts\python.exe`；macOS 对应 `venv/bin/python`。
 
-默认依赖固定为 yt-dlp `2026.7.4`、Flask `3.1.3` 和 Mutagen `1.48.1`。这是直接依赖的版本基线；间接依赖仍由 pip 按 Python 版本与操作系统解析，不是完整的跨平台锁文件。Python 低于 3.10 时，Web 和命令行入口会提示升级；升级后请重新创建虚拟环境。
+直接依赖以 [requirements.txt](requirements.txt) 为准，间接依赖由 pip 按系统与 Python 版本解析。请安装完整依赖文件，以包含封面处理及 Windows 时区数据等依赖。
 
-如果平台改版导致解析失败，可主动安装 yt-dlp 的上游开发版本：
-
-```bash
-python -m pip install --upgrade --force-reinstall --no-cache-dir -r requirements-update.txt
-```
-
-该通道会随上游变化，可能与基线行为不同。恢复基线可运行 `python -m pip install --force-reinstall -r requirements.txt`。更新或恢复后需重启 Web 服务。
-
-后续示例默认虚拟环境已经启用，因此统一使用 `python`。如果 Windows PowerShell 未启用虚拟环境，请将示例开头的 `python` 替换为 `.\venv\Scripts\python.exe`，例如使用 `.\venv\Scripts\python.exe app.py` 启动网站。
-
-## 二、安装 FFmpeg
-
-FFmpeg 用于合并最高质量的视频流和音频流、封装 MP4，以及处理 MP3、FLAC、原始音轨封装、WAV 和封面。没有 FFmpeg 时部分音视频输出无法完成；本地视频提取页同时需要 ffprobe 识别音轨。
-
-macOS：
-
-```bash
-brew install ffmpeg
-ffmpeg -version
-```
-
-Ubuntu / Debian：
-
-```bash
-sudo apt update
-sudo apt install ffmpeg
-ffmpeg -version
-```
-
-Windows：
-
-1. 从 [FFmpeg 下载页](https://ffmpeg.org/download.html)下载 Windows 版本。
-2. 解压后将 `bin` 目录加入系统 `PATH`。
-3. 重新打开 PowerShell 并运行 `ffmpeg -version` 验证安装。
-
-无论使用哪个系统，都应确认 `ffmpeg -version` 和 `ffprobe -version` 能在启动服务的同一终端正常运行；本地视频提取缺少任一程序都会返回 `FFMPEG_MISSING`。
-
-### 可选：安装 aria2c 极速模式
-
-标准模式不需要 aria2c。macOS 用户如需启用 Bilibili“极速模式”，可安装：
-
-```bash
-brew install aria2
-aria2c --version
-```
-
-Windows PowerShell 可将官方 Windows 版本安装到项目本地目录，无需修改系统 `PATH`：
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install_aria2_windows.ps1
-```
-
-项目会依次检测 `MVD_ARIA2C_PATH`、`ARIA2C_PATH`、项目本地
-`tools\aria2\aria2c.exe`、系统 `PATH`、WinGet Links、WinGet 实际包目录和
-Scoop shims。Web 服务安装后需要重启，页面才会重新读取能力状态。
-
-未安装或 aria2c 运行失败时，程序会自动切换回标准模式；YouTube 和 Instagram 不使用该加速器。
-
----
-
-## 三、命令行模式
-
-### 方式 A：交互式批量输入
-
-在项目目录并启用虚拟环境后运行（macOS 和 Windows 通用）：
-
-```bash
-python main.py
-```
-
-程序会先要求选择下载类型：直接回车或输入 `1` 下载视频，输入 `2` 下载音频。选择音频后，可继续选择 MP3 V0、源 FLAC、原始音频或 WAV PCM；随后可保留默认 `downloads/`、手动输入路径，或在 Windows/macOS 上打开系统文件夹选择器。最后逐行请求链接，YouTube、Instagram 与 Bilibili 链接可以交替输入。
-
-可以直接粘贴平台生成的分享文案，每行仍表示一个任务。程序会自动忽略标题并提取其中的第一个 HTTP(S) 链接，例如：
-
-```text
-【【梗百科】不X你们X什么是啥梗？！】https://www.bilibili.com/video/BV1xRuu6fEeA?vd_source=c29bf1bb20fc12664dae270045332759
-```
-
-```text
-链接 1（空行结束）: https://www.youtube.com/watch?v=xxxx
-链接 2（空行结束）: https://www.instagram.com/reel/yyyy/
-链接 3（空行结束）: https://www.bilibili.com/video/BV1GJ411x7h7
-链接 4（空行结束）:
-```
-
-输入最后一个链接后，再按一次回车提交空行。若检测到播放列表、合集或分 P，程序会先显示有序条目；输入 `all`、`1,3-5` 等选择（最多 100 项），再检查任务并在 `开始下载？(Y/n):` 后直接按回车或输入 `y`。
-
-### 方式 B：通过命令行一次传入多个链接
-
-下载视频（默认行为）：
-
-macOS：
-
-```bash
-python main.py \
-  "https://www.youtube.com/watch?v=xxxx" \
-  "https://www.instagram.com/reel/yyyy/" \
-  "https://www.bilibili.com/video/BV1GJ411x7h7?p=2"
-```
-
-Windows PowerShell：
-
-```powershell
-python main.py `
-  "https://www.youtube.com/watch?v=xxxx" `
-  "https://www.instagram.com/reel/yyyy/" `
-  "https://www.bilibili.com/video/BV1GJ411x7h7?p=2"
-```
-
-只下载最高可用音质并转换为 MP3：
-
-macOS：
-
-```bash
-python main.py --audio \
-  "https://www.youtube.com/watch?v=xxxx" \
-  "https://www.instagram.com/reel/yyyy/" \
-  "https://b23.tv/BV1GJ411x7h7"
-```
-
-Windows PowerShell：
-
-```powershell
-python main.py --audio `
-  "https://www.youtube.com/watch?v=xxxx" `
-  "https://www.instagram.com/reel/yyyy/" `
-  "https://b23.tv/BV1GJ411x7h7"
-```
-
-请求保留源 FLAC（仅在源站确实提供 FLAC 时输出无损文件）：
-
-```bash
-python main.py --audio --flac "https://www.bilibili.com/video/BV1fsTM6CE9P"
-```
-
-如果该内容没有 FLAC 音轨，任务不会失败，而是显示“源站未提供 FLAC，已自动回退至 MP3 V0”并输出 MP3 V0。
-
-使用统一的 `--audio-format` 参数选择四种音频输出：
-
-```bash
-python main.py --audio --audio-format mp3 "https://youtu.be/xxxx"
-python main.py --audio --audio-format flac "https://www.bilibili.com/video/BV1fsTM6CE9P"
-python main.py --audio --audio-format source "https://youtu.be/xxxx"
-python main.py --audio --audio-format wav "https://youtu.be/xxxx"
-```
-
-`source` 保留 yt-dlp 选中源音轨的实际编码与扩展名；`wav` 解码为未压缩 PCM，文件通常明显更大，但不会让有损源恢复为无损音质。旧命令 `--audio --flac` 仍然兼容，等价于 `--audio --audio-format flac`。
-
-通过参数指定下载位置（路径不存在时会自动创建）：
-
-macOS：
-
-```bash
-python main.py --output-dir "$HOME/Movies/GTD" "https://youtu.be/xxxx"
-```
-
-Windows PowerShell：
-
-```powershell
-python main.py --output-dir "D:\Media\GTD" "https://youtu.be/xxxx"
-```
-
-`--download-dir` 是 `--output-dir` 的等价别名。相对路径以项目根目录为基准；路径必须可创建且可写。省略参数或传入空值时，默认位置保持为项目内的 `downloads/`。
-
-下载播放列表、合集或 Bilibili 分 P 时，命令行参数模式必须明确指定条目：
-
-```bash
-# 下载前 5 项
-python main.py --items 1-5 "https://www.youtube.com/playlist?list=xxxx"
-
-# 下载全部可用项；超过 100 项时会拒绝并要求缩小范围
-python main.py --audio --audio-format source --items all \
-  "https://www.bilibili.com/video/BVxxxxxxxxxx"
-```
-
-为 Bilibili 视频启用可选极速模式：
-
-```bash
-python main.py --turbo "https://www.bilibili.com/video/BV1xRuu6fEeA"
-```
-
-为 Bilibili MP3 音频启用可选极速模式：
-
-```bash
-python main.py --audio --turbo "https://www.bilibili.com/video/BV1xRuu6fEeA"
-```
-
-命令行参数模式不再二次确认，会立即开始下载。合集未带 `--items` 时会停止并给出中文提示，避免意外下载整个列表。`--flac` 与 `--audio-format` 只能和 `--audio` 一起使用；`--audio`、`--audio-format`、`--output-dir`、`--items` 与 `--turbo` 建议放在 URL 前面。未带 `--turbo` 时始终使用标准模式。始终用引号包住链接和包含空格的目录，避免特殊字符被终端解释。macOS 终端使用反斜杠 `\` 续行，Windows PowerShell 使用反引号 `` ` `` 续行；也可以将整条命令写在同一行。
-
-### 查看下载结果
-
-任务结束后，视频汇总会显示平台、标题、分辨率、文件大小和保存路径；音频汇总会显示实际输出格式、源编码/码率、是否发生 FLAC 回退、文件大小和保存路径。未自定义位置时，文件保存在项目根目录下的 `downloads/`：
-
-```text
-GTD/
-└── downloads/
-```
-
-若其中一个链接失败，程序仍会继续下载剩余链接，并在最终汇总中列出失败项。
-
----
-
-## 四、网页模式
-
-除了命令行外，你也可以通过本地浏览器界面操作。
-
-### 启动 Web 服务
-
-在项目目录并启用虚拟环境后运行（macOS 和 Windows 通用）：
+### 3. 启动网页
 
 ```bash
 python app.py
 ```
 
-启动后会显示：
+打开 **[http://127.0.0.1:8233](http://127.0.0.1:8233)**，在视频或音频区逐行粘贴链接。合集会先显示选择面板，提交后即可查看进度。默认输出到项目内 `downloads/`，也可在网页中选择其他目录。终端按 `Ctrl+C` 停止服务。
 
-```text
-========================================================
-  🎬 GTD — Generalized Transmedia Downloader — Web 模式
-========================================================
-  本机访问:    http://127.0.0.1:8233
-  局域网访问:  http://<本机局域网 IP>:8233
-  默认下载目录: /项目实际路径/GTD/downloads
-  按 Ctrl+C 停止服务
-========================================================
-```
+> 服务默认监听 `0.0.0.0:8233`，没有登录验证。同一局域网内能够连接该端口的设备可提交任务并访问结果；仅在可信网络使用，不要将端口映射到公网。远程访问时，文件夹选择器操作的是运行服务的电脑。
 
-### 浏览器中访问
+## 命令行使用
 
-在运行服务的电脑上访问 **http://127.0.0.1:8233**。
-
-同一局域网内的其他设备访问 **http://<本机局域网 IP>:8233**。可以在 Mac 终端执行 `ipconfig getifaddr en0` 查询 Wi-Fi 的局域网 IP；如果 macOS 防火墙询问是否允许 Python 接收入站连接，请选择允许。访客网络或启用了客户端隔离的 Wi-Fi 可能禁止设备之间互访。
-
-> Web 服务未提供登录验证。局域网中能够连接服务电脑的设备都可以提交下载/提取任务并访问任务结果；不要将 8233 端口映射到公网。
-
-主页面右上角的 **“使用说明”** 可打开 `/guide`，查看专门面向网页操作整理的精简文档。所有页面右上角的人物图标和下载首页下方的人物图标都链接到 `/kozekilmu/tracks`；赛道指南内可切换至冠军档案 `/kozekilmu`。
-
-### LMU 内容工具
-
-打开 `/kozekilmu/tracks`，可浏览 18 条赛道（含亚特兰大之路与长滩），并按赛道英文名称、中文别名或所在地搜索，再组合使用组别、车型和收藏筛选。搜索忽略大小写及重音符号。每条赛道、每个组别保留 3 辆常规推荐，并另列 1 辆 **Sleeper 之选**；Sleeper 可与前三重叠，也参与筛选、收藏和对比。
-
-点击星标收藏赛道或车型；车型收藏会同步显示在各赛道的推荐中。收藏保存在当前浏览器，同源标签页同步，不跨设备同步；浏览器禁止存储时仅在当前页面有效。
-
-展开车型推荐，添加 2–3 项后点击右下角 **并排对比**。对比保留各自的赛道背景、推荐理由与注意事项，同一车型在不同赛道也可加入。筛选不会清空收藏或对比选择；对比选择刷新后重置。内容复用现有指南，不代表实时圈速排名。
-
-### 车型图鉴与赛前策略
-
-**车型图鉴**（`/kozekilmu/cars`）独立展示 V1.4.2 当前收录的 24 辆 Hypercar／LMGT3、优点、注意事项和推荐它的赛道；常规与 Sleeper 推荐理由直接复用赛道指南。可按名称、组别、车型和收藏筛选，选 2–3 台并排比较。车型收藏与赛道指南共用浏览器存储，对比选择仅保留在当前页面。
-
-**赛前策略**（`/kozekilmu/strategy`）输入比赛时长（分钟）、平均圈速（秒或 `m:ss`）、每圈油耗（L）。空项分别采用 **30 分钟、120 秒/圈、3 L/圈**，结果会标明使用了哪些默认值；非空无效输入会提示纠正。有效范围为 1–1440 分钟、10–1800 秒/圈、0.01–100 L/圈。
-
-计算方式：时长 ÷ 圈速向上取整，再加 1 圈；基础燃油 = 规划圈数 × 每圈油耗。常规方案预留 5%，保守方案预留 10%，两者至少留 1 圈油耗。加上暖胎圈耗油后，总量向上取整至 0.1 L。
-
-展开高级参数可填写油箱容量（默认 **100 L**，范围 0.1–1000）、暖胎圈总耗油（**3 L**，0–1000）、加油速度（**2 L/秒**，0.01–100）和每次固定进站损失（**25 秒**，0–3600）。这些是通用假设，不是车型规格；无暖胎圈时填 0，固定损失不包含加油时间。全空得到 **16 圈，常规 54 L／保守 55.8 L，均无需加油进站**。页面标明每个默认参数。
-
-两套方案显示全场预算、起步油量、加油进站次数、累计损失，以及各次建议进站圈次和补入油量。安全余量视为可能的额外消耗，均摊到每圈规划油耗，并非保证冲线时剩余的油量。按整圈安排进站，起步油量不超过油箱容量；油箱不足以容纳暖胎圈与第一圈预算时会提示无法生成方案。明细同时提供出站目标油量与预计补油量；实际补油应取目标油量减去仪表当前余油（最小为 0），预计补油及损失按含余量的规划油耗计算。每次损失 = 固定损失 + 加油量 ÷ 加油速度，不因此减少规划圈数。明细最多展示前 20 次进站，合计包含全部进站。
-
-计算在浏览器本地完成，未模拟赛事强制进站、换胎与维修、车手时限、天气、节油或同时作业，也不是最低用时优化。显示油量为近似值，请按实际练习数据、车辆加油设置精度与赛事规则调整。
-
-### 内容版本与练习笔记
-
-赛道指南和车型图鉴中，每条赛道／车型都可展开 **练习要点与心得**，查看来源摘要、据资料整理的练习方法、来源链接和核验日期。车型资料来自逐车驾驶指南，赛道练习依据官方特性介绍整理；这些内容不是本站实测。
-
-每条常规及 Sleeper 推荐另有 **推荐来源与适用版本**。当前适用游戏版本均标为 **未验证**；来源核验日期只表示读过资料，不等于圈速、BoP 验证或实测排名。官方 V1.4.2 更新说明作为本次核对参考，历史驾驶指南可能不适用于现行物理版本。
-
-导航中的 **内容更新**（`/kozekilmu/updates`）按本地内容快照显示各次更新与字段前后差异；内容版本独立于游戏版本。更新流程、来源边界和发布命令见 [内容维护说明](docs/LMU_CONTENT_MAINTENANCE.md)。没有后台定时抓取或自动修改推荐。
-
-### 从本地视频提取音频
-
-在首页点击 **本地视频提取音频**，或打开 `/extract-audio`。拖放或选择一个本地视频（单文件最大 2 GiB），选择 **原始音轨** 或 **MP3 V0** 后点击提取。原始音轨直接复制音频流，不重新编码；优先使用默认音轨，否则使用第一条音轨。AAC 通常输出 M4A，其他扩展名由编码决定，不会因提取而提升源音质。支持 MP4/MOV、MKV/WebM、AVI、MPEG-TS/MPEG、FLV、ASF、Ogg 等容器；文件必须实际包含视频和音频流，多音轨当前仅提取一条。此功能不使用链接下载的封面补全流程，也不保留视频章节等元数据。
-
-页面分别显示上传与处理进度，复用下载任务队列、取消/重试和历史记录。输出保存到默认 `downloads`，完成后也可点击 **下载音频**。文件名包含原视频名与上传标识，例如 `clip [local-xxxxxxxxxxxx].m4a`；同一任务再次输出时使用递增后缀避免覆盖。提取页历史只列本地提取任务；下载首页共享历史也可查看这些任务及其下载链接。上传副本在 `state/audio_uploads` 暂存 24 小时，过期且不在运行/排队中的副本会在服务启动、上传或刷新提取历史时清理；过期后重试需要重新上传。暂存上限 8 GiB / 256 个文件。源视频不会被修改，已完成的输出不会自动删除。
-
-### 切换网页语言
-
-下载首页（`/`）、使用说明（`/guide`）、视频提取音频（`/extract-audio`）、赛道指南（`/kozekilmu/tracks`）、冠军档案（`/kozekilmu`）、车型图鉴（`/kozekilmu/cars`）、赛前策略（`/kozekilmu/strategy`）与内容更新（`/kozekilmu/updates`）共用右上角的 **中文 / EN** 开关。浏览器会保存语言偏好，跳转页面或刷新后继续使用所选语言；切换时保留已输入链接与当前下载任务。开关控制网站文案，源内容标题、文件名与第三方原始错误详情保持原样；命令行界面不受影响。
-
-右上角的 **深色 / 浅色** 滑块可切换主题：默认使用深色，浅色采用简约白色与浅灰背景，两种主题均保留马石油绿点缀。主题选择独立于语言设置，浏览器会记住并跨页面、标签页同步。
-
-README 使用独立 Markdown 文件，在顶部点击 **中文 | English** 即可切换完整中文与英文版本。
-
-### 网页操作流程
-
-1. 下载视频时，在 **“最高画质视频”** 区块粘贴链接或分享文案；只需要音频时，在独立的 **“最高音质音频”** 区块操作。
-2. 音频可选 **MP3 V0**、**源 FLAC**、**原始音频**或 **WAV PCM**。原始音频的扩展名取决于源流；WAV 文件较大且不会提升源音质；源站没有 FLAC 时会自动回退 MP3 V0。
-3. 在对应区块的 **“下载位置”** 中手动输入 Windows 或 macOS 文件夹路径，也可点击 **“选择文件夹”** 打开运行 Web 服务的这台电脑上的系统选择器；留空则继续使用页面提示的默认 `downloads/`。
-4. 点击下载后，系统先读取输入。单条内容保持一键提交；播放列表、合集与分 P 会显示共享预览面板，可勾选条目、全选并查看计数，一次最多提交 100 项。
-5. 视频卡片与音频卡片各有独立的 **“极速模式”** 开关。检测不到 aria2c 时，开关会禁用；该开关只用于 Bilibili。
-6. 后端所有批次共用最多 3 个工作槽，其中 Bilibili 最多同时运行 2 项，Instagram 最多同时运行 1 项。超过上限的任务保持“等待中”，有空位后自动开始。
-7. 下方任务列表会显示等待、下载、不可中断的极速下载、完成、失败和已取消状态，并显示下载速度、预计剩余时间、进度、输出规格及保存路径。
-8. 失败任务显示稳定的 `error_code`，以及当前网页语言的说明和建议；每次尝试可展开查看状态和时间。
-9. 可取消等待中或标准下载任务；失败/取消后可重试，批次中可一次重试所有可重试失败项；完成后可重新下载并保留旧文件。
-10. 每个输入区都有独立的 **“清空输入”**。任务会保持本批次选择的下载位置，重试和重新下载不会退回默认目录。
-
-> 下载位置的文件夹选择器只会在运行 Flask 的 Windows/macOS 电脑上弹出；其他设备访问时，选择的仍是服务端目录。系统选择器不可用时可手动输入服务端路径。视频提取页的文件选择框则用于上传当前浏览器设备上由用户明确选择的视频，两者用途不同。
-
-### 取消、重试与重新下载
-
-- **取消**：等待任务立即取消；正在运行的标准任务在下载器的下一个协作检查点停止，并清理本次新生成的临时文件。
-- **aria2c 极速任务**：进入“不可中断”状态后不提供取消按钮，必须等待该任务完成；这是已确认的极速模式行为。
-- **重试**：失败或取消任务重新进入同一队列，并保留尝试记录（重启后恢复最近 20 次）。不可重试错误不会显示重试操作。
-- **重新下载**：只针对已完成任务，生成新任务且不覆盖原文件；新文件使用 `(2)`、`(3)` 等递增后缀。
-- **批次保留**：任务历史保存在本机 `state/tasks.sqlite3`（可用环境变量 `GTD_HISTORY_PATH` 指定路径），记录源链接（本地提取记录上传标识及文件名）、输出路径与任务结果，不存储 Cookie 文件或下载器内部对象。最多保留 100 个批次，优先清理最旧的已结束批次；进行中的批次不会被清理。打开或刷新下载首页默认显示人物彩蛋空状态，不自动展示历史任务；可在“任务历史”中手动选择批次。后台任务不会因刷新页面而取消。服务重启后，未完成任务标记为可重试的 `INTERRUPTED`，需手动点击重试，不会自动重新下载；已下载文件不会删除。
-
-### 测试批量下载
-
-可以用以下公开测试链接验证网页功能：
-
-```text
-https://www.youtube.com/watch?v=jNQXAC9IVRw
-https://www.youtube.com/watch?v=BaW_jenozKc
-```
-
-将上面两个链接粘贴到视频或音频区块（一行一个），点击对应下载按钮，观察任务状态从“等待中”→“下载中”→“下载完成”的变化过程。
-
-### 停止 Web 服务
-
-在终端中按 `Ctrl+C` 即可停止 Flask 服务。
-
----
-
-## 五、支持的链接
-
-| 平台 | 类型 | 示例 |
-|---|---|---|
-| YouTube | 标准视频 | `https://www.youtube.com/watch?v=xxxx` |
-| YouTube | 短链接 | `https://youtu.be/xxxx` |
-| YouTube | Shorts | `https://www.youtube.com/shorts/xxxx` |
-| YouTube | 直播或回放 | `https://www.youtube.com/live/xxxx` |
-| YouTube | 嵌入视频 | `https://www.youtube.com/embed/xxxx` |
-| YouTube Music | 视频 | `https://music.youtube.com/watch?v=xxxx` |
-| YouTube | 播放列表 | `https://www.youtube.com/playlist?list=xxxx` |
-| YouTube | 带列表参数的视频 | `https://www.youtube.com/watch?v=xxxx&list=yyyy` |
-| Instagram | Reels | `https://www.instagram.com/reel/xxxx/` |
-| Instagram | 视频帖子 | `https://www.instagram.com/p/xxxx/` |
-| Instagram | IGTV | `https://www.instagram.com/tv/xxxx/` |
-| Instagram | Stories | `https://www.instagram.com/stories/username/xxxx/` |
-| Bilibili | BV 视频 | `https://www.bilibili.com/video/BV1GJ411x7h7` |
-| Bilibili | av 视频 | `https://www.bilibili.com/video/av170001` |
-| Bilibili | 移动端视频 | `https://m.bilibili.com/video/BV1GJ411x7h7` |
-| Bilibili | 指定分 P | `https://www.bilibili.com/video/BV1GJ411x7h7?p=2` |
-| Bilibili | 多分 P 视频 | `https://www.bilibili.com/video/BVxxxxxxxxxx` |
-| Bilibili | 合集 / 列表 | `https://www.bilibili.com/list/...`、`/medialist/...` |
-| Bilibili | UP 主合集 | `https://space.bilibili.com/123/lists/...` |
-| Bilibili | 短链接 | `https://b23.tv/BV1GJ411x7h7` |
-
-程序会预览并选择 YouTube 播放列表、Bilibili 多分 P、`list` / `medialist` 及 UP 主 `lists` 页面；能否展开仍取决于 yt-dlp、页面公开状态和当前 Cookie 权限。Instagram 多视频帖子可按提取器返回结果预览，图片条目会标记为不可下载。
-
-当前不承诺支持需要额外业务接口、DRM 或特殊账号权限的 Bilibili 番剧批量页、稍后再看、私密收藏夹，以及平台未向 yt-dlp 暴露条目的页面。无法解析时会返回 `COLLECTION_EXTRACT_FAILED`，不会静默下载错误内容。无论来源有多少条，一次最多选择 100 项；单次最多解析 20 行输入并汇总前 1000 个预览条目，发生截断时网页会明确提示，可拆分链接继续选择。
-
-### 输出文件名与音质说明
-
-以下规则用于平台链接下载；本地视频提取的命名与封装规则见上文对应章节。
-
-- YouTube 视频和音频使用内容标题命名；Instagram 与 Bilibili 文件名继续附加内容 ID，基础形式分别如 `Video by author [ABC123].mp3`、`标题 [内容ID].mp4` 和 `标题 [内容ID].mp3`，避免同标题内容互相覆盖。
-- 实际音频文件名会在扩展名前追加真实规格。例如，以约 1521 kbps 的源 FLAC 转换 MP3 时得到 `标题 [内容ID] [MP3 V0 · 源FLAC 1521kbps].mp3`；保留源文件时得到 `标题 [内容ID] [FLAC Lossless · 1521kbps].flac`。
-- MP3 V0 会先选取源站可获取的最高质量音轨，再使用 FFmpeg 的最高 VBR 品质设置转换。即使输入是 Hi-Res FLAC，MP3 成品仍是有损音频，不能保留真正的无损数据。
-- “源 FLAC”只在提取结果确实包含 FLAC 音轨时直接输出 FLAC；程序不会把 AAC、Opus 等有损源转码并伪装成 FLAC。没有 FLAC 时自动回退 MP3 V0。
-- 源封面始终优先，绝不会被兜底图片替换。MP3、FLAC、M4A、OGG、Opus 和 MP4 会先尝试嵌入视频的源封面；最终文件仍无封面时，程序会随机选择一张内置兜底图并写入容器元数据，不会在下载目录生成额外的 JPG 文件。
-- 随机选择按每次下载独立执行，因此每次重试或重新下载都可能选择不同图片。WAV 和 WebM 不支持封面写入，程序不会仅为封面而转码或重封装它们。
-- 兜底资源缺失、媒体标签损坏或写入失败时只记录警告；封面处理失败不会让已完成的媒体下载变为失败，也不会删除或回滚已下载文件。
-
-### Bilibili 下载加速策略
-
-- 选中流的大小不超过 50 MiB，或无法确定大小时：不额外测速，沿用当前 10 MiB 原生 HTTP 分块。
-- 选中流的大小大于 50 MiB 时：仅从 Bilibili 响应提供的 HTTPS CDN 主机中最多测试 4 个，每个主机读取 512 KiB 样本，再比较 4 MiB 与 10 MiB 分块的实际表现。
-- 测速结果在内存中缓存 30 分钟；Web 服务或命令行进程重启后缓存清空。
-- 程序不修改或猜测 CDN 域名，也不会绕过平台的权限、风控或限速机制。
-- aria2c 不可用、执行失败，或选中的 CDN 返回 `HTTP 403` / `HTTP 412` 时，会自动切换回标准模式或原始 CDN 继续尝试。
-- 实际速度仍取决于地区、网络路由、账号状态和 Bilibili 当前 CDN 负载，无法保证固定幅度的提升。
-
-### 结构化错误码与日志
-
-网页会显示稳定的错误码，以及当前语言的说明和建议，例如 `AUTH_REQUIRED`、`NETWORK_TIMEOUT`、`RATE_LIMITED`、`FORMAT_UNAVAILABLE`、`COLLECTION_EXTRACT_FAILED`、`ARIA2_FAILED` 与 `POSTPROCESS_FAILED`。CLI 下载错误使用相同格式并保留中文说明，便于区分凭证、网络、格式、合集解析和后处理问题。
-
-任务事件写入 `logs/downloader.jsonl`，每行一个 JSON 对象。单个日志达到 10 MiB 后自动轮转，最多保留 5 个备份。日志仅记录任务阶段、平台、媒体/音频格式、速度模式、尝试次数、耗时与错误字段；URL 查询参数、Cookie、Authorization、Token 和密码会被脱敏。日志目录不可写时只显示一次警告，不会让下载任务失败。
-
-排查问题时可以查看最近事件：
+运行交互模式，按提示选择视频 / 音频、输出目录和待下载链接：
 
 ```bash
-tail -n 50 logs/downloader.jsonl
+python main.py
 ```
 
-不要将整个日志或 Cookie 文件公开上传；即使日志已自动脱敏，也应只分享解决问题所需的最小片段。
+也可以直接传入参数；以下示例中的链接需替换为实际目标：
 
-## 六、需要登录时配置 Cookie
+```bash
+# 下载视频；可在同一条命令后追加多个链接
+python main.py "https://www.youtube.com/watch?v=VIDEO_ID"
 
-公开内容通常可以直接下载。私密内容、年龄限制内容或平台要求登录的内容需要有效 Cookie，并且当前登录账号必须本来就有权访问该内容。本程序不会绕过访问权限。
+# 选择音频输出：mp3 / flac / source / wav
+python main.py --audio --audio-format mp3 "https://www.youtube.com/watch?v=VIDEO_ID"
 
-### 安装可信的 Cookie 导出扩展
+# 播放列表或多分 P 必须明确选择条目
+python main.py --items 1-5 "https://www.youtube.com/playlist?list=PLAYLIST_ID"
 
-本项目推荐开源扩展 **Get cookies.txt LOCALLY**。请通过下面的官方页面安装，并核对扩展名称及 GitHub 仓库；不要安装名称相似的旧版 **Get cookies.txt** 或来源不明的同名扩展。
+# 视频字幕、自动字幕与 Bilibili 弹幕
+python main.py --subtitles --auto-subtitles --danmaku "https://www.bilibili.com/video/BV_ID"
 
-- Chrome / Edge：[Chrome Web Store 安装页面](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc)
-- Firefox：[Mozilla Add-ons 安装页面](https://addons.mozilla.org/en-US/firefox/addon/get-cookies-txt-locally/)
-- 源代码与隐私说明：[kairi003/Get-cookies.txt-LOCALLY](https://github.com/kairi003/Get-cookies.txt-LOCALLY)
+# Bilibili 可选极速模式，需要 aria2c
+python main.py --turbo "https://www.bilibili.com/video/BV_ID"
+```
 
-#### Chrome / Edge 安装
+使用 `--output-dir "路径"` 指定目录，`--download-dir` 为等价别名。相对路径以项目根目录为基准，缺失目录会尝试创建；含空格的路径和所有 URL 均应加引号。合集可用 `--items all`，但仍受每批 100 项上限约束。参数模式会直接开始下载。
 
-1. 打开上面的 Chrome Web Store 页面。
-2. Chrome 点击 **“添加至 Chrome”**；Edge 点击 **“获取”**，若浏览器提示允许来自其他应用商店的扩展，请先确认页面域名确实是 `chromewebstore.google.com` 再允许。
-3. 在浏览器扩展菜单中固定 **Get cookies.txt LOCALLY**，方便在目标平台页面使用。
+CLI 全部成功返回 `0`，存在失败或无有效链接返回 `1`，交互输入被用户中断返回 `130`。
 
-#### Firefox 安装
+## 输出与可用性
 
-1. 打开上面的 Mozilla Add-ons 页面。
-2. 点击 **“添加到 Firefox”**，阅读权限说明后确认安装。
-3. 在扩展管理器中允许该扩展访问目标平台页面；否则它无法读取并导出当前站点 Cookie。
+- **视频**：默认 MP4；开启字幕或弹幕后使用 MKV，字幕与 ASS 弹幕作为独立轨道。仅获取源站实际提供且当前账号可访问的内容；无法提取烧录在画面中的字幕。
+- **音频**：MP3 使用 V0；`source` 保留选中源音轨的编码；`wav` 解码为 PCM。`flac` 仅在源站实际提供 FLAC 时使用，否则回退 MP3 V0；转码不会提升有损源的音质。
+- **本地提取**：支持原始音轨和 MP3 V0，单文件上传上限 2 GiB。支持的容器、暂存配额与清理规则见[网页指南](docs/WEB_GUIDE.md#从本地视频提取音频)。
+- **文件保留**：重复下载采用 `(2)`、`(3)` 等后缀保留旧文件。服务重启后，未完成任务标记为 `INTERRUPTED`，需要手动重试。
+- **平台限制**：内容可用性取决于源站、账号权限及 yt-dlp 支持情况。Bilibili 可自适应选择源站提供的备用 CDN；极速模式失败时可降级为标准模式，实际速度仍取决于网络与 CDN。
 
-### 按平台导出 Cookie
+## LMU 内容工具
 
-YouTube、Instagram 和 Bilibili 分别执行一次以下步骤，不要把三个站点的 Cookie 混在同一个平台专用文件中：
+| 页面 | 路径 |
+| --- | --- |
+| 赛道指南 | `/kozekilmu/tracks` |
+| 车型图鉴 | `/kozekilmu/cars` |
+| 赛前策略 | `/kozekilmu/strategy` |
+| 每周赛历 | `/kozekilmu/calendar` |
+| 内容更新 | `/kozekilmu/updates` |
+| 冠军档案 | `/kozekilmu` |
 
-1. 在浏览器中登录目标平台，并打开该平台的视频页面，确认当前账号能够正常播放目标内容。
-2. 保持目标平台页面为当前标签页，打开 **Get cookies.txt LOCALLY**。
-3. 选择 **Netscape** 格式，使用扩展的当前站点导出功能，仅导出当前平台域名的 Cookie。
-4. 保存文件后，用纯文本编辑器打开并检查首行包含 `# Netscape HTTP Cookie File`。不要修改后续 Cookie 行。
-5. 将文件移动到本项目根目录，与 `main.py` 同级，并按平台重命名：
+赛历采用 **人工核对、JSON 校验、手动发布**，没有自动抓取或定时更新。比赛时间按 `Europe/London` 显示，自动处理 GMT / BST；过期赛历显示历史提示，缺失官方字段保持“未发布”。车型推荐属于编辑建议，燃油与进站结果属于估算。
 
-| 当前登录平台 | 建议打开的页面 | 保存文件名 |
-|---|---|---|
-| YouTube | `https://www.youtube.com/` | `youtube_cookies.txt` |
-| Instagram | `https://www.instagram.com/` | `instagram_cookies.txt` |
-| Bilibili | `https://www.bilibili.com/` | `bilibili_cookies.txt` |
+```bash
+python scripts/update_lmu_calendar.py /path/to/candidate.json --check
+python scripts/update_lmu_calendar.py /path/to/candidate.json
+```
 
-平台专用 Cookie 优先于通用 `cookies.txt`。建议使用上表中的独立文件名；只有确实需要一个通用回退文件时才使用 `cookies.txt`。
+校验失败保留旧有效数据，成功跨周发布时归档上一周。发布成功后刷新网页即可。结构、示例及边界说明见[赛历维护指南](docs/LMU_CALENDAR_MAINTENANCE.md)；赛道与车型内容的来源和修订流程见[内容维护指南](docs/LMU_CONTENT_MAINTENANCE.md)。
 
-### 让新 Cookie 生效
+## 数据与隐私
 
-- CLI：结束当前命令后重新运行 `python main.py`。
-- Web：停止正在运行的服务，重新执行 `python app.py`，即重启 8233 Web 服务，然后刷新页面并重新提交任务。
-- 如果仍然提示登录、`HTTP 403` 或 Bilibili `HTTP 412`，先确认浏览器中的登录状态仍有效，再重新导出对应平台 Cookie。Cookie 过期或账号退出后必须重新导出。
+| 位置 | 内容 |
+| --- | --- |
+| `downloads/` 或自选目录 | 下载媒体与音频提取结果 |
+| `state/tasks.sqlite3` | 任务历史、源链接、输出路径与结果；可用 `GTD_HISTORY_PATH` 指定其他位置 |
+| `state/audio_uploads/` | 本地提取使用的视频暂存副本 |
+| `logs/downloader.jsonl` | 脱敏事件日志，按 10 MiB 轮转，最多保留 5 个备份 |
+| `data/lmu/calendar/` | 当前赛历、备份、跨周归档和发布状态 |
+| 浏览器本地存储 | 语言、主题、最近输出目录、LMU 收藏与练习笔记 |
 
-### Cookie 安全
+需要登录的内容，可在项目根目录放置 Netscape 格式的 `youtube_cookies.txt`、`instagram_cookies.txt` 或 `bilibili_cookies.txt`；平台专用文件优先于通用 `cookies.txt`。导出步骤见[Cookie 配置](docs/WEB_GUIDE.md#登录内容与-cookie)。更换 Cookie 后重启服务。
 
-Cookie 文件等同于登录凭证。不要上传、分享、截图或提交到 Git，也不要粘贴到聊天、Issue 或日志中。扩展只应从上述官方商店链接安装。若 Cookie 已泄露，应立即在对应平台退出其他会话或撤销登录状态，必要时修改密码，然后删除旧文件并重新导出。
+Cookie 等同于登录凭证；不要上传或提交。任务历史和媒体也可能包含个人信息。提交 Issue 时只提供必要的脱敏日志片段。
 
-## 七、常见问题
+GTD 下载、合集预览、字幕 / 弹幕与极速模式使用**直连**。仅在自身进程内清除代理环境变量并设置 `NO_PROXY=*`，不修改系统、VPN 或终端配置；仍需当前网络能够访问源站。
 
-| 问题 | 处理方式 |
-|---|---|
-| 未检测到 FFmpeg / ffprobe | 按上文安装 FFmpeg，并重新打开终端验证 `ffmpeg -version` 与 `ffprobe -version` |
-| 本地视频提取提示 `NO_AUDIO` / `INVALID_MEDIA` | 选择实际包含视频和音轨、容器受支持且完整的视频文件 |
-| 提取任务提示 `INPUT_EXPIRED` | 上传副本已被清理或丢失，请重新上传；已完成输出不受暂存清理影响 |
-| 上传提示 `UPLOAD_TOO_LARGE` / `UPLOAD_STORAGE_FULL` | 单文件上限 2 GiB；暂存上限 8 GiB / 256 文件，过期的非活动副本按前述时机清理 |
-| `HTTP 403` 或要求登录 | 配置对应平台的 Cookie，确认浏览器中可正常打开链接 |
-| `HTTP 429` | 请求过于频繁，暂停一段时间后再试 |
-| Instagram Story 无法下载 | 确认 Story 尚未过期，且登录账号有访问权限 |
-| Bilibili 画质受限、要求登录或会员 | 确认账号本来有权播放该内容，再导出完整 Cookie 保存为 `bilibili_cookies.txt` |
-| Bilibili 风控或 `HTTP 412` | 降低请求频率，切换到可正常访问 Bilibili 的网络环境后稍后重试；登录内容同时配置 `bilibili_cookies.txt` |
-| Bilibili 下载速度较慢 | 项目默认使用 10 MiB HTTP 分块，大文件可能自适应选择 4 MiB 分块，并且最多同时运行 2 个 Bilibili 下载任务；实际速度仍取决于 Bilibili 分配的 CDN 和网络路由，客户端优化不保证绕过平台侧限速 |
-| 视频不可用或 404 | 在浏览器中确认链接仍有效且内容未被删除 |
-| 网络连接超时 | 检查本机直连网络和源站可达性后重试 |
-| 下载后没有声音或无法合并 | 确认 FFmpeg 已安装并位于系统 `PATH` 中 |
-| MP3 下载失败或提示没有音频流 | 确认 FFmpeg 可用；再在浏览器中确认源内容确实包含可播放的音频 |
-| yt-dlp 突然无法解析平台 | 按安装章节主动切换 `requirements-update.txt` 上游通道并重启服务后重试 |
-| Web 页面打不开 | 确认 `python app.py` 已启动且终端无报错，访问 `http://127.0.0.1:8233` |
-| Web 进度出现控制码或乱码 | 重启 Web 服务并强制刷新页面；新版会在后端清除 yt-dlp 的终端颜色控制码 |
-| Web 端口被占用 | 修改 `app.py` 中的 `WEB_PORT = 8233` 后重新启动服务 |
+## 常见问题
 
-## 八、退出状态（命令行模式）
+| 问题 | 建议 |
+| --- | --- |
+| 网页无法访问 | 确认 `python app.py` 持续运行，检查终端错误和 8233 端口占用 |
+| 未检测到 FFmpeg / ffprobe | 确认两者位于 `PATH`，重开终端后重新启动 GTD |
+| 要求登录或 `HTTP 403` | 确认浏览器账号有权播放，再更新对应平台 Cookie |
+| `HTTP 429` / Bilibili `HTTP 412` | 降低请求频率并稍后重试；不要连续反复提交 |
+| CDN 断连 / `NETWORK_CONNECTION_RESET` | 自动备用线路仍失败时，检查直连网络并稍后手动重试 |
+| 提取提示 `NO_AUDIO` / `INPUT_EXPIRED` | 确认视频包含音轨；暂存已过期时重新上传 |
+| 上游页面变化导致解析失败 | 按下方说明选择更新通道，重启后再试 |
 
-- 所有任务成功：退出码 `0`
-- 任一任务失败或没有合法链接：退出码 `1`
-- 用户通过快捷键取消交互：退出码 `130`
+可选的上游更新通道会安装持续变化的 yt-dlp 主分支；使用前应了解其可能与固定基线行为不同：
 
-## 开发验证
+```bash
+python -m pip install --upgrade --force-reinstall --no-cache-dir -r requirements-update.txt
+# 恢复固定直接依赖基线
+python -m pip install --force-reinstall -r requirements.txt
+```
 
-安装项目依赖后，使用 Python 3.10+ 和 Node.js 22（JavaScript 回归脚本需要 Node），在项目根目录运行；真实音频提取测试还需要 FFmpeg 和 ffprobe：
+## 开发与验证
+
+项目采用 Python + Flask / Jinja 与原生 HTML / CSS / JavaScript，无需前端构建步骤。Web 与 CLI 共用下载核心。
+
+| 入口 / 目录 | 职责 |
+| --- | --- |
+| `app.py` / `main.py` | Web / CLI 入口 |
+| `downloader.py` / `task_control.py` | 下载核心与任务调度 |
+| `local_audio.py` / `audio_extract_routes.py` | 本地媒体提取与接口 |
+| `templates/` / `static/` | 网页模板、样式、脚本与资源 |
+| `lmu_*.py` / `data/lmu/` | LMU 内容、策略数据与赛历 |
+| `tests/` / `.github/workflows/tests.yml` | Python、JavaScript 与浏览器回归 |
+
+在项目根目录运行；JavaScript 回归需 Node.js 22，真实音频测试需 FFmpeg / ffprobe：
 
 ```bash
 python -m unittest discover -s tests -p "test_*.py"
-```
 
-真实 Chromium 浏览器回归另行安装开发依赖与浏览器：
-
-```bash
+# 可选：完整浏览器回归
 python -m pip install -r requirements-dev.txt
 python -m playwright install chromium
 python -m unittest discover -s tests/browser -p "test_*.py"
 ```
 
-GitHub Actions 配置覆盖 macOS / Windows 与 Python 3.10 / 3.13，运行单元测试、JavaScript 回归和浏览器测试。平台下载测试使用模拟响应，不验证真实平台连通性或下载速度。本地音频测试会生成小视频并调用真实 FFmpeg/ffprobe，验证默认音轨选择、无重编码提取、MP3 和浏览器下载；缺少这些程序时相关测试会跳过。当前 CI 配置没有显式安装 FFmpeg，因此是否运行这些测试取决于运行器是否已有 FFmpeg/ffprobe。
+CI 配置覆盖 macOS / Windows、Python 3.10 / 3.13。平台下载测试使用模拟响应，不代表实时源站连通性或下载速度；部分媒体测试在缺少 FFmpeg / ffprobe 时跳过。浏览器测试使用独立测试服务和临时状态目录。
 
-## 合规说明
+## 使用边界与致谢
 
-本工具仅供学习及下载用户本人拥有权利、已获授权或平台允许下载的视频或音频内容。请遵守 YouTube、Instagram、Bilibili 的服务条款及所在地法律法规。不得使用本工具绕过 DRM、访问控制或下载无权使用的受版权保护内容。
+仅下载你拥有、获授权使用或平台允许下载的内容，遵守源站条款与适用法规。GTD 不绕过 DRM、登录权限或会员限制。LMU 内容工具为独立社区功能，与 Le Mans Ultimate 官方无隶属关系。
 
-## 网络连接方式
+感谢 [yt-dlp](https://github.com/yt-dlp/yt-dlp)、[Flask](https://github.com/pallets/flask)、[FFmpeg](https://ffmpeg.org/)、[Mutagen](https://github.com/quodlibet/mutagen) 与 [aria2](https://github.com/aria2/aria2)。文档结构参考 [LMU Stintrix](https://github.com/MarkYang44/LMU-Stintrix)。
 
-当前项目使用**直连**：下载、合集预览、字幕/弹幕及 Bilibili 极速模式均不继承代理。启动时仅在项目进程内清除 `HTTP_PROXY`、`HTTPS_PROXY`、`ALL_PROXY`、`FTP_PROXY`（含小写形式），并设置 `NO_PROXY=*`，避免旧的本地代理地址影响 FFmpeg、aria2 等子进程。不会修改系统设置、终端配置文件或其他应用。更新后请重启已运行的 GTD 服务。此设置不关闭系统 VPN 或透明代理，也不能保证所有源站在当前网络可达。
-
-
-## LMU 每周赛历（手动维护）
-
-`/kozekilmu/calendar` 展示人工核对的赛事、多个开赛时段、车型建议与按车型估算的燃油策略。时间统一为 Europe/London，自动区分 GMT/BST；页面共用中英文与深浅主题。初始为空，不填入虚构赛事。
-
-先准备 JSON，再校验并发布：
-
-```bash
-venv/bin/python scripts/update_lmu_calendar.py /absolute/path/to/candidate.json --check
-venv/bin/python scripts/update_lmu_calendar.py /absolute/path/to/candidate.json
-```
-
-赛历保存在 `data/lmu/calendar/`；更新失败保留有效数据，跨周成功更新归档上一周。没有自动更新、抓取或定时任务。车型排序是编辑建议，燃油与进站结果标记为估算。结构示例、字段解释与测试方法见 [赛历维护文档](docs/LMU_CALENDAR_MAINTENANCE.md)。
+<p align="center">Designed by Mark Yang</p>

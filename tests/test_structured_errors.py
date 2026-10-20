@@ -43,6 +43,15 @@ class StructuredErrorTests(unittest.TestCase):
         self.assertTrue(info.retryable)
         self.assertIn("备用线路", info.suggestion)
 
+    def test_remote_disconnect_is_classified_as_retryable_transport_failure(self):
+        info = classify_download_error(
+            RuntimeError("Remote end closed connection without response"),
+            platform="bilibili",
+        )
+        self.assertEqual(info.error_code, "NETWORK_CONNECTION_RESET")
+        self.assertTrue(info.retryable)
+        self.assertIn("备用线路", info.suggestion)
+
     def test_membership_failure_is_not_retryable(self):
         info = classify_download_error(
             RuntimeError("members only premium content"),

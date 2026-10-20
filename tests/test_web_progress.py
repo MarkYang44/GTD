@@ -191,11 +191,11 @@ class WebConfigurationTests(unittest.TestCase):
         self.assertIn('inset 0 0 0 1px var(--border-strong)', html)
 
     def test_readme_uses_current_project_directory_name(self):
-        readme = Path("README.md").read_text(encoding="utf-8")
+        readme = (Path("README.md").read_text(encoding="utf-8")
+                  + Path("docs/REFERENCE.md").read_text(encoding="utf-8"))
 
-        self.assertTrue(
-            readme.startswith("# GTD\n\n**中文** | [English](README.en.md)\n\n**Generalized Transmedia Downloader**\n")
-        )
+        self.assertIn('<h1 align="center">GTD</h1>', readme)
+        self.assertIn('<strong>Generalized Transmedia Downloader</strong>', readme)
         self.assertIn("GTD stands for Generalized Transmedia Downloader.", readme)
         self.assertIn("git clone https://github.com/MarkYang44/GTD.git", readme)
         self.assertIn("cd GTD", readme)
@@ -203,7 +203,8 @@ class WebConfigurationTests(unittest.TestCase):
 
     def test_web_startup_banner_uses_current_project_name(self):
         source = Path("app.py").read_text(encoding="utf-8")
-        readme = Path("README.md").read_text(encoding="utf-8")
+        readme = (Path("README.md").read_text(encoding="utf-8")
+                  + Path("docs/REFERENCE.md").read_text(encoding="utf-8"))
 
         expected = "🎬 GTD — Generalized Transmedia Downloader — Web 模式"
         self.assertIn(expected, source)
@@ -224,7 +225,8 @@ class WebConfigurationTests(unittest.TestCase):
         self.assertIn('os.environ.get("MVD_ARIA2C_PATH")', acceleration)
 
     def test_default_web_listener_supports_lan_access_on_8233(self):
-        readme = Path("README.md").read_text(encoding="utf-8")
+        readme = (Path("README.md").read_text(encoding="utf-8")
+                  + Path("docs/REFERENCE.md").read_text(encoding="utf-8"))
         source = Path("app.py").read_text(encoding="utf-8")
 
         self.assertEqual(web_app.WEB_HOST, "0.0.0.0")
@@ -243,7 +245,8 @@ class WebConfigurationTests(unittest.TestCase):
         self.assertFalse(hasattr(web_app, "_batches"))
 
     def test_readme_documents_new_task_collection_and_audio_features(self):
-        readme = Path("README.md").read_text(encoding="utf-8")
+        readme = (Path("README.md").read_text(encoding="utf-8")
+                  + Path("docs/REFERENCE.md").read_text(encoding="utf-8"))
 
         for text in (
             "取消、重试与重新下载",

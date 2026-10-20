@@ -53,8 +53,10 @@ class GlobalLanguageTests(unittest.TestCase):
     def test_readme_language_links_and_section_coverage(self):
         zh = Path('README.md').read_text()
         en = Path('README.en.md').read_text()
-        self.assertIn('[English](README.en.md)', zh)
-        self.assertIn('[中文](README.md)', en)
+        self.assertIn('<a href="README.en.md">English</a>', zh)
+        self.assertIn('(docs/REFERENCE.md)', zh)
+        self.assertIn('<a href="README.md">简体中文</a>', en)
+        self.assertIn('(docs/REFERENCE.en.md)', en)
         for level in ('## ', '### ', '#### '):
             self.assertEqual(sum(line.startswith(level) for line in zh.splitlines()),
                              sum(line.startswith(level) for line in en.splitlines()))
