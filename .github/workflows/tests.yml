@@ -28,6 +28,18 @@ jobs:
           node-version: '22'
       - name: Install dependencies
         run: python -m pip install -r requirements.txt -r requirements-dev.txt
+      - name: Install FFmpeg (macOS)
+        if: runner.os == 'macOS'
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: '1'
+        run: brew install ffmpeg
+      - name: Install FFmpeg (Windows)
+        if: runner.os == 'Windows'
+        run: choco install ffmpeg --yes --no-progress --limit-output
+      - name: Verify media tools
+        run: |
+          ffmpeg -version
+          ffprobe -version
       - name: Check dependency compatibility
         run: python -m pip check
       - name: Unit tests and JavaScript harnesses

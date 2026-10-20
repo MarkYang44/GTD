@@ -681,7 +681,7 @@ python -m playwright install chromium
 python -m unittest discover -s tests/browser -p "test_*.py"
 ```
 
-The GitHub Actions configuration covers macOS / Windows and Python 3.10 / 3.13, running unit tests, JavaScript harnesses, and browser tests. Platform download tests mock responses and do not validate live platform connectivity or speed. Local audio tests generate small videos and invoke real FFmpeg/ffprobe to verify default track selection, stream copying, MP3 conversion, and browser downloads; these tests skip when the executables are missing. The current CI configuration does not explicitly install FFmpeg, so execution depends on whether the runner already provides FFmpeg/ffprobe.
+The GitHub Actions configuration covers macOS / Windows and Python 3.10 / 3.13, running unit tests, JavaScript harnesses, and browser tests. Platform download tests mock responses and do not validate live platform connectivity or speed. Local audio tests generate small videos and invoke real FFmpeg/ffprobe to verify default track selection, stream copying, MP3 conversion, and browser downloads; these tests skip when the executables are missing. CI explicitly installs and verifies FFmpeg/ffprobe before running media and browser tests.
 
 ## Acceptable Use
 

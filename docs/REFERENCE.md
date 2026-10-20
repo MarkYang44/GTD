@@ -673,7 +673,7 @@ python -m playwright install chromium
 python -m unittest discover -s tests/browser -p "test_*.py"
 ```
 
-GitHub Actions 配置覆盖 macOS / Windows 与 Python 3.10 / 3.13，运行单元测试、JavaScript 回归和浏览器测试。平台下载测试使用模拟响应，不验证真实平台连通性或下载速度。本地音频测试会生成小视频并调用真实 FFmpeg/ffprobe，验证默认音轨选择、无重编码提取、MP3 和浏览器下载；缺少这些程序时相关测试会跳过。当前 CI 配置没有显式安装 FFmpeg，因此是否运行这些测试取决于运行器是否已有 FFmpeg/ffprobe。
+GitHub Actions 配置覆盖 macOS / Windows 与 Python 3.10 / 3.13，运行单元测试、JavaScript 回归和浏览器测试。平台下载测试使用模拟响应，不验证真实平台连通性或下载速度。本地音频测试会生成小视频并调用真实 FFmpeg/ffprobe，验证默认音轨选择、无重编码提取、MP3 和浏览器下载；缺少这些程序时相关测试会跳过。CI 会显式安装并检查 FFmpeg/ffprobe，再运行媒体与浏览器测试。
 
 ## 合规说明
 
