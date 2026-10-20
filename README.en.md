@@ -4,7 +4,7 @@
 
 <h1 align="center">GTD</h1>
 
-<p align="center"><strong>Generalized Transmedia Downloader</strong><br>Multi-platform media downloads, local audio extraction, and LMU race tools.</p>
+<p align="center"><strong>Generalized Transmedia Downloader</strong><br>Multi-platform media downloads and local audio extraction.</p>
 
 <p align="center"><a href="README.md">简体中文</a> · <strong>English</strong></p>
 
@@ -14,11 +14,11 @@
   <img src="https://img.shields.io/badge/Language-中文%20%7C%20English-59636E" alt="Chinese and English">
 </p>
 
-Built on [yt-dlp](https://github.com/yt-dlp/yt-dlp), Flask, and FFmpeg, GTD brings YouTube, Instagram, and Bilibili downloads into one workflow. Manage batches in your browser or download directly from the command line. Extract audio from local video files, and use the included Le Mans Ultimate section for circuit guides, a car catalog, race strategy, and a manually maintained weekly calendar.
+Built on [yt-dlp](https://github.com/yt-dlp/yt-dlp), Flask, and FFmpeg, GTD brings YouTube, Instagram, and Bilibili downloads into one workflow. Manage batches in your browser or download directly from the command line. Extract audio from local video files.
 
 **Run the Web interface or CLI from source on macOS and Windows.** Install the Python dependencies and media tools to get started.
 
-[Full usage reference](docs/REFERENCE.en.md) · [Web user guide](docs/WEB_GUIDE.en.md) · [Calendar maintenance](docs/LMU_CALENDAR_MAINTENANCE.md) · [LMU content maintenance](docs/LMU_CONTENT_MAINTENANCE.md) · [Report an issue](https://github.com/MarkYang44/GTD/issues)
+[Full usage reference](docs/REFERENCE.en.md) · [Web user guide](docs/WEB_GUIDE.en.md) · [Report an issue](https://github.com/MarkYang44/GTD/issues)
 
 ## Features
 
@@ -29,7 +29,6 @@ Built on [yt-dlp](https://github.com/yt-dlp/yt-dlp), Flask, and FFmpeg, GTD brin
 | Subtitles and danmaku | Optionally package manual subtitles, automatic captions, and Bilibili comments as selectable MKV tracks |
 | Task management | Progress, speed, time remaining, structured errors, cancellation, retries, redownloads, and persistent history |
 | Local audio extraction | Upload or drop a video, extract the original audio or convert to MP3 V0, and download the result |
-| LMU tools | Circuit guides, car catalog, favorites and comparisons, practice notes, fuel and pit estimates, content revisions, weekly calendar, and victory archive |
 | Interface and output | Shared Chinese/English and dark/light preferences; custom output folders with native macOS/Windows folder pickers |
 
 All Web batches share up to **3 worker slots**, including local audio extraction, with at most **2 Bilibili** downloads and **1 Instagram** download running at once. Each CLI batch uses the same concurrency limits. Select up to 100 items per batch; collection previews list up to the first 1,000 entries and report truncation.
@@ -84,7 +83,7 @@ py -3 -m venv venv
 
 On Windows, no activation or PowerShell execution-policy changes are needed. In the commands below, replace `python` with `.\venv\Scripts\python.exe` when the environment is not activated; the macOS equivalent is `venv/bin/python`.
 
-[requirements.txt](requirements.txt) defines the direct dependency baseline. Pip resolves transitive dependencies for your OS and Python version. Install the complete file to include cover-art handling and Windows timezone data.
+[requirements.txt](requirements.txt) defines the direct dependency baseline. Pip resolves transitive dependencies for your OS and Python version. Install the complete file to include cover-art handling.
 
 ### 3. Start the Web interface
 
@@ -135,26 +134,6 @@ CLI exit codes: `0` when all tasks succeed, `1` for any failure or no valid URLs
 - **File preservation:** Repeated downloads receive suffixes such as `(2)` and `(3)`. After a service restart, unfinished tasks become `INTERRUPTED` and require a manual retry.
 - **Platform limits:** Availability depends on the source, account permissions, and yt-dlp support. Bilibili can select alternative CDNs supplied by the platform, and turbo failures can fall back to standard mode. Actual speed depends on network conditions and CDN routing.
 
-## LMU tools
-
-| Page | Route |
-| --- | --- |
-| Circuit guide | `/kozekilmu/tracks` |
-| Car catalog | `/kozekilmu/cars` |
-| Race strategy | `/kozekilmu/strategy` |
-| Weekly calendar | `/kozekilmu/calendar` |
-| Content updates | `/kozekilmu/updates` |
-| Victory archive | `/kozekilmu` |
-
-The calendar uses **manual review, JSON validation, and manual publication**, with no automatic fetching or scheduled updates. Times use `Europe/London` with GMT/BST handling. Expired calendars carry a historical warning, and unknown official fields remain “Not Published.” Car recommendations are editorial advice; fuel and pit results are estimates.
-
-```bash
-python scripts/update_lmu_calendar.py /path/to/candidate.json --check
-python scripts/update_lmu_calendar.py /path/to/candidate.json
-```
-
-Failed validation preserves valid data. Successful week transitions archive the previous week. Refresh the page after publication. See [calendar maintenance](docs/LMU_CALENDAR_MAINTENANCE.md) for the schema, examples, and limitations, and [content maintenance](docs/LMU_CONTENT_MAINTENANCE.md) for source review and revision procedures.
-
 ## Data and privacy
 
 | Location | Contents |
@@ -163,8 +142,7 @@ Failed validation preserves valid data. Successful week transitions archive the 
 | `state/tasks.sqlite3` | Task history, source URLs, output paths, and results; override with `GTD_HISTORY_PATH` |
 | `state/audio_uploads/` | Staged local video copies for audio extraction |
 | `logs/downloader.jsonl` | Redacted event logs, rotating at 10 MiB with up to 5 backups |
-| `data/lmu/calendar/` | Current calendar, backup, week archives, and publication status |
-| Browser local storage | Language, theme, recent folders, LMU favorites, and practice notes |
+| Browser local storage | Language, theme, recent folders |
 
 For login-required content, place a Netscape-format `youtube_cookies.txt`, `instagram_cookies.txt`, or `bilibili_cookies.txt` in the project root. Platform-specific files take priority over the general `cookies.txt`. Follow the [cookie setup guide](docs/WEB_GUIDE.en.md#login-protected-content-and-cookies), then restart the service after replacing cookies.
 
@@ -202,7 +180,6 @@ GTD uses Python, Flask/Jinja, and plain HTML/CSS/JavaScript, with no frontend bu
 | `downloader.py` / `task_control.py` | Download core and task scheduling |
 | `local_audio.py` / `audio_extract_routes.py` | Local media extraction and endpoints |
 | `templates/` / `static/` | Page templates, styles, scripts, and assets |
-| `lmu_*.py` / `data/lmu/` | LMU content, strategy data, and calendar |
 | `tests/` / `.github/workflows/tests.yml` | Python, JavaScript, and browser regressions |
 
 Run from the project root. JavaScript harnesses require Node.js 22; real audio tests require FFmpeg/ffprobe:
@@ -220,8 +197,8 @@ The CI configuration covers macOS/Windows and Python 3.10/3.13. Platform downloa
 
 ## Responsible use and acknowledgments
 
-Download only content you own, are authorized to use, or are permitted by the platform to download. Follow source terms and applicable laws. GTD does not bypass DRM, account permissions, or membership restrictions. The LMU tools are independent community features and are not affiliated with Le Mans Ultimate.
+Download only content you own, are authorized to use, or are permitted by the platform to download. Follow source terms and applicable laws. GTD does not bypass DRM, account permissions, or membership restrictions.
 
-Thanks to [yt-dlp](https://github.com/yt-dlp/yt-dlp), [Flask](https://github.com/pallets/flask), [FFmpeg](https://ffmpeg.org/), [Mutagen](https://github.com/quodlibet/mutagen), and [aria2](https://github.com/aria2/aria2). Documentation structure inspired by [LMU Stintrix](https://github.com/MarkYang44/LMU-Stintrix).
+Thanks to [yt-dlp](https://github.com/yt-dlp/yt-dlp), [Flask](https://github.com/pallets/flask), [FFmpeg](https://ffmpeg.org/), [Mutagen](https://github.com/quodlibet/mutagen), and [aria2](https://github.com/aria2/aria2).
 
 <p align="center">Designed by Mark Yang</p>

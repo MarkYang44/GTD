@@ -4,7 +4,7 @@
 
 <h1 align="center">GTD</h1>
 
-<p align="center"><strong>Generalized Transmedia Downloader</strong><br>多平台媒体下载、本地音频提取与 LMU 赛事工具。</p>
+<p align="center"><strong>Generalized Transmedia Downloader</strong><br>多平台媒体批量下载与本地音频提取。</p>
 
 <p align="center"><strong>简体中文</strong> · <a href="README.en.md">English</a></p>
 
@@ -14,11 +14,11 @@
   <img src="https://img.shields.io/badge/Language-中文%20%7C%20English-59636E" alt="中文与 English">
 </p>
 
-GTD 基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp)、Flask 和 FFmpeg，为 YouTube、Instagram 与 Bilibili 提供统一的批量下载流程。通过浏览器管理任务，或从命令行直接下载；本地视频也可独立提取音轨。附带的 Le Mans Ultimate 内容区提供赛道指南、车型图鉴、赛前策略和人工维护的每周赛历。
+GTD 基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp)、Flask 和 FFmpeg，为 YouTube、Instagram 与 Bilibili 提供统一的批量下载流程。通过浏览器管理任务，或从命令行直接下载；本地视频也可独立提取音轨。
 
 **运行方式：源码启动 Web / CLI，适用于 macOS 与 Windows。** 安装 Python 依赖和媒体工具后即可使用。
 
-[完整使用参考](docs/REFERENCE.md) · [网页使用指南](docs/WEB_GUIDE.md) · [赛历维护](docs/LMU_CALENDAR_MAINTENANCE.md) · [LMU 内容维护](docs/LMU_CONTENT_MAINTENANCE.md) · [问题反馈](https://github.com/MarkYang44/GTD/issues)
+[完整使用参考](docs/REFERENCE.md) · [网页使用指南](docs/WEB_GUIDE.md) · [问题反馈](https://github.com/MarkYang44/GTD/issues)
 
 ## 功能概览
 
@@ -29,7 +29,6 @@ GTD 基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp)、Flask 和 FFmpeg，为 Y
 | 字幕与弹幕 | 可选下载人工字幕、自动字幕及 Bilibili 弹幕，封装为可切换的 MKV 轨道 |
 | 任务管理 | 显示进度、速度、预计剩余时间与结构化错误；支持取消、重试、重新下载和持久化历史 |
 | 本地音频提取 | 上传或拖放本地视频，提取原始音轨或转换为 MP3 V0，并下载处理结果 |
-| LMU 内容工具 | 赛道指南、车型图鉴、收藏与对比、练习笔记、燃油和进站估算、内容修订记录、每周赛历及冠军档案 |
 | 界面与输出 | 中英文、深浅主题跨页面保存；支持自定义输出路径和 macOS / Windows 原生文件夹选择器 |
 
 所有 Web 批次共用最多 **3 个工作槽**，本地音频提取也使用该队列；Bilibili 最多同时下载 **2 项**，Instagram 最多 **1 项**。CLI 每批采用相同并发上限。每批最多选择 100 项，合集预览最多列出前 1000 项并提示截断。
@@ -84,7 +83,7 @@ py -3 -m venv venv
 
 Windows 无须修改 PowerShell 执行策略或激活虚拟环境。下文命令中的 `python`，在未激活环境时替换为 `.\venv\Scripts\python.exe`；macOS 对应 `venv/bin/python`。
 
-直接依赖以 [requirements.txt](requirements.txt) 为准，间接依赖由 pip 按系统与 Python 版本解析。请安装完整依赖文件，以包含封面处理及 Windows 时区数据等依赖。
+直接依赖以 [requirements.txt](requirements.txt) 为准，间接依赖由 pip 按系统与 Python 版本解析。请安装完整依赖文件，以包含封面处理等依赖。
 
 ### 3. 启动网页
 
@@ -135,26 +134,6 @@ CLI 全部成功返回 `0`，存在失败或无有效链接返回 `1`，交互�
 - **文件保留**：重复下载采用 `(2)`、`(3)` 等后缀保留旧文件。服务重启后，未完成任务标记为 `INTERRUPTED`，需要手动重试。
 - **平台限制**：内容可用性取决于源站、账号权限及 yt-dlp 支持情况。Bilibili 可自适应选择源站提供的备用 CDN；极速模式失败时可降级为标准模式，实际速度仍取决于网络与 CDN。
 
-## LMU 内容工具
-
-| 页面 | 路径 |
-| --- | --- |
-| 赛道指南 | `/kozekilmu/tracks` |
-| 车型图鉴 | `/kozekilmu/cars` |
-| 赛前策略 | `/kozekilmu/strategy` |
-| 每周赛历 | `/kozekilmu/calendar` |
-| 内容更新 | `/kozekilmu/updates` |
-| 冠军档案 | `/kozekilmu` |
-
-赛历采用 **人工核对、JSON 校验、手动发布**，没有自动抓取或定时更新。比赛时间按 `Europe/London` 显示，自动处理 GMT / BST；过期赛历显示历史提示，缺失官方字段保持“未发布”。车型推荐属于编辑建议，燃油与进站结果属于估算。
-
-```bash
-python scripts/update_lmu_calendar.py /path/to/candidate.json --check
-python scripts/update_lmu_calendar.py /path/to/candidate.json
-```
-
-校验失败保留旧有效数据，成功跨周发布时归档上一周。发布成功后刷新网页即可。结构、示例及边界说明见[赛历维护指南](docs/LMU_CALENDAR_MAINTENANCE.md)；赛道与车型内容的来源和修订流程见[内容维护指南](docs/LMU_CONTENT_MAINTENANCE.md)。
-
 ## 数据与隐私
 
 | 位置 | 内容 |
@@ -163,8 +142,7 @@ python scripts/update_lmu_calendar.py /path/to/candidate.json
 | `state/tasks.sqlite3` | 任务历史、源链接、输出路径与结果；可用 `GTD_HISTORY_PATH` 指定其他位置 |
 | `state/audio_uploads/` | 本地提取使用的视频暂存副本 |
 | `logs/downloader.jsonl` | 脱敏事件日志，按 10 MiB 轮转，最多保留 5 个备份 |
-| `data/lmu/calendar/` | 当前赛历、备份、跨周归档和发布状态 |
-| 浏览器本地存储 | 语言、主题、最近输出目录、LMU 收藏与练习笔记 |
+| 浏览器本地存储 | 语言、主题、最近输出目录 |
 
 需要登录的内容，可在项目根目录放置 Netscape 格式的 `youtube_cookies.txt`、`instagram_cookies.txt` 或 `bilibili_cookies.txt`；平台专用文件优先于通用 `cookies.txt`。导出步骤见[Cookie 配置](docs/WEB_GUIDE.md#登录内容与-cookie)。更换 Cookie 后重启服务。
 
@@ -202,7 +180,6 @@ python -m pip install --force-reinstall -r requirements.txt
 | `downloader.py` / `task_control.py` | 下载核心与任务调度 |
 | `local_audio.py` / `audio_extract_routes.py` | 本地媒体提取与接口 |
 | `templates/` / `static/` | 网页模板、样式、脚本与资源 |
-| `lmu_*.py` / `data/lmu/` | LMU 内容、策略数据与赛历 |
 | `tests/` / `.github/workflows/tests.yml` | Python、JavaScript 与浏览器回归 |
 
 在项目根目录运行；JavaScript 回归需 Node.js 22，真实音频测试需 FFmpeg / ffprobe：
@@ -220,8 +197,8 @@ CI 配置覆盖 macOS / Windows、Python 3.10 / 3.13。平台下载测试使用�
 
 ## 使用边界与致谢
 
-仅下载你拥有、获授权使用或平台允许下载的内容，遵守源站条款与适用法规。GTD 不绕过 DRM、登录权限或会员限制。LMU 内容工具为独立社区功能，与 Le Mans Ultimate 官方无隶属关系。
+仅下载你拥有、获授权使用或平台允许下载的内容，遵守源站条款与适用法规。GTD 不绕过 DRM、登录权限或会员限制。
 
-感谢 [yt-dlp](https://github.com/yt-dlp/yt-dlp)、[Flask](https://github.com/pallets/flask)、[FFmpeg](https://ffmpeg.org/)、[Mutagen](https://github.com/quodlibet/mutagen) 与 [aria2](https://github.com/aria2/aria2)。文档结构参考 [LMU Stintrix](https://github.com/MarkYang44/LMU-Stintrix)。
+感谢 [yt-dlp](https://github.com/yt-dlp/yt-dlp)、[Flask](https://github.com/pallets/flask)、[FFmpeg](https://ffmpeg.org/)、[Mutagen](https://github.com/quodlibet/mutagen) 与 [aria2](https://github.com/aria2/aria2)。
 
 <p align="center">Designed by Mark Yang</p>

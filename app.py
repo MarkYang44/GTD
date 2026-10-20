@@ -50,7 +50,7 @@ from folder_picker import (
 )
 from guide_renderer import render_markdown_file
 from lmu_guide_data import CARS, CIRCUITS, GUIDE_UPDATED
-from lmu_content import template_context as lmu_content_context, history as lmu_content_history
+from lmu_content import template_context as lmu_content_context
 from task_control import TaskManager, TaskSeed
 from task_history import TaskHistoryStore
 from subtitle_preferences import normalize_subtitle_options
@@ -176,33 +176,6 @@ def kozekilmu_cars():
         available_images=_available_guide_images(CIRCUITS, CARS.values()),
         **lmu_content_context(),
     )
-
-
-@app.route("/kozekilmu/strategy")
-def kozekilmu_strategy():
-    """Estimate race laps and fuel locally in the browser."""
-    return render_template(
-        "kozekilmu_strategy.html", page_title_zh="LMU 赛前策略",
-        page_title_en="LMU Race Strategy", guide_updated=GUIDE_UPDATED,
-    )
-
-
-@app.route("/kozekilmu/calendar")
-def kozekilmu_calendar():
-    """Render manually maintained schedules from the last valid local file."""
-    from lmu_calendar import load_calendar, uk_time, missing_fields, ordered_sessions
-    calendar = load_calendar()
-    return render_template(
-        "kozekilmu_calendar.html", page_title_zh="LMU 每周赛历",
-        page_title_en="LMU Weekly Race Calendar", calendar=calendar,
-        calendar_data=calendar['data'], calendar_missing=missing_fields(calendar['data']),
-        uk_time=uk_time, ordered_sessions=ordered_sessions, cars=CARS,
-    )
-
-
-@app.route("/kozekilmu/updates")
-def kozekilmu_updates():
-    return render_template("kozekilmu_updates.html", page_title_zh="LMU 内容更新", page_title_en="LMU Content Updates", releases=lmu_content_history(), **lmu_content_context())
 
 
 @app.route("/favicon.ico")

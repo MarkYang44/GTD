@@ -1,4 +1,4 @@
-"""Source notes, review metadata, comparison, and content history in Chromium."""
+"""Source notes, review metadata, and comparison in Chromium."""
 from playwright.sync_api import expect
 from test_reliability import BrowserReliabilityTests
 
@@ -23,26 +23,17 @@ class LmuContentBrowserTests(BrowserReliabilityTests):
         expect(self.page.locator('#lmu-compare-grid [data-practice]')).to_have_count(2)
         self.assertEqual(self.errors, [])
 
-    def test_history_and_notes_are_bilingual_and_fit_mobile(self):
+    def test_car_notes_are_bilingual_and_fit_mobile(self):
         self.page.set_viewport_size({'width': 375, 'height': 800})
-        self.page.goto(self.url + '/kozekilmu/updates')
-        self.page.locator('.lmu-change-group').first.locator(':scope > summary').click()
-        change = self.page.locator('.lmu-change').first
-        change.locator('summary').click()
-        expect(change).to_contain_text('Before:')
-        expect(change).to_contain_text('After:')
-        self.page.locator('#guide-language-toggle').focus()
-        self.page.keyboard.press('Space')
-        expect(change).to_contain_text('之前：')
-        self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
         self.page.goto(self.url + '/kozekilmu/cars')
         expect(self.page.locator('[data-practice]')).to_have_count(24)
         self.page.locator('[data-practice]').first.locator('summary').click()
+        self.page.locator('label[for="guide-language-toggle"]').click()
         expect(self.page.locator('[data-practice]').first).to_contain_text('据资料整理')
         self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
         self.assertEqual(self.errors, [])
 
-    def test_sources_and_history_work_without_javascript(self):
+    def test_sources_work_without_javascript(self):
         context = self.browser.new_context(java_script_enabled=False)
         try:
             page = context.new_page()
@@ -50,11 +41,6 @@ class LmuContentBrowserTests(BrowserReliabilityTests):
             note = page.locator('[data-practice]').first
             note.locator('summary').click()
             expect(note.locator('a')).to_be_visible()
-            page.goto(self.url + '/kozekilmu/updates')
-            page.locator('.lmu-change-group').first.locator(':scope > summary').click()
-            change = page.locator('.lmu-change').first
-            change.locator('summary').click()
-            expect(change.locator('.lmu-change-field').first).to_be_visible()
         finally:
             context.close()
 

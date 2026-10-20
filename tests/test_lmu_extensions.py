@@ -1,7 +1,4 @@
-"""Catalog data integrity and calculator arithmetic contracts."""
-from pathlib import Path
-import shutil
-import subprocess
+"""Catalog data integrity and shared navigation contracts."""
 import unittest
 from app import app
 from lmu_guide_data import CARS, CIRCUITS
@@ -21,15 +18,10 @@ class LmuExtensionsTests(unittest.TestCase):
         self.assertEqual(html.count('data-catalog-sleeper="true"'), len(CIRCUITS) * 2)
 
     def test_new_routes_have_shared_navigation_and_active_page(self):
-        for path in ['/kozekilmu/cars', '/kozekilmu/strategy']:
+        for path in ['/kozekilmu/cars', '/kozekilmu/tracks', '/kozekilmu']:
             response = app.test_client().get(path)
             self.assertEqual(response.status_code, 200)
             html = response.get_data(as_text=True)
             self.assertIn(f'href="{path}" aria-current="page"', html)
             self.assertIn('id="guide-language-toggle"', html)
             self.assertIn('id="theme-toggle"', html)
-
-    @unittest.skipUnless(shutil.which('node'), 'Node is required for calculator checks')
-    def test_strategy_arithmetic(self):
-        completed = subprocess.run(['node', 'tests/js/lmu_strategy_harness.js'], cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True)
-        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)

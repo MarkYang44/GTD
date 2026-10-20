@@ -14,34 +14,6 @@ Use the **Dark / Light** slider in the upper-right corner to switch themes. Dark
 
 > The web interface and system folder picker are intended for the local desktop session running this project. The browser does not read or upload arbitrary local folder contents.
 
-## LMU content tools
-
-Use the character icon in the upper-right corner to open the Circuit Guide. It currently covers 18 circuits and 24 Hypercar/LMGT3 cars, including Road Atlanta and Long Beach. Search by circuit name, Chinese alias, or location, and combine class, car, and favorites filters. Star a circuit or car to save it in this browser; favorites synchronize across same-origin tabs.
-
-Each HY and GT3 group has three regular recommendations plus one **Sleeper Pick**. A Sleeper may overlap the regular top three and participates in filtering, favorites, and comparison. It is an editorial easy-to-drive/pace pick, not a measured lap-time ranking.
-
-Expand the recommendations, select 2–3 entries, and use **Compare** at the bottom right to view each circuit's recommendation reasons and caveats side by side. Filtering preserves favorites and comparison selections; reloading clears comparison selections. If browser storage is disabled, favorites last only for the current page.
-
-## Car catalog and race strategy
-
-Use **Car Catalog** in the LMU navigation to browse all cataloged cars, strengths, caveats, and recommended circuits. It reuses the Circuit Guide's filters, car favorites, and 2–3-entry comparison.
-
-**Race Strategy** accepts race duration, average lap time and fuel per lap. Blank fields use 30 minutes, 120 sec/lap and 3 L/lap; invalid nonempty input requires correction.
-
-Calculation: round duration ÷ lap time up, then add 1 lap. Base fuel = planned laps × fuel per lap. The regular plan reserves 5%, the conservative plan 10%, both with a minimum of one lap of fuel. Add formation fuel and round the total up to 0.1 L.
-
-Expand advanced settings for tank capacity (default **100 L**, range 0.1–1000), total formation fuel (**3 L**, 0–1000), refueling rate (**2 L/sec**, 0.01–100), and fixed loss per pit stop (**25 sec**, 0–3600). These are generic assumptions, not car specifications. Enter 0 for no formation fuel; fixed loss excludes refueling time. All blanks produce **16 laps, 54 L regular / 55.8 L conservative, with no refueling stops**. Every default is identified in the result.
-
-Both plans show whole-race fuel, starting fuel, refueling stop count, total pit loss, suggested stop laps and fuel to add. Reserve is treated as potential extra consumption spread across the planning fuel per lap, not guaranteed fuel remaining at the finish. Stops use whole laps. Starting fuel never exceeds capacity; a tank too small for formation fuel plus the first budgeted lap is flagged as infeasible. Schedules show exit fuel targets and estimated additions. Actual addition is the target minus current onboard fuel (minimum 0); estimated additions and losses use the planning consumption including reserve. Loss per stop = fixed loss + fuel added ÷ refueling rate; pit time does not reduce planned laps. Only the first 20 stops are listed, but totals include all stops.
-
-All calculations run locally in the browser. Mandatory stops, tires, repairs, driver limits, weather, fuel saving and overlapping services are not modeled; this is not a minimum-time optimization. Displayed fuel amounts are approximate. Adjust to measured practice data, the car’s refueling setting increments and event rules.
-
-## Content versions and practice notes
-
-Expand **Practice notes and reflection** on a circuit or car for source observations, editorial exercises, and review dates. Regular and Sleeper recommendations expose **Recommendation sources and version**; compatibility is currently unverified, and source review does not imply driving tests. The current content release is `2026.09.22.1`, with V1.4.2 as its checked game reference.
-
-Open **Content updates** in the LMU navigation to inspect before/after fields grouped by circuits, cars, and pairings. The website does not automatically fetch or update online content; content releases and game builds are tracked separately.
-
 ## Download workflow
 
 1. To download video, paste links or platform share text into **Best-quality video**; for audio only, use **Best-quality audio**. Put each link on its own line.
@@ -60,7 +32,6 @@ Open **Content updates** in the LMU navigation to inspect before/after fields gr
 - MP3, FLAC, and some containers that support cover art attempt to embed the video thumbnail. WebM and WAV are output normally without embedded cover art.
 - Repeated downloads do not overwrite existing files. New files receive incrementing suffixes such as `(2)` and `(3)`.
 
-
 ### Subtitles and Bilibili danmaku
 
 Up to 24 manual tracks and 8 automatic tracks (original language, Chinese and English) are selected. Up to 20,000 ordinary scrolling/reverse/top/bottom comments are supported; advanced scripted danmaku is not. If MKV remuxing fails, the original video is retained and a warning is shown.
@@ -68,9 +39,6 @@ Up to 24 manual tracks and 8 automatic tracks (original language, Chinese and En
 The video panel offers **Download subtitles**, **Include automatic captions**, and an independent **Bilibili danmaku** option, all off by default. Enable subtitles before selecting automatic captions. Any enabled option switches output to **MKV**. Subtitles and danmaku are separate tracks you can disable or select through **IINA → Subtitles** (one selected at a time). With all options off, output remains MP4. Audio downloads do not use these options.
 
 Only subtitles actually offered by the source and accessible with your current login permissions can be downloaded; availability is not guaranteed. Automatic captions may contain recognition errors. Danmaku applies only to Bilibili and is converted into an ASS track. Text already burned into the video cannot be extracted. Completed results report track status and retrieval warnings; successful video download does not guarantee available subtitles.
-
-
-
 
 ## Download locations and history
 
@@ -157,17 +125,3 @@ Upload and processing progress are shown separately. Extraction shares the exist
 ## Network connection
 
 GTD now uses **direct connections** for downloads, collection previews, subtitles/danmaku and Bilibili turbo mode. At startup it clears `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, and `FTP_PROXY` (including lowercase variants) only within its own process and sets `NO_PROXY=*`, so FFmpeg and aria2 do not inherit stale local proxy addresses. System settings, shell configuration files and other apps remain unchanged. Restart an already running GTD service after updating. This does not disable a system VPN or transparent proxy, or guarantee that every source is reachable.
-
-
-## LMU weekly calendar (manual maintenance)
-
-`/kozekilmu/calendar` displays manually reviewed races, multiple start times, editorial car suggestions and per-car fuel estimates. Times use Europe/London with automatic GMT/BST conversion; language/theme preferences are shared. The initial calendar is empty, with no invented races.
-
-Prepare a candidate JSON, validate, then publish:
-
-```bash
-venv/bin/python scripts/update_lmu_calendar.py /absolute/path/to/candidate.json --check
-venv/bin/python scripts/update_lmu_calendar.py /absolute/path/to/candidate.json
-```
-
-Files live in `data/lmu/calendar/`. Failed imports preserve valid data; successful week transitions archive the previous week. No automatic fetching, updating or scheduled jobs are configured. Fuel/pit results are estimates; car order is editorial advice. See the [calendar maintenance guide](LMU_CALENDAR_MAINTENANCE.md) for the schema, complete example and test commands.

@@ -32,14 +32,13 @@ The web interface also includes a dedicated local video upload page for original
 - **Command-line mode**: interactive input and command-line arguments
 - **Web mode**: separate video and audio input areas, collection selection, cancellation, retries, and downloading again, with live task status, speed, and estimated time remaining
 - **Local video audio extraction**: upload or drop a video on a dedicated page, copy its original audio or convert it to MP3 V0, track upload/processing progress, and download the result
-- **Shared website language switch**: switch between Chinese and English on the download page, user guide, audio extraction page, Circuit Guide, Victory Archive, Car Catalog, Race Strategy, and Content Updates; your browser remembers the choice across pages
+- **Shared website language switch**: the download page, user guide, and audio extraction page share Chinese/English preferences, which your browser remembers across pages.
 - **Dark and light themes**: dark by default, with a shared slider for light mode; Petronas green accents and editorial headings remain, and your choice persists across pages
 - **Custom download directory**: enter a path in the CLI or web interface; Windows uses a precompiled, cached, DPI-aware modern Explorer-style folder dialog, while macOS uses its system folder picker; leave blank to use `downloads/`
 - Continue processing other tasks when an individual link fails
 - Stable error codes and actionable suggestions; automatically rotated, redacted JSONL logs
 - General or platform-specific cookie files
 - A completion summary with successes, failures, and file paths
-
 
 ### Subtitles and Bilibili danmaku
 
@@ -54,7 +53,6 @@ CLI flags are video-only: `--subtitles` downloads subtitles, `--auto-subtitles` 
 ```bash
 python main.py --subtitles --auto-subtitles --danmaku "https://www.bilibili.com/video/BV1xRuu6fEeA"
 ```
-
 
 ## Directory Structure
 
@@ -85,8 +83,6 @@ GTD/
 │   ├── index.html               # Main web interface
 │   ├── guide.html               # Web user guide
 │   ├── extract_audio.html       # Local video audio extraction
-│   ├── kozekilmu_tracks.html    # LMU Circuit Guide
-│   └── kozekilmu.html           # LMU Victory Archive
 ├── static/css/                  # Shared, theme, and page styles
 ├── static/js/                   # Language, theme, motion, and page interaction
 ├── tests/                       # Unit, JavaScript, and browser regressions
@@ -434,38 +430,6 @@ Other devices on the same LAN can use **http://<server LAN IP>:8233**. Run `ipco
 
 Use **User Guide** in the upper-right corner of the main page to open `/guide`, a concise guide focused on web usage.
 
-The character icon in the upper-right corner of every page, and the lower character icon on the downloader homepage, open `/kozekilmu/tracks`. From the Circuit Guide, switch to the Victory Archive at `/kozekilmu`.
-
-### LMU content tools
-
-Open `/kozekilmu/tracks` to browse 18 circuits, including Road Atlanta and Long Beach. Search by English circuit name, Chinese alias, or location, and combine class, car, and favorites filters. Search ignores case and accents. Each class at every circuit keeps three regular recommendations plus one separate **Sleeper Pick**. A Sleeper may overlap the regular top three and participates in filtering, favorites, and comparison.
-
-Use the stars to favorite circuits or cars. Car favorites apply across circuit recommendations. Favorites are saved in this browser and synchronized across same-origin tabs, not devices. When browser storage is blocked, favorites last only for the current page.
-
-Expand the recommendations and select 2–3 entries, then use **Compare** at the bottom right. Each column keeps its circuit context, recommendation reasons, and caveats; the same car on different circuits can be compared. Filtering preserves favorites and comparison selections; reloading clears comparison selections. Content comes from the existing guide and is not a live lap-time ranking.
-
-### Car catalog and race strategy
-
-**Car Catalog** (`/kozekilmu/cars`) displays all 24 Hypercar and LMGT3 cars currently included for V1.4.2, their strengths and caveats, and the circuits that recommend them. Regular and Sleeper reasons come directly from the Circuit Guide. Filter by name, class, car, and favorites; compare 2–3 cars side by side. Car favorites share browser storage with the Circuit Guide; comparison selections last only for the current page.
-
-**Race Strategy** (`/kozekilmu/strategy`) accepts race duration (minutes), average lap time (seconds or `m:ss`), and fuel per lap (L). Blank fields use **30 minutes, 120 sec/lap, and 3 L/lap** respectively, with defaults identified in the result. Invalid nonempty values require correction. Accepted ranges are 1–1440 minutes, 10–1800 sec/lap, and 0.01–100 L/lap.
-
-Calculation: round duration ÷ lap time up, then add 1 lap. Base fuel = planned laps × fuel per lap. The regular plan reserves 5%, the conservative plan 10%, both with a minimum of one lap of fuel. Add formation fuel and round the total up to 0.1 L.
-
-Expand advanced settings for tank capacity (default **100 L**, range 0.1–1000), total formation fuel (**3 L**, 0–1000), refueling rate (**2 L/sec**, 0.01–100), and fixed loss per pit stop (**25 sec**, 0–3600). These are generic assumptions, not car specifications. Enter 0 for no formation fuel; fixed loss excludes refueling time. All blanks produce **16 laps, 54 L regular / 55.8 L conservative, with no refueling stops**. Every default is identified in the result.
-
-Both plans show whole-race fuel, starting fuel, refueling stop count, total pit loss, suggested stop laps and fuel to add. Reserve is treated as potential extra consumption spread across the planning fuel per lap, not guaranteed fuel remaining at the finish. Stops use whole laps. Starting fuel never exceeds capacity; a tank too small for formation fuel plus the first budgeted lap is flagged as infeasible. Schedules show exit fuel targets and estimated additions. Actual addition is the target minus current onboard fuel (minimum 0); estimated additions and losses use the planning consumption including reserve. Loss per stop = fixed loss + fuel added ÷ refueling rate; pit time does not reduce planned laps. Only the first 20 stops are listed, but totals include all stops.
-
-All calculations run locally in the browser. Mandatory stops, tires, repairs, driver limits, weather, fuel saving and overlapping services are not modeled; this is not a minimum-time optimization. Displayed fuel amounts are approximate. Adjust to measured practice data, the car’s refueling setting increments and event rules.
-
-### Content versions and practice notes
-
-Expand **Practice notes and reflection** on circuits and cars to read source observations, editorial exercises, source links, and review dates. Car notes use individual driving guides; circuit exercises are derived from official descriptions. These are not our driving tests.
-
-Each regular and Sleeper recommendation also has **Recommendation sources and version**. Game compatibility currently remains **Unverified**: source-review dates confirm reading, not lap-time tests, BoP validation, or measured ranking. Official V1.4.2 release notes are the build reference checked for this update; historical driving guides may not match current physics.
-
-**Content updates** (`/kozekilmu/updates`) displays releases and before/after fields from local content snapshots. Content versions are separate from game builds. See [content maintenance](LMU_CONTENT_MAINTENANCE.md) for the source boundaries and publishing workflow. There is no scheduled fetching or automatic recommendation editing.
-
 ### Extract audio from a local video
 
 Choose **Extract audio from a local video** on the homepage, or open `/extract-audio`. Drop or select one local video (up to 2 GiB), choose **Original audio** or **MP3 V0**, and start extraction. Original audio copies the stream without re-encoding, using the default audio track or the first track when no default is set. AAC normally produces M4A; other extensions depend on the codec. Extraction cannot improve the source quality. Supported containers include MP4/MOV, MKV/WebM, AVI, MPEG-TS/MPEG, FLV, ASF, and Ogg. The file must contain both video and audio; only one track is extracted from multitrack files. This feature does not apply the link downloader’s artwork fallback or preserve video chapters and other metadata.
@@ -473,8 +437,6 @@ Choose **Extract audio from a local video** on the homepage, or open `/extract-a
 Upload and processing progress are shown separately. Extraction shares the existing queue, cancellation/retry, and task history. Results are saved to the default `downloads` folder and can also be saved with **Download audio**. Names include the video name and upload ID, such as `clip [local-xxxxxxxxxxxx].m4a`; repeated outputs use increasing suffixes to avoid overwriting files. The extraction page lists only extraction history; the downloader’s shared history also shows these tasks and their audio download links. Upload copies are staged in `state/audio_uploads` for 24 hours; expired inactive copies are cleaned on startup, upload, or extraction-history refresh. Re-upload after expiration to retry. Staging is limited to 8 GiB / 256 files. Source videos are unchanged and completed outputs are not automatically removed.
 
 ### Switch the Website Language
-
-The download page (`/`), user guide (`/guide`), audio extraction page (`/extract-audio`), Circuit Guide (`/kozekilmu/tracks`), Victory Archive (`/kozekilmu`), Car Catalog (`/kozekilmu/cars`), Race Strategy (`/kozekilmu/strategy`), and Content Updates (`/kozekilmu/updates`) share a **中文 / EN** switch in the upper-right corner. Your browser saves the selected language and applies it when you navigate to another page or refresh. Switching languages preserves entered links and current download tasks. The switch controls website text; source titles, filenames, and original third-party error details remain as provided. The CLI is unchanged.
 
 Use the **Dark / Light** slider in the upper-right corner to switch themes. Dark is the default; light uses clean white and soft gray surfaces. Both keep Petronas green accents. Your theme preference is independent of language, remembered in this browser, and shared across pages and tabs.
 
@@ -690,17 +652,3 @@ This tool is intended for learning and downloading video or audio that you own, 
 ## Network connection
 
 GTD now uses **direct connections** for downloads, collection previews, subtitles/danmaku and Bilibili turbo mode. At startup it clears `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, and `FTP_PROXY` (including lowercase variants) only within its own process and sets `NO_PROXY=*`, so FFmpeg and aria2 do not inherit stale local proxy addresses. System settings, shell configuration files and other apps remain unchanged. Restart an already running GTD service after updating. This does not disable a system VPN or transparent proxy, or guarantee that every source is reachable.
-
-
-## LMU weekly calendar (manual maintenance)
-
-`/kozekilmu/calendar` displays manually reviewed races, multiple start times, editorial car suggestions and per-car fuel estimates. Times use Europe/London with automatic GMT/BST conversion; language/theme preferences are shared. The bundled calendar contains manually entered data; expired weeks are marked as historical and do not represent the current schedule.
-
-Prepare a candidate JSON, validate, then publish:
-
-```bash
-venv/bin/python scripts/update_lmu_calendar.py /absolute/path/to/candidate.json --check
-venv/bin/python scripts/update_lmu_calendar.py /absolute/path/to/candidate.json
-```
-
-Files live in `data/lmu/calendar/`. Failed imports preserve valid data; successful week transitions archive the previous week. No automatic fetching, updating or scheduled jobs are configured. Fuel/pit results are estimates; car order is editorial advice. See the [calendar maintenance guide](LMU_CALENDAR_MAINTENANCE.md) for the schema, complete example and test commands.
