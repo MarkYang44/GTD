@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="static/icons/android-chrome-192x192.png" width="88" alt="GTD icon">
+  <img src="static/icons/character-icon-192x192.png" width="88" alt="GTD icon">
 </p>
 
 <h1 align="center">GTD</h1>
