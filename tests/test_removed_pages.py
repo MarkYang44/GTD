@@ -24,7 +24,7 @@ class RemovedPageTests(unittest.TestCase):
                     self.assertNotIn('href="/kozekilmu/' + page + '"', html)
 
     def test_download_documentation_has_no_racing_content(self):
-        for filename in ('README.md', 'README.en.md', 'docs/REFERENCE.md',
+        for filename in ('README.md', 'README.en.md', 'README.zh-CN.md', 'docs/REFERENCE.md',
                          'docs/REFERENCE.en.md', 'docs/WEB_GUIDE.md', 'docs/WEB_GUIDE.en.md'):
             with self.subTest(filename=filename):
                 text = Path(filename).read_text(encoding='utf-8')

@@ -51,11 +51,11 @@ class GlobalLanguageTests(unittest.TestCase):
                 self.assertEqual(metadata.missing, [])
 
     def test_readme_language_links_and_section_coverage(self):
-        zh = Path('README.md').read_text()
-        en = Path('README.en.md').read_text()
-        self.assertIn('<a href="README.en.md">English</a>', zh)
+        zh = Path('README.zh-CN.md').read_text()
+        en = Path('README.md').read_text()
+        self.assertIn('<a href="README.md">English</a>', zh)
         self.assertIn('(docs/REFERENCE.md)', zh)
-        self.assertIn('<a href="README.md">简体中文</a>', en)
+        self.assertIn('<a href="README.zh-CN.md">简体中文</a>', en)
         self.assertIn('(docs/REFERENCE.en.md)', en)
         for level in ('## ', '### ', '#### '):
             self.assertEqual(sum(line.startswith(level) for line in zh.splitlines()),

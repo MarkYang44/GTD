@@ -1,6 +1,6 @@
 # GTD 使用参考
 
-[返回项目首页](../README.md)
+[返回项目首页](../README.zh-CN.md)
 
 **中文** | [English](REFERENCE.en.md)
 
@@ -87,8 +87,9 @@ GTD/
 ├── requirements.txt             # 固定直接依赖基线
 ├── requirements-dev.txt         # 浏览器测试依赖
 ├── requirements-update.txt      # 可选 yt-dlp 上游更新通道
-├── README.md                    # 中文说明
-├── README.en.md                 # 英文说明
+├── README.md                    # 英文主文档
+├── README.zh-CN.md              # 完整中文文档
+├── README.en.md                 # 旧英文链接兼容入口
 ├── cookies.txt                  # 可选：通用 Cookie
 ├── youtube_cookies.txt          # 可选：YouTube 专用 Cookie
 ├── instagram_cookies.txt        # 可选：Instagram 专用 Cookie
@@ -434,7 +435,7 @@ python app.py
 
 右上角的 **深色 / 浅色** 滑块可切换主题：默认使用深色，浅色采用简约白色与浅灰背景，两种主题均保留马石油绿点缀。主题选择独立于语言设置，浏览器会记住并跨页面、标签页同步。
 
-README 使用独立 Markdown 文件，在顶部点击 **中文 | English** 即可切换完整中文与英文版本。
+`README.md` 是英文主文档，`README.zh-CN.md` 是完整中文版本，顶部链接可相互切换。旧的 `README.en.md` 继续提供英文入口。
 
 ### 网页操作流程
 

@@ -1,6 +1,6 @@
 # GTD usage reference
 
-[Back to the project overview](../README.en.md)
+[Back to the project overview](../README.md)
 
 [中文](REFERENCE.md) | **English**
 
@@ -89,8 +89,9 @@ GTD/
 ├── requirements.txt             # Pinned direct dependency baseline
 ├── requirements-dev.txt         # Browser test dependencies
 ├── requirements-update.txt      # Optional upstream yt-dlp channel
-├── README.md                    # Chinese documentation
-├── README.en.md                 # English documentation
+├── README.md                    # Primary English documentation
+├── README.zh-CN.md              # Full Chinese documentation
+├── README.en.md                 # Legacy English entry point
 ├── cookies.txt                  # Optional: general cookies
 ├── youtube_cookies.txt          # Optional: YouTube cookies
 ├── instagram_cookies.txt        # Optional: Instagram cookies
@@ -440,7 +441,7 @@ Upload and processing progress are shown separately. Extraction shares the exist
 
 Use the **Dark / Light** slider in the upper-right corner to switch themes. Dark is the default; light uses clean white and soft gray surfaces. Both keep Petronas green accents. Your theme preference is independent of language, remembered in this browser, and shared across pages and tabs.
 
-This README uses separate Markdown files: follow **中文 | English** at the top to switch between the complete Chinese and English versions.
+`README.md` is the primary English documentation; `README.zh-CN.md` is the complete Chinese version. Use the language links at the top to switch. The old `README.en.md` remains a compatibility entry point.
 
 ### Web Workflow
 

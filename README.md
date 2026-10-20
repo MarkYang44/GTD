@@ -1,72 +1,91 @@
 <p align="center">
-  <img src="static/icons/character-icon-192x192.png" width="88" alt="GTD 图标">
+  <img src="static/icons/character-icon-192x192.png" width="88" alt="GTD icon">
 </p>
 
 <h1 align="center">GTD</h1>
 
-<p align="center"><strong>Generalized Transmedia Downloader</strong><br>多平台媒体批量下载与本地音频提取。</p>
+<p align="center"><strong>Generalized Transmedia Downloader</strong><br>Multi-platform media downloads and local audio extraction.</p>
 
-<p align="center"><strong>简体中文</strong> · <a href="README.en.md">English</a></p>
+<p align="center"><strong>English</strong> · <a href="README.zh-CN.md">简体中文</a></p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&amp;logoColor=white" alt="Python 3.10+">
-  <img src="https://img.shields.io/badge/Interface-Web%20%2B%20CLI-008C88" alt="Web 与 CLI">
-  <img src="https://img.shields.io/badge/Language-中文%20%7C%20English-59636E" alt="中文与 English">
+  <img src="https://img.shields.io/badge/Interface-Web%20%2B%20CLI-008C88" alt="Web and CLI">
+  <img src="https://img.shields.io/badge/Language-中文%20%7C%20English-59636E" alt="Chinese and English">
 </p>
 
-GTD 基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp)、Flask 和 FFmpeg，为 YouTube、Instagram 与 Bilibili 提供统一的批量下载流程。通过浏览器管理任务，或从命令行直接下载；本地视频也可独立提取音轨。
+Built on [yt-dlp](https://github.com/yt-dlp/yt-dlp), Flask, and FFmpeg, GTD brings YouTube, Instagram, and Bilibili downloads into one workflow. Manage batches in your browser or download directly from the command line. Extract audio from local video files.
 
-**运行方式：源码启动 Web / CLI，适用于 macOS 与 Windows。** 安装 Python 依赖和媒体工具后即可使用。
+**Run the Web interface or CLI from source on macOS and Windows.** Install the Python dependencies and media tools to get started.
 
-[完整使用参考](docs/REFERENCE.md) · [网页使用指南](docs/WEB_GUIDE.md) · [问题反馈](https://github.com/MarkYang44/GTD/issues)
+[Quick start](#quick-start) · [Command line](#command-line-usage) · [Full usage reference](docs/REFERENCE.en.md) · [Web user guide](docs/WEB_GUIDE.en.md) · [Report an issue](https://github.com/MarkYang44/GTD/issues)
 
-## 功能概览
+## See it in action
 
-| 模块 | 能力 |
+**Download workspace · Dark theme**
+
+Separate video and audio inputs, selectable output formats, subtitles, and custom download folders.
+
+![GTD download workspace in English, dark theme](docs/screenshots/download-workspace.en.jpg)
+
+<details>
+<summary><strong>Local video → MP3 · Light theme</strong></summary>
+
+Upload a video, choose MP3 V0, and download the finished audio from the task list.
+
+![GTD local audio extraction with a completed MP3 task in English, light theme](docs/screenshots/audio-extraction.en.jpg)
+
+</details>
+
+Screenshots show the current Web interface in an isolated local session. The extraction example uses a generated sample video and a real FFmpeg conversion; no personal media or account data is shown.
+
+## Features
+
+| Module | Capabilities |
 | --- | --- |
-| 多平台下载 | 混合提交 YouTube、Instagram、Bilibili 链接或分享文案，自动识别平台；支持播放列表、合集和分 P 预览与选择 |
-| 视频与音频 | 下载最高可用质量的视频与音轨；视频默认输出 MP4，音频可选 MP3 V0、源 FLAC、原始音频或 WAV PCM；支持封面写入与缺失封面兜底 |
-| 字幕与弹幕 | 可选下载人工字幕、自动字幕及 Bilibili 弹幕，封装为可切换的 MKV 轨道 |
-| 任务管理 | 显示进度、速度、预计剩余时间与结构化错误；支持取消、重试、重新下载和持久化历史 |
-| 本地音频提取 | 上传或拖放本地视频，提取原始音轨或转换为 MP3 V0，并下载处理结果 |
-| 界面与输出 | 中英文、深浅主题跨页面保存；支持自定义输出路径和 macOS / Windows 原生文件夹选择器 |
+| Multi-platform downloads | Mix YouTube, Instagram, and Bilibili URLs or share text; preview and select playlist, collection, and multipart entries |
+| Video and audio | Select the highest available video and audio quality; MP4 video and MP3 V0, source FLAC, original audio, or WAV PCM; cover embedding with fallback artwork |
+| Subtitles and danmaku | Optionally package manual subtitles, automatic captions, and Bilibili comments as selectable MKV tracks |
+| Task management | Progress, speed, time remaining, structured errors, cancellation, retries, redownloads, and persistent history |
+| Local audio extraction | Upload or drop a video, extract the original audio or convert to MP3 V0, and download the result |
+| Interface and output | Shared Chinese/English and dark/light preferences; custom output folders with native macOS/Windows folder pickers |
 
-所有 Web 批次共用最多 **3 个工作槽**，本地音频提取也使用该队列；Bilibili 最多同时下载 **2 项**，Instagram 最多 **1 项**。CLI 每批采用相同并发上限。每批最多选择 100 项，合集预览最多列出前 1000 项并提示截断。
+All Web batches share up to **3 worker slots**, including local audio extraction, with at most **2 Bilibili** downloads and **1 Instagram** download running at once. Each CLI batch uses the same concurrency limits. Select up to 100 items per batch; collection previews list up to the first 1,000 entries and report truncation.
 
-## 快速开始
+## Quick start
 
-### 1. 准备环境
+### 1. Prepare your environment
 
-| 依赖 | 用途 |
+| Dependency | Purpose |
 | --- | --- |
-| Python 3.10+ 与 pip | 运行 Web 服务和命令行工具 |
-| FFmpeg 与 ffprobe | 音视频合并、媒体检查、音频转换与提取 |
-| aria2c（可选） | Bilibili 极速模式；未安装时仍可使用标准下载 |
-| Node.js 22（开发检查） | 运行 JavaScript 回归脚本 |
+| Python 3.10+ and pip | Run the Web service and CLI |
+| FFmpeg and ffprobe | Merge streams, inspect media, convert and extract audio |
+| aria2c (optional) | Bilibili turbo mode; standard downloads work without it |
+| Node.js 22 (development checks) | Run JavaScript regression harnesses |
 
-macOS 可通过已安装的 Homebrew 准备媒体工具：
+On macOS, use an existing Homebrew installation to install media tools:
 
 ```bash
 brew install ffmpeg
-# 可选
+# Optional
 brew install aria2
 ```
 
-Windows 请从 [Python 官网](https://www.python.org/downloads/windows/) 安装 Python，并按 [FFmpeg 下载页](https://ffmpeg.org/download.html) 的 Windows 链接安装包含 `ffmpeg.exe` 和 `ffprobe.exe` 的发行版，将其 `bin` 目录加入 `PATH`。安装后重新打开终端，确认以下命令可用：
+On Windows, install Python from [python.org](https://www.python.org/downloads/windows/). Follow the Windows links on the [FFmpeg download page](https://ffmpeg.org/download.html) to install a distribution containing `ffmpeg.exe` and `ffprobe.exe`, and add its `bin` directory to `PATH`. Open a new terminal and verify both commands:
 
 ```bash
 ffmpeg -version
 ffprobe -version
 ```
 
-### 2. 获取源码并安装依赖
+### 2. Get the source and install dependencies
 
 ```bash
 git clone https://github.com/MarkYang44/GTD.git
 cd GTD
 ```
 
-macOS：
+macOS:
 
 ```bash
 python3 -m venv venv
@@ -74,131 +93,131 @@ source venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
-Windows PowerShell：
+Windows PowerShell:
 
 ```powershell
 py -3 -m venv venv
 .\venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-Windows 无须修改 PowerShell 执行策略或激活虚拟环境。下文命令中的 `python`，在未激活环境时替换为 `.\venv\Scripts\python.exe`；macOS 对应 `venv/bin/python`。
+On Windows, no activation or PowerShell execution-policy changes are needed. In the commands below, replace `python` with `.\venv\Scripts\python.exe` when the environment is not activated; the macOS equivalent is `venv/bin/python`.
 
-直接依赖以 [requirements.txt](requirements.txt) 为准，间接依赖由 pip 按系统与 Python 版本解析。请安装完整依赖文件，以包含封面处理等依赖。
+[requirements.txt](requirements.txt) defines the direct dependency baseline. Pip resolves transitive dependencies for your OS and Python version. Install the complete file to include cover-art handling.
 
-### 3. 启动网页
+### 3. Start the Web interface
 
 ```bash
 python app.py
 ```
 
-打开 **[http://127.0.0.1:8233](http://127.0.0.1:8233)**，在视频或音频区逐行粘贴链接。合集会先显示选择面板，提交后即可查看进度。默认输出到项目内 `downloads/`，也可在网页中选择其他目录。终端按 `Ctrl+C` 停止服务。
+Open **[http://127.0.0.1:8233](http://127.0.0.1:8233)** and paste one link per line into the video or audio panel. Collections open a selection panel before submission. Track progress after submitting. Output defaults to the project's `downloads/` folder, or select another directory in the interface. Press `Ctrl+C` in the terminal to stop the service.
 
-> 服务默认监听 `0.0.0.0:8233`，没有登录验证。同一局域网内能够连接该端口的设备可提交任务并访问结果；仅在可信网络使用，不要将端口映射到公网。远程访问时，文件夹选择器操作的是运行服务的电脑。
+> The service listens on `0.0.0.0:8233` by default and has no login protection. Devices that can reach the port on your local network can submit tasks and access results. Use a trusted network and do not expose the port to the internet. When accessed remotely, the folder picker operates on the computer running the service.
 
-## 命令行使用
+## Command-line usage
 
-运行交互模式，按提示选择视频 / 音频、输出目录和待下载链接：
+Start interactive mode to choose video or audio, an output folder, and download URLs:
 
 ```bash
 python main.py
 ```
 
-也可以直接传入参数；以下示例中的链接需替换为实际目标：
+Or supply arguments directly. Replace the placeholder URLs below with your targets:
 
 ```bash
-# 下载视频；可在同一条命令后追加多个链接
+# Download video; append more URLs to submit a mixed batch
 python main.py "https://www.youtube.com/watch?v=VIDEO_ID"
 
-# 选择音频输出：mp3 / flac / source / wav
+# Audio formats: mp3 / flac / source / wav
 python main.py --audio --audio-format mp3 "https://www.youtube.com/watch?v=VIDEO_ID"
 
-# 播放列表或多分 P 必须明确选择条目
+# Explicit selection is required for playlists and multipart collections
 python main.py --items 1-5 "https://www.youtube.com/playlist?list=PLAYLIST_ID"
 
-# 视频字幕、自动字幕与 Bilibili 弹幕
+# Video subtitles, automatic captions, and Bilibili danmaku
 python main.py --subtitles --auto-subtitles --danmaku "https://www.bilibili.com/video/BV_ID"
 
-# Bilibili 可选极速模式，需要 aria2c
+# Optional Bilibili turbo mode, requiring aria2c
 python main.py --turbo "https://www.bilibili.com/video/BV_ID"
 ```
 
-使用 `--output-dir "路径"` 指定目录，`--download-dir` 为等价别名。相对路径以项目根目录为基准，缺失目录会尝试创建；含空格的路径和所有 URL 均应加引号。合集可用 `--items all`，但仍受每批 100 项上限约束。参数模式会直接开始下载。
+Set an output directory with `--output-dir "path"`; `--download-dir` is an alias. Relative paths are resolved from the project root, and missing folders are created when possible. Quote URLs and paths containing spaces. `--items all` selects an entire collection within the 100-item batch limit. Argument mode starts downloading immediately.
 
-CLI 全部成功返回 `0`，存在失败或无有效链接返回 `1`，交互输入被用户中断返回 `130`。
+CLI exit codes: `0` when all tasks succeed, `1` for any failure or no valid URLs, and `130` when the user interrupts interactive input.
 
-## 输出与可用性
+## Output and availability
 
-- **视频**：默认 MP4；开启字幕或弹幕后使用 MKV，字幕与 ASS 弹幕作为独立轨道。仅获取源站实际提供且当前账号可访问的内容；无法提取烧录在画面中的字幕。
-- **音频**：MP3 使用 V0；`source` 保留选中源音轨的编码；`wav` 解码为 PCM。`flac` 仅在源站实际提供 FLAC 时使用，否则回退 MP3 V0；转码不会提升有损源的音质。
-- **本地提取**：支持原始音轨和 MP3 V0，单文件上传上限 2 GiB。支持的容器、暂存配额与清理规则见[网页指南](docs/WEB_GUIDE.md#从本地视频提取音频)。
-- **文件保留**：重复下载采用 `(2)`、`(3)` 等后缀保留旧文件。服务重启后，未完成任务标记为 `INTERRUPTED`，需要手动重试。
-- **平台限制**：内容可用性取决于源站、账号权限及 yt-dlp 支持情况。Bilibili 可自适应选择源站提供的备用 CDN；极速模式失败时可降级为标准模式，实际速度仍取决于网络与 CDN。
+- **Video:** MP4 by default; enabling subtitles or danmaku switches to MKV with separate subtitle/ASS tracks. Only source-provided tracks accessible to your account can be downloaded. Burned-in text cannot be extracted.
+- **Audio:** MP3 uses V0. `source` keeps the selected source codec, and `wav` decodes to PCM. `flac` uses actual source FLAC when available and otherwise falls back to MP3 V0. Conversion does not improve lossy source quality.
+- **Local extraction:** Original audio or MP3 V0, with a 2 GiB per-file upload limit. See the [Web guide](docs/WEB_GUIDE.en.md#extract-audio-from-a-local-video) for supported containers, staging quotas, and cleanup rules.
+- **File preservation:** Repeated downloads receive suffixes such as `(2)` and `(3)`. After a service restart, unfinished tasks become `INTERRUPTED` and require a manual retry.
+- **Platform limits:** Availability depends on the source, account permissions, and yt-dlp support. Bilibili can select alternative CDNs supplied by the platform, and turbo failures can fall back to standard mode. Actual speed depends on network conditions and CDN routing.
 
-## 数据与隐私
+## Data and privacy
 
-| 位置 | 内容 |
+| Location | Contents |
 | --- | --- |
-| `downloads/` 或自选目录 | 下载媒体与音频提取结果 |
-| `state/tasks.sqlite3` | 任务历史、源链接、输出路径与结果；可用 `GTD_HISTORY_PATH` 指定其他位置 |
-| `state/audio_uploads/` | 本地提取使用的视频暂存副本 |
-| `logs/downloader.jsonl` | 脱敏事件日志，按 10 MiB 轮转，最多保留 5 个备份 |
-| 浏览器本地存储 | 语言、主题、最近输出目录 |
+| `downloads/` or a custom folder | Downloaded media and extracted audio |
+| `state/tasks.sqlite3` | Task history, source URLs, output paths, and results; override with `GTD_HISTORY_PATH` |
+| `state/audio_uploads/` | Staged local video copies for audio extraction |
+| `logs/downloader.jsonl` | Redacted event logs, rotating at 10 MiB with up to 5 backups |
+| Browser local storage | Language, theme, recent folders |
 
-需要登录的内容，可在项目根目录放置 Netscape 格式的 `youtube_cookies.txt`、`instagram_cookies.txt` 或 `bilibili_cookies.txt`；平台专用文件优先于通用 `cookies.txt`。导出步骤见[Cookie 配置](docs/WEB_GUIDE.md#登录内容与-cookie)。更换 Cookie 后重启服务。
+For login-required content, place a Netscape-format `youtube_cookies.txt`, `instagram_cookies.txt`, or `bilibili_cookies.txt` in the project root. Platform-specific files take priority over the general `cookies.txt`. Follow the [cookie setup guide](docs/WEB_GUIDE.en.md#login-protected-content-and-cookies), then restart the service after replacing cookies.
 
-Cookie 等同于登录凭证；不要上传或提交。任务历史和媒体也可能包含个人信息。提交 Issue 时只提供必要的脱敏日志片段。
+Cookies are login credentials: do not upload or commit them. Task history and media can also contain personal information. Include only the necessary redacted log excerpt in an issue.
 
-GTD 下载、合集预览、字幕 / 弹幕与极速模式使用**直连**。仅在自身进程内清除代理环境变量并设置 `NO_PROXY=*`，不修改系统、VPN 或终端配置；仍需当前网络能够访问源站。
+Downloads, collection previews, subtitles/danmaku, and turbo mode use **direct connections**. GTD clears proxy environment variables and sets `NO_PROXY=*` only within its own process. It does not change system, VPN, or shell settings; your network still needs access to the source.
 
-## 常见问题
+## Troubleshooting
 
-| 问题 | 建议 |
+| Problem | Suggested action |
 | --- | --- |
-| 网页无法访问 | 确认 `python app.py` 持续运行，检查终端错误和 8233 端口占用 |
-| 未检测到 FFmpeg / ffprobe | 确认两者位于 `PATH`，重开终端后重新启动 GTD |
-| 要求登录或 `HTTP 403` | 确认浏览器账号有权播放，再更新对应平台 Cookie |
-| `HTTP 429` / Bilibili `HTTP 412` | 降低请求频率并稍后重试；不要连续反复提交 |
-| CDN 断连 / `NETWORK_CONNECTION_RESET` | 自动备用线路仍失败时，检查直连网络并稍后手动重试 |
-| 提取提示 `NO_AUDIO` / `INPUT_EXPIRED` | 确认视频包含音轨；暂存已过期时重新上传 |
-| 上游页面变化导致解析失败 | 按下方说明选择更新通道，重启后再试 |
+| Web page does not open | Confirm `python app.py` is running; inspect terminal errors and port 8233 conflicts |
+| FFmpeg / ffprobe not found | Verify both tools are on `PATH`, open a new terminal, and restart GTD |
+| Login required or `HTTP 403` | Check playback permissions in your browser, then refresh the platform's cookies |
+| `HTTP 429` / Bilibili `HTTP 412` | Reduce request frequency and retry later; avoid repeated submissions |
+| CDN disconnect / `NETWORK_CONNECTION_RESET` | If automatic fallback also fails, check direct connectivity and retry manually later |
+| Extraction reports `NO_AUDIO` / `INPUT_EXPIRED` | Verify the video contains audio; upload again if the staged input expired |
+| Upstream page changes break extraction | Consider the update channel below, then restart and retry |
 
-可选的上游更新通道会安装持续变化的 yt-dlp 主分支；使用前应了解其可能与固定基线行为不同：
+The optional upstream update channel installs the moving yt-dlp main branch and may behave differently from the fixed baseline:
 
 ```bash
 python -m pip install --upgrade --force-reinstall --no-cache-dir -r requirements-update.txt
-# 恢复固定直接依赖基线
+# Restore the direct dependency baseline
 python -m pip install --force-reinstall -r requirements.txt
 ```
 
-## 开发与验证
+## Development and verification
 
-项目采用 Python + Flask / Jinja 与原生 HTML / CSS / JavaScript，无需前端构建步骤。Web 与 CLI 共用下载核心。
+GTD uses Python, Flask/Jinja, and plain HTML/CSS/JavaScript, with no frontend build step. Web and CLI share the download core.
 
-| 入口 / 目录 | 职责 |
+| Entry point / directory | Responsibility |
 | --- | --- |
-| `app.py` / `main.py` | Web / CLI 入口 |
-| `downloader.py` / `task_control.py` | 下载核心与任务调度 |
-| `local_audio.py` / `audio_extract_routes.py` | 本地媒体提取与接口 |
-| `templates/` / `static/` | 网页模板、样式、脚本与资源 |
-| `tests/` / `.github/workflows/tests.yml` | Python、JavaScript 与浏览器回归 |
+| `app.py` / `main.py` | Web / CLI entry points |
+| `downloader.py` / `task_control.py` | Download core and task scheduling |
+| `local_audio.py` / `audio_extract_routes.py` | Local media extraction and endpoints |
+| `templates/` / `static/` | Page templates, styles, scripts, and assets |
+| `tests/` / `.github/workflows/tests.yml` | Python, JavaScript, and browser regressions |
 
-在项目根目录运行；JavaScript 回归需 Node.js 22，真实音频测试需 FFmpeg / ffprobe：
+Run from the project root. JavaScript harnesses require Node.js 22; real audio tests require FFmpeg/ffprobe:
 
 ```bash
 python -m unittest discover -s tests -p "test_*.py"
 
-# 可选：完整浏览器回归
+# Optional: full browser regression suite
 python -m pip install -r requirements-dev.txt
 python -m playwright install chromium
 python -m unittest discover -s tests/browser -p "test_*.py"
 ```
 
-CI 配置覆盖 macOS / Windows、Python 3.10 / 3.13。平台下载测试使用模拟响应，不代表实时源站连通性或下载速度；部分媒体测试在缺少 FFmpeg / ffprobe 时跳过。浏览器测试使用独立测试服务和临时状态目录。
+The CI configuration covers macOS/Windows and Python 3.10/3.13. Platform download tests mock responses and do not verify live source connectivity or speed. Some media tests skip when FFmpeg/ffprobe are unavailable. Browser tests use a separate test service and temporary state directories.
 
-## 使用边界与致谢
+## Responsible use and acknowledgments
 
-仅下载你拥有、获授权使用或平台允许下载的内容，遵守源站条款与适用法规。GTD 不绕过 DRM、登录权限或会员限制。
+Download only content you own, are authorized to use, or are permitted by the platform to download. Follow source terms and applicable laws. GTD does not bypass DRM, account permissions, or membership restrictions.
 
-感谢 [yt-dlp](https://github.com/yt-dlp/yt-dlp)、[Flask](https://github.com/pallets/flask)、[FFmpeg](https://ffmpeg.org/)、[Mutagen](https://github.com/quodlibet/mutagen) 与 [aria2](https://github.com/aria2/aria2)。
+Thanks to [yt-dlp](https://github.com/yt-dlp/yt-dlp), [Flask](https://github.com/pallets/flask), [FFmpeg](https://ffmpeg.org/), [Mutagen](https://github.com/quodlibet/mutagen), and [aria2](https://github.com/aria2/aria2).
 
 <p align="center">Designed by Mark Yang</p>
