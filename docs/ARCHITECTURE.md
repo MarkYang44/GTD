@@ -58,4 +58,3 @@ Each initialized application owns a process-local queue. The standard single-app
 Start with focused regressions around the changed boundary, then run the full Python/JavaScript and browser suites listed in the README. Assert behavior at the caller above an extracted helper, rather than only asserting the helper's structure.
 
 Key contracts include mixed-platform options, ordered CDN recovery, cancellation and workspace ownership, output collision handling, restart recovery, stale browser responses, and timeouts while reading response bodies. Media integration checks use generated local fixtures and real FFmpeg; source FLAC checks compare encoded-audio hashes as well as codec and metadata. Platform download tests simulate upstream responses, so passing them does not establish live connectivity or download speed.
-

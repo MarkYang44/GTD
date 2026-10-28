@@ -208,4 +208,3 @@ def build_ydl_options(
     options["postprocessor_hooks"] = postprocessor_hooks
 
     return options
-

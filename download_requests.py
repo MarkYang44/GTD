@@ -128,4 +128,3 @@ def parse_download_request(body, *, previews: PreviewStore,
     seeds, rejected = ((_preview_seeds(body, previews), []) if has_preview
                        else _direct_seeds(body, task_factory, normalizer))
     return DownloadSubmission(preferences, subtitles, output_dir, seeds, rejected)
-

@@ -111,4 +111,3 @@ assert 'gtd.runtime' not in app.app.extensions, 'import constructed execution re
                     self.assertTrue(runtime.task_manager.wait_for_idle())
             self.assertEqual(calls, [(Path(application.config["GTD_UPLOAD_ROOT"]), False, f"clip-{number}.mp4")
                                     for number, application in enumerate(applications)])
-
