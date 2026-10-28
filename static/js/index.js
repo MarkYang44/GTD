@@ -833,7 +833,7 @@
     } finally {
       pollInFlight = false;
       const normalDelay = document.hidden ? HIDDEN_POLL_INTERVAL_MS : VISIBLE_POLL_INTERVAL_MS;
-      scheduleNextPoll(pollFailureCount ? Math.min(30000, normalDelay * 2 ** pollFailureCount) : normalDelay);
+      scheduleNextPoll(window.GtdTaskApi.backoffDelay(normalDelay, pollFailureCount));
     }
   }
 
@@ -1043,14 +1043,8 @@
     return div.innerHTML;
   }
 
-  async function fetchJsonWithTimeout(url, timeoutMs = 15000) {
-    const controller = typeof AbortController === "undefined" ? null : new AbortController();
-    const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
-    try {
-      const response = await fetch(url, controller ? {signal: controller.signal} : undefined);
-      const data = response.ok ? await response.json() : null;
-      return {ok: response.ok, status: response.status, data};
-    } finally { if (timer !== null) clearTimeout(timer); }
+  function fetchJsonWithTimeout(url, timeoutMs = 15000) {
+    return window.GtdTaskApi.fetchJson(url, {timeoutMs, readErrorBody: false});
   }
 
   function rememberCurrentBatch(batchId) {

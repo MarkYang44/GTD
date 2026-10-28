@@ -12,6 +12,7 @@ const nodes = new Map(); const listeners = {}; let requests = 0; let language = 
 const document = { getElementById(id) { if (!nodes.has(id)) nodes.set(id, new Element()); return nodes.get(id); }, querySelectorAll() { return []; }, createElement() { return new Element(); }, createTextNode(textContent) { return {textContent}; }, addEventListener(name, fn) { listeners[name] = fn; } };
 const window = {GtdLanguage: {get language(){ return language; }, t(zh,en,params={}) { return (language === 'en' ? en : zh).replace(/\{(\w+)\}/g, (_,key) => params[key] ?? `{${key}}`); }}, setTimeout() {}};
 const context = vm.createContext({document,window,localStorage:{getItem(){return null;}},fetch(){requests++;return new Promise(()=>{});}, setTimeout(){}, clearTimeout(){}, console});
+vm.runInContext(fs.readFileSync('static/js/task_api.js', 'utf8'), context);
 vm.runInContext(fs.readFileSync('static/js/index.js','utf8'), context);
 vm.runInContext(`renderTasks({media_type:'audio', tasks:[{id:'a',url:'https://example.com/中文',status:'completed',result:{title:'用户中文标题',filepath:'/中文/音频.mp3'},can_redownload:true}]});`,context);
 language = 'en';

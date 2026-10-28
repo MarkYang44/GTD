@@ -193,10 +193,14 @@ python -m pip install --force-reinstall -r requirements.txt
 
 项目采用 Python + Flask / Jinja 与原生 HTML / CSS / JavaScript，无需前端构建步骤。Web 与 CLI 共用下载核心。
 
+模块边界、应用工厂生命周期与兼容性约定见[架构与安全重构指南](docs/ARCHITECTURE.zh-CN.md)。
+
 | 入口 / 目录 | 职责 |
 | --- | --- |
 | `app.py` / `main.py` | Web / CLI 入口 |
 | `downloader.py` / `task_control.py` | 下载核心与任务调度 |
+| `download_requests.py` / `web_runtime.py` | 请求校验与应用独立的资源生命周期 |
+| `download_options.py` / `bilibili_recovery.py` | 下载配置与 CDN 恢复策略 |
 | `local_audio.py` / `audio_extract_routes.py` | 本地媒体提取与接口 |
 | `templates/` / `static/` | 网页模板、样式、脚本与资源 |
 | `tests/` / `.github/workflows/tests.yml` | Python、JavaScript 与浏览器回归 |

@@ -11,6 +11,8 @@ from contextlib import contextmanager
 import sqlite3
 from pathlib import Path
 
+from task_models import BatchState
+
 
 _BATCH_FIELDS = ('id', 'created_at', 'media_type', 'audio_format', 'speed_mode', 'download_dir', 'subtitle_options')
 _TASK_FIELDS = (
@@ -43,7 +45,7 @@ def _select(value: dict, fields: tuple[str, ...]) -> dict:
     return selected
 
 
-def _safe_batch(batch: dict) -> dict:
+def _safe_batch(batch: BatchState) -> dict:
     saved = _select(batch, _BATCH_FIELDS)
     saved['tasks'] = []
     for task in batch['tasks']:
@@ -78,7 +80,7 @@ class TaskHistoryStore:
         finally:
             connection.close()
 
-    def save_batch(self, batch: dict) -> None:
+    def save_batch(self, batch: BatchState) -> None:
         saved = _safe_batch(batch)
         payload = json.dumps(saved, ensure_ascii=False, allow_nan=False)
         with self._connection() as connection:
@@ -86,7 +88,7 @@ class TaskHistoryStore:
                                'ON CONFLICT(id) DO UPDATE SET payload = excluded.payload, created_at = excluded.created_at',
                                (saved['id'], saved['created_at'], payload))
 
-    def load_batches(self) -> list[dict]:
+    def load_batches(self) -> list[BatchState]:
         with self._connection() as connection:
             rows = connection.execute('SELECT payload FROM task_batches ORDER BY created_at, rowid').fetchall()
         return [json.loads(row[0]) for row in rows]

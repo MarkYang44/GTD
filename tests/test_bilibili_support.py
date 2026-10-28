@@ -948,10 +948,13 @@ class BilibiliSurfaceIntegrationTests(unittest.TestCase):
 
     def test_cli_and_api_errors_name_all_supported_platforms(self):
         source = Path("main.py").read_text(encoding="utf-8")
-        app_source = Path("app.py").read_text(encoding="utf-8")
+        response = web_app.app.test_client().post("/api/download", json={
+            "urls": ["https://example.com/unsupported"],
+        })
 
         self.assertIn("YouTube、Instagram 或 Bilibili", source)
-        self.assertIn("YouTube、Instagram 或 Bilibili", app_source)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("YouTube、Instagram 或 Bilibili", response.json["message"])
 
 
 class BilibiliDocumentationTests(unittest.TestCase):

@@ -69,7 +69,7 @@ class WebConfigurationTests(unittest.TestCase):
         )
         self.assertEqual(
             script_urls,
-            ["/static/js/motion.js", "/static/js/index.js"],
+            ["/static/js/motion.js", "/static/js/task_api.js", "/static/js/index.js"],
         )
 
         for stylesheet_url in stylesheet_urls:

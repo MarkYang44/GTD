@@ -12,6 +12,7 @@ const nodes = new Map(); const listeners = {}; let requests = 0; let language = 
 const document = { getElementById(id) { if (!nodes.has(id)) nodes.set(id, new Element()); return nodes.get(id); }, querySelectorAll() { return []; }, createElement() { return new Element(); }, createTextNode(textContent) { return {textContent}; }, addEventListener(name, fn) { listeners[name] = fn; } };
 const window = {GtdLanguage: {get language(){ return language; }, t(zh,en,params={}) { return (language === 'en' ? en : zh).replace(/\{(\w+)\}/g, (_,key) => params[key] ?? `{${key}}`); }}, setTimeout() {}};
 const context = vm.createContext({document,window,localStorage:{getItem(){return null;}},fetch(){requests++;return new Promise(()=>{});}, setTimeout(){}, clearTimeout(){}, console});
+vm.runInContext(fs.readFileSync('static/js/task_api.js', 'utf8'), context);
 vm.runInContext(fs.readFileSync('static/js/index.js','utf8'), context);
 
 (async () => {
@@ -39,6 +40,16 @@ vm.runInContext(fs.readFileSync('static/js/index.js','utf8'), context);
   assert.strictEqual(vm.runInContext('pollingActive',context),false);
   assert.strictEqual(nodes.get('videoDownloadButton').disabled,false);
   assert.match(nodes.get('task-container').innerHTML,/done/);
+
+  // A late response for the previously selected batch cannot replace the new view.
+  let finishOld;
+  context.fetch = () => new Promise(resolve => { finishOld = resolve; });
+  const oldPoll = vm.runInContext("currentBatchId='old-batch';pollingActive=true;pollStatus()", context);
+  vm.runInContext("currentBatchId='new-batch'", context);
+  finishOld({ok:true,status:200,json:async()=>({id:'old-batch',tasks:[{id:'stale',status:'completed',result:{title:'stale-title'}}]})});
+  await oldPoll;
+  assert.strictEqual(vm.runInContext('currentBatchId', context), 'new-batch');
+  assert.doesNotMatch(nodes.get('task-container').innerHTML, /stale-title/);
 
   // Persisting a batch reference is independent of download-directory history.
   vm.runInContext("rememberCurrentBatch('saved-id')",context);

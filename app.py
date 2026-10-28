@@ -12,9 +12,9 @@ require_supported_python()
 import os
 import mimetypes
 from pathlib import Path, PurePosixPath
-from urllib.parse import urlparse
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, current_app, has_app_context, jsonify, render_template, request
+from werkzeug.local import LocalProxy
 
 mimetypes.add_type("text/javascript", ".js")
 
@@ -22,21 +22,13 @@ from collection_resolver import (
     CollectionResolveError,
     PreviewStore,
     resolve_inputs,
-    select_preview_entries,
 )
 from download_errors import public_error
 
 from downloader import (
-    AUDIO_FORMATS,
     DOWNLOADS_DIR,
-    MEDIA_TYPES,
-    MP3,
-    SPEED_MODES,
-    STANDARD,
-    VIDEO,
     aria2c_path,
     check_ffmpeg,
-    download_video,
     ensure_downloads_dir,
     _prepare_output_dir,
     make_task,
@@ -51,13 +43,10 @@ from folder_picker import (
 from guide_renderer import render_markdown_file
 from lmu_guide_data import CARS, CIRCUITS, GUIDE_UPDATED
 from lmu_content import template_context as lmu_content_context
-from task_control import TaskManager, TaskSeed
-from task_history import TaskHistoryStore
-from subtitle_preferences import normalize_subtitle_options
-from local_audio import UploadStore, extract_audio
 from audio_extract_routes import extraction_blueprint, with_download_links
+from download_requests import DownloadRequestError, parse_download_request
+from web_runtime import configure_runtime, get_runtime
 
-app = Flask(__name__)
 WEB_HOST = "0.0.0.0"
 WEB_PORT = 8233
 MAX_STORED_BATCHES = 100
@@ -71,7 +60,7 @@ def _guide_static_image_exists(relative_path: str) -> bool:
     path = PurePosixPath(relative_path)
     if path.is_absolute() or ".." in path.parts:
         return False
-    static_root = Path(app.static_folder).resolve()
+    static_root = Path(_active_application().static_folder).resolve()
     candidate = (static_root / path).resolve()
     try:
         candidate.relative_to(static_root)
@@ -86,40 +75,24 @@ def _available_guide_images(circuits, cars) -> frozenset[str]:
     image_paths.update(item.image for item in cars)
     return frozenset(path for path in image_paths if _guide_static_image_exists(path))
 
-upload_store = UploadStore(Path(__file__).resolve().parent / "state" / "audio_uploads")
+def _active_application():
+    return current_app._get_current_object() if has_app_context() else app
 
 
-def run_media_task(url, **kwargs):
-    if kwargs.get("platform") == "local":
-        return extract_audio(url, store=upload_store, **kwargs)
-    return download_video(url, **kwargs)
+# Preserve legacy imports and test seams while resolving per-application resources.
+task_manager = LocalProxy(lambda: get_runtime(_active_application()).task_manager)
+preview_store = LocalProxy(lambda: get_runtime(_active_application()).preview_store)
+upload_store = LocalProxy(lambda: get_runtime(_active_application()).upload_store)
 
-
-preview_store = PreviewStore(ttl_seconds=1800)
-task_manager = TaskManager(
-    run_media_task,
-    max_workers=3,
-    max_bilibili=2,
-    max_instagram=1,
-    max_batches=MAX_STORED_BATCHES,
-    capability_aware_runner=True,
-    directory_preparer=_prepare_output_dir,
-    history_store=TaskHistoryStore(os.environ.get("GTD_HISTORY_PATH", str(Path(__file__).resolve().parent / "state" / "tasks.sqlite3"))),
-)
-
-app.register_blueprint(extraction_blueprint(task_manager, upload_store))
-task_manager.cleanup_inputs("local", upload_store.cleanup)
 
 # ---------------------------------------------------------------------------
 # 路由
 # ---------------------------------------------------------------------------
-@app.route("/")
 def index():
     """主页面。"""
     return render_template("index.html")
 
 
-@app.route("/guide")
 def guide():
     """Render the Web-only usage guide from the curated Markdown source."""
     return render_template(
@@ -129,13 +102,11 @@ def guide():
     )
 
 
-@app.route("/kozekilmu")
 def kozekilmu():
     """Render the hidden LMU Fuji GT3 victory archive."""
     return render_template("kozekilmu.html")
 
 
-@app.route("/kozekilmu/tracks")
 def kozekilmu_tracks():
     """Render the read-only LMU circuit and car recommendation guide."""
     return render_template(
@@ -148,7 +119,6 @@ def kozekilmu_tracks():
     )
 
 
-@app.route("/kozekilmu/cars")
 def kozekilmu_cars():
     """Browse every catalog car with its source-derived circuit recommendations."""
     recommendations = {slug: [] for slug in CARS}
@@ -178,13 +148,11 @@ def kozekilmu_cars():
     )
 
 
-@app.route("/favicon.ico")
 def favicon():
     """Serve the multi-resolution icon at the legacy browser location."""
-    return app.send_static_file("icons/favicon.ico")
+    return current_app.send_static_file("icons/favicon.ico")
 
 
-@app.route("/api/capabilities")
 def api_capabilities():
     """返回当前服务可用的可选下载能力。"""
     return jsonify(
@@ -196,7 +164,6 @@ def api_capabilities():
     )
 
 
-@app.post("/api/select-directory")
 def api_select_directory():
     """Open the host OS folder picker for this local-only Web service."""
     body = request.get_json(silent=True)
@@ -260,7 +227,6 @@ def _invalid_request(message: str):
     )
 
 
-@app.post("/api/preview")
 def api_preview():
     """展开一组普通链接与合集链接，返回可选择的只读预览。"""
     body = request.get_json(silent=True)
@@ -282,165 +248,37 @@ def api_preview():
     return jsonify(preview.to_dict())
 
 
-@app.route("/api/download", methods=["POST"])
 def api_download():
-    """接收直接 URL 或预览选择，交由进程级任务管理器执行。"""
-    body = request.get_json(silent=True)
-    if not isinstance(body, dict):
-        return _invalid_request("请求正文必须是 JSON 对象")
-
-    media_type = body.get("media_type", VIDEO)
-    speed_mode = body.get("speed_mode", STANDARD)
-    audio_format = body.get("audio_format", MP3)
-    download_dir = body.get("download_dir")
+    """Parse one submission, then hand execution to the application's manager."""
     try:
-        subtitle_options = normalize_subtitle_options(body.get("subtitle_options"), media_type)
-    except ValueError as error:
-        return _invalid_request(str(error))
-
-    if not isinstance(media_type, str) or media_type not in MEDIA_TYPES:
-        return _invalid_request("不支持的下载类型")
-    if not isinstance(speed_mode, str) or speed_mode not in SPEED_MODES:
-        return _invalid_request("不支持的速度模式")
-    if not isinstance(audio_format, str) or audio_format not in AUDIO_FORMATS:
-        return _invalid_request("不支持的音频格式")
-    if download_dir is not None and not isinstance(download_dir, str):
-        return _invalid_request("download_dir 必须是路径字符串")
-    try:
-        prepared_download_dir = _prepare_output_dir(download_dir)
-    except ValueError as error:
-        return _api_error(
-            "INVALID_DOWNLOAD_DIR",
-            str(error),
-            "请输入一个可创建且可写的文件夹，留空则使用默认 downloads",
-            400,
+        submission = parse_download_request(
+            request.get_json(silent=True), previews=preview_store,
+            prepare_directory=_prepare_output_dir, task_factory=make_task,
+            normalizer=normalize_url,
         )
-    has_urls = "urls" in body
-    has_preview = "preview_id" in body or "selected_entry_ids" in body
-    if has_urls == has_preview:
-        return _invalid_request("请提供 urls，或 preview_id 与所选条目，且不能同时提供")
-
-    seeds: list[TaskSeed] = []
-    rejected: list[dict[str, object]] = []
-    if has_preview:
-        preview_id = body.get("preview_id")
-        entry_ids = body.get("selected_entry_ids")
-        if not isinstance(preview_id, str) or not preview_id:
-            return _invalid_request("preview_id 格式无效")
-        if not isinstance(entry_ids, list) or not all(
-            isinstance(value, str) for value in entry_ids
-        ):
-            return _invalid_request("selected_entry_ids 格式无效")
-        if len(entry_ids) > 100:
-            return _invalid_request("一次最多选择 100 个条目")
-        preview = preview_store.get(preview_id)
-        if preview is None:
-            return _api_error(
-                "PREVIEW_EXPIRED",
-                "下载预览不存在或已过期",
-                "请重新解析链接并选择条目",
-                404,
-                True,
-            )
-        try:
-            selected = select_preview_entries(preview, entry_ids)
-        except ValueError as error:
-            return _invalid_request(str(error))
-        seeds = [
-            TaskSeed(
-                entry.platform,
-                str(entry.url),
-                entry.title,
-                entry.position,
-            )
-            for entry in selected
-        ]
-    else:
-        urls = body.get("urls")
-        if not isinstance(urls, list) or not all(
-            isinstance(url, str) for url in urls
-        ):
-            return _invalid_request("链接列表格式无效")
-        if not urls:
-            return _invalid_request("请至少提供一个视频链接")
-        if len(urls) > 100:
-            return _invalid_request("一次最多提交 100 个链接")
-        for index, value in enumerate(urls, start=1):
-            task = make_task(value)
-            if task is None:
-                normalized = normalize_url(value)
-                parsed = urlparse(normalized)
-                if parsed.scheme in {"http", "https"} and parsed.hostname:
-                    rejected.append(
-                        {
-                            "index": index,
-                            "error_code": "UNSUPPORTED_PLATFORM",
-                            "message": "该链接不是受支持的 YouTube、Instagram 或 Bilibili 视频页面",
-                        }
-                    )
-                else:
-                    rejected.append(
-                        {
-                            "index": index,
-                            "error_code": "INVALID_URL",
-                            "message": "链接格式无效",
-                        }
-                    )
-                continue
-            platform, normalized = task
-            seeds.append(TaskSeed(platform, normalized))
-
-        if not seeds:
-            first = rejected[0]
-            if first["error_code"] == "UNSUPPORTED_PLATFORM":
-                return _api_error(
-                    "UNSUPPORTED_PLATFORM",
-                    str(first["message"]),
-                    "播放列表、合集与分 P 请先使用预览功能",
-                    400,
-                )
-            return _api_error(
-                "INVALID_URL",
-                str(first["message"]),
-                "请粘贴完整的 HTTP(S) 视频链接",
-                400,
-            )
-
+    except DownloadRequestError as error:
+        return _api_error(error.error_code, error.message, error.suggestion,
+                          error.status, error.retryable)
     try:
+        preferences = submission.preferences
         batch = task_manager.create_batch(
-            seeds,
-            media_type,
-            audio_format,
-            speed_mode,
-            prepared_download_dir,
-            **({"subtitle_options": subtitle_options} if subtitle_options else {}),
+            submission.seeds, preferences.media_type, preferences.audio_format,
+            preferences.speed_mode, submission.output_dir,
+            **({"subtitle_options": submission.subtitle_options} if submission.subtitle_options else {}),
         )
     except ValueError as error:
-        return _api_error(
-            "INVALID_DOWNLOAD_DIR",
-            str(error),
-            "请输入一个可创建且可写的文件夹，留空则使用默认 downloads",
-            400,
-        )
-
-    return jsonify(
-        {
-            "batch_id": batch["id"],
-            "task_count": batch["total"],
-            "rejected_count": len(rejected),
-            "rejected": rejected,
-            "download_dir": batch["download_dir"],
-        }
-    )
+        return _api_error("INVALID_DOWNLOAD_DIR", str(error),
+                          "请输入一个可创建且可写的文件夹，留空则使用默认 downloads", 400)
+    return jsonify(batch_id=batch["id"], task_count=batch["total"],
+                   rejected_count=len(submission.rejected), rejected=submission.rejected,
+                   download_dir=batch["download_dir"])
 
 
-@app.get("/api/batches")
 def api_batches():
     """List locally saved batch summaries, newest first."""
     return jsonify({"batches": task_manager.list_batches()})
 
 
-@app.route("/api/batch/<batch_id>")
 def api_batch_status(batch_id: str):
     """轮询接口：返回指定 batch 的当前状态。"""
     try:
@@ -473,22 +311,18 @@ def _task_operation(operation, batch_id: str, task_id: str):
         )
 
 
-@app.post("/api/batch/<batch_id>/task/<task_id>/cancel")
 def api_cancel_task(batch_id: str, task_id: str):
     return _task_operation(task_manager.cancel, batch_id, task_id)
 
 
-@app.post("/api/batch/<batch_id>/task/<task_id>/retry")
 def api_retry_task(batch_id: str, task_id: str):
     return _task_operation(task_manager.retry, batch_id, task_id)
 
 
-@app.post("/api/batch/<batch_id>/task/<task_id>/redownload")
 def api_redownload_task(batch_id: str, task_id: str):
     return _task_operation(task_manager.redownload, batch_id, task_id)
 
 
-@app.post("/api/batch/<batch_id>/retry-failed")
 def api_retry_failed(batch_id: str):
     try:
         return jsonify(task_manager.retry_failed(batch_id))
@@ -508,10 +342,52 @@ def api_retry_failed(batch_id: str):
         )
 
 
+def create_app(config=None, *, manager=None, uploads=None):
+    """Build an isolated Web app; initialize execution resources on first use.
+
+    The caller owns shutdown of the task manager in ``extensions['gtd.runtime']``
+    after initialization. Importing this module performs no history I/O.
+    """
+    application = Flask(__name__)
+    root = Path(__file__).resolve().parent
+    application.config.from_mapping(
+        GTD_HISTORY_PATH=os.environ.get("GTD_HISTORY_PATH", str(root / "state" / "tasks.sqlite3")),
+        GTD_UPLOAD_ROOT=os.environ.get("GTD_UPLOAD_ROOT", str(root / "state" / "audio_uploads")),
+        GTD_MAX_STORED_BATCHES=MAX_STORED_BATCHES,
+    )
+    application.config.update(config or {})
+    configure_runtime(application, manager=manager, uploads=uploads)
+    for rule, view, methods in (
+        ("/", index, ["GET"]),
+        ("/guide", guide, ["GET"]),
+        ("/kozekilmu", kozekilmu, ["GET"]),
+        ("/kozekilmu/tracks", kozekilmu_tracks, ["GET"]),
+        ("/kozekilmu/cars", kozekilmu_cars, ["GET"]),
+        ("/favicon.ico", favicon, ["GET"]),
+        ("/api/capabilities", api_capabilities, ["GET"]),
+        ("/api/select-directory", api_select_directory, ["POST"]),
+        ("/api/preview", api_preview, ["POST"]),
+        ("/api/download", api_download, ["POST"]),
+        ("/api/batches", api_batches, ["GET"]),
+        ("/api/batch/<batch_id>", api_batch_status, ["GET"]),
+        ("/api/batch/<batch_id>/task/<task_id>/cancel", api_cancel_task, ["POST"]),
+        ("/api/batch/<batch_id>/task/<task_id>/retry", api_retry_task, ["POST"]),
+        ("/api/batch/<batch_id>/task/<task_id>/redownload", api_redownload_task, ["POST"]),
+        ("/api/batch/<batch_id>/retry-failed", api_retry_failed, ["POST"]),
+    ):
+        application.add_url_rule(rule, view_func=view, methods=methods)
+    application.register_blueprint(extraction_blueprint(task_manager, upload_store))
+    return application
+
+
+app = create_app()
+
+
 # ---------------------------------------------------------------------------
 # 启动
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
+    get_runtime(app)
     if not check_ffmpeg():
         print("⚠️  警告：未检测到 FFmpeg，最高质量下载需要 FFmpeg。")
     try:

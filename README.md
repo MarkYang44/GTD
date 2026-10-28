@@ -193,10 +193,14 @@ python -m pip install --force-reinstall -r requirements.txt
 
 GTD uses Python, Flask/Jinja, and plain HTML/CSS/JavaScript, with no frontend build step. Web and CLI share the download core.
 
+See the [architecture and safe refactoring guide](docs/ARCHITECTURE.md) for module boundaries, the application factory lifecycle, and compatibility contracts.
+
 | Entry point / directory | Responsibility |
 | --- | --- |
 | `app.py` / `main.py` | Web / CLI entry points |
 | `downloader.py` / `task_control.py` | Download core and task scheduling |
+| `download_requests.py` / `web_runtime.py` | Request validation and per-application resource lifecycle |
+| `download_options.py` / `bilibili_recovery.py` | Download configuration and CDN recovery policy |
 | `local_audio.py` / `audio_extract_routes.py` | Local media extraction and endpoints |
 | `templates/` / `static/` | Page templates, styles, scripts, and assets |
 | `tests/` / `.github/workflows/tests.yml` | Python, JavaScript, and browser regressions |

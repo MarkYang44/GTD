@@ -22,6 +22,8 @@ import network_settings  # Apply direct networking to this process and helpers.
 
 import audio_output
 import download_progress
+import download_options
+import bilibili_recovery
 from audio_output import (
     AudioOutputProfile,
     audio_format_name as _audio_format_name,
@@ -354,146 +356,37 @@ def _build_ydl_options(
     output_version: int = 1,
     attempt_workspace: Path | None = None,
 ) -> dict:
-    """生成公共配置，并追加平台专用配置。"""
-    if not isinstance(media_type, str) or media_type not in MEDIA_TYPES:
-        raise ValueError(f"不支持的下载类型: {media_type}")
-    if not isinstance(audio_format, str) or audio_format not in AUDIO_FORMATS:
-        raise ValueError(f"不支持的音频格式: {audio_format}")
-    if not isinstance(speed_mode, str) or speed_mode not in SPEED_MODES:
-        raise ValueError(f"不支持的速度模式: {speed_mode}")
-    _validate_output_version(output_version)
-
-    output_template = (
-        _attempt_output_template(platform, output_dir, attempt_workspace)
-        if attempt_workspace is not None
-        else _output_template(platform, output_dir, output_version)
+    """Compatibility adapter retaining downloader-level option patch points."""
+    return download_options.build_ydl_options(
+        platform,
+        output_dir,
+        index,
+        total,
+        preferences=download_options.DownloadPreferences(
+            media_type, audio_format, speed_mode,
+        ),
+        hooks=download_options.OptionsHooks(
+            validate_output_version=_validate_output_version,
+            output_template=_output_template,
+            attempt_output_template=_attempt_output_template,
+            make_progress_hook=_make_progress_hook,
+            logger_factory=_QuietYtdlpLogger,
+            node_path=_node_path,
+            platform_http_headers=platform_http_headers,
+            audio_output_profile=_audio_output_profile,
+            audio_postprocessors=_audio_postprocessors,
+            find_cookie_file=_find_cookie_file,
+            configure_aria2=configure_aria2,
+            make_cancel_hook=_make_cancel_hook,
+            make_postprocessor_status_hook=_make_postprocessor_status_hook,
+        ),
+        progress_callback=progress_callback,
+        aria2_executable=aria2_executable,
+        selected_audio=selected_audio,
+        cancel_token=cancel_token,
+        output_version=output_version,
+        attempt_workspace=attempt_workspace,
     )
-    options = {
-        "proxy": "",
-        "outtmpl": output_template,
-        "progress_hooks": [
-            _make_progress_hook(
-                index,
-                total,
-                progress_callback,
-                cancel_token,
-                media_type,
-                audio_format,
-            )
-        ],
-        "writesubtitles": False,
-        "writeautomaticsub": False,
-        "embedmetadata": True,
-        "noplaylist": True,
-        "quiet": True,
-        "no_warnings": True,
-        "logger": _QuietYtdlpLogger(),
-        "retries": 10,
-        "fragment_retries": 10,
-        "extractor_retries": 5,
-        "socket_timeout": 30,
-        "overwrites": False,
-    }
-    if attempt_workspace is not None:
-        options["paths"] = {"temp": str(attempt_workspace)}
-
-    if platform == YOUTUBE:
-        options.update(media_sources.youtube_js_options(_node_path()))
-    elif platform == INSTAGRAM:
-        options.update(
-            {
-                "http_headers": platform_http_headers(INSTAGRAM),
-                "sleep_interval": 1,
-                "max_sleep_interval": 3,
-                "sleep_interval_requests": 1,
-            }
-        )
-    elif platform == BILIBILI:
-        options.update(
-            {
-                "http_chunk_size": BILIBILI_HTTP_CHUNK_SIZE,
-            }
-        )
-
-    if media_type == AUDIO:
-        profile_info = selected_audio
-        if profile_info is None and audio_format == FLAC:
-            # 元数据预检前尚不知道源编码；先保留用户请求的 FLAC
-            # 后处理配置，拿到真实格式后再决定是否回退到 MP3。
-            profile_info = {"acodec": "flac", "ext": "flac"}
-        audio_profile = _audio_output_profile(
-            profile_info or {},
-            audio_format,
-        )
-        postprocessors = _audio_postprocessors(audio_profile)
-        options.update(
-            {
-                "format": (
-                    "bestaudio[acodec^=flac]/bestaudio/best"
-                    if audio_format == FLAC
-                    else (
-                        "bestaudio[acodec!=none]/best[acodec!=none]"
-                        if audio_format in {SOURCE, WAV}
-                        else "bestaudio/best"
-                    )
-                ),
-                "writethumbnail": audio_profile.cover_embedded,
-                "postprocessors": postprocessors,
-            }
-        )
-    elif platform in {YOUTUBE, BILIBILI}:
-        # 优先下载可用的最高质量视频流和音频流。
-        options.update(
-            {
-                "format": "bestvideo+bestaudio/best",
-                "merge_output_format": "mp4",
-                "writethumbnail": True,
-            }
-        )
-    else:
-        # Instagram 优先选择 MP4/M4A，并统一将最终容器封装为 MP4。
-        options.update(
-            {
-                "format": (
-                    "bestvideo[ext=mp4]+bestaudio[ext=m4a]"
-                    "/bestvideo[ext=mp4]+bestaudio"
-                    "/bestvideo+bestaudio[ext=m4a]"
-                    "/best[ext=mp4]"
-                    "/best"
-                ),
-                "merge_output_format": "mp4",
-                "writethumbnail": True,
-                "postprocessors": [
-                    {
-                        "key": "FFmpegVideoRemuxer",
-                        "preferedformat": "mp4",
-                    },
-                ],
-            }
-        )
-
-    cookie_file = _find_cookie_file(platform)
-    if cookie_file:
-        options["cookiefile"] = str(cookie_file)
-
-    if platform == BILIBILI and speed_mode == TURBO and aria2_executable:
-        configure_aria2(options, aria2_executable)
-
-    postprocessor_hooks = []
-    if cancel_token:
-        postprocessor_hooks.append(_make_cancel_hook(cancel_token))
-    postprocessor_hooks.append(
-        _make_postprocessor_status_hook(
-            index,
-            total,
-            progress_callback,
-            media_type,
-            audio_format,
-        )
-    )
-    options["postprocessor_hooks"] = postprocessor_hooks
-
-    return options
 
 
 def _rename_audio_output(
@@ -715,36 +608,15 @@ def _process_bilibili_attempt(
 
 
 def _is_aria2_failure(error: Exception) -> bool:
-    message = str(error).lower()
-    return "aria2c" in message and (
-        "exited" in message or "external downloader" in message
-    )
+    return bilibili_recovery.is_aria2_failure(error)
 
 
 def _is_cdn_access_failure(error: Exception) -> bool:
-    message = str(error).lower()
-    return "http error 403" in message or "http error 412" in message
+    return bilibili_recovery.is_cdn_access_failure(error)
 
 
 def _is_cdn_transport_failure(error: Exception) -> bool:
-    """Return whether another Bilibili CDN may recover a broken transfer."""
-    message = str(error).lower()
-    return any(
-        marker in message
-        for marker in (
-            "http error 503",
-            "winerror 10053",
-            "winerror 10054",
-            "connection reset",
-            "connection aborted",
-            "connection broken",
-            "forcibly closed",
-            "remote host closed",
-            "remote end closed connection without response",
-            "incomplete read",
-            "远程主机强迫关闭",
-        )
-    )
+    return bilibili_recovery.is_cdn_transport_failure(error)
 
 
 def _build_download_result(
@@ -973,57 +845,19 @@ def _download_bilibili(
     if audio_profile:
         _ensure_source_copy_supported(extracted, audio_profile)
 
-    original_info = extracted
-    original_cdn_host = primary_host(original_info)
-    cdn_switched = needs_cdn_host_switch(original_info, plan.cdn_host)
-    if cdn_switched:
-        optimized_info = copy.deepcopy(original_info)
-        apply_cdn_host(optimized_info, plan.cdn_host)
-    else:
-        optimized_info = original_info
-
-    prepared_infos = [original_info]
-    if optimized_info is not original_info:
-        prepared_infos.append(optimized_info)
-    for prepared in prepared_infos:
-        prepared["_media_type"] = media_type
-        if audio_profile:
-            prepared["_audio_format_used"] = audio_profile.used
-            prepared["_audio_output_ext"] = audio_profile.output_ext
-
-    attempts = [(used_mode, optimized_info, plan, False)]
-    if used_mode == TURBO:
-        attempts.append(
-            (STANDARD, copy.deepcopy(optimized_info), plan, True)
-        )
-
-    original_plan = AccelerationPlan(
-        False,
-        original_cdn_host,
-        BILIBILI_HTTP_CHUNK_SIZE,
+    recovery = bilibili_recovery.BilibiliRecovery(
+        extracted,
+        plan,
+        used_mode,
+        media_type,
+        audio_profile,
+        deepcopy_fn=copy.deepcopy,
+        primary_host_fn=primary_host,
+        needs_cdn_host_switch_fn=needs_cdn_host_switch,
+        apply_cdn_host_fn=apply_cdn_host,
+        candidate_hosts_fn=candidate_hosts,
+        acceleration_plan_cls=AccelerationPlan,
     )
-    if cdn_switched:
-        attempts.append(
-            (
-                STANDARD,
-                original_info,
-                original_plan,
-                used_mode == TURBO,
-            )
-        )
-
-    # A successful short range probe does not guarantee that a CDN will keep a
-    # long transfer alive. Keep the remaining hosts available for lazy failover.
-    represented_hosts = {
-        attempt_plan.cdn_host
-        for _, _, attempt_plan, _ in attempts
-        if attempt_plan.cdn_host
-    }
-    backup_hosts = [
-        host
-        for host in candidate_hosts(original_info)
-        if host not in represented_hosts
-    ]
 
     last_error = None
     for attempt_index, (
@@ -1031,7 +865,7 @@ def _download_bilibili(
         prepared_info,
         attempt_plan,
         fallback,
-    ) in enumerate(attempts):
+    ) in enumerate(recovery.attempts):
         if cancel_token:
             cancel_token.raise_if_cancelled()
         attempt_workspace = _new_attempt_workspace(output_dir)
@@ -1094,57 +928,14 @@ def _download_bilibili(
             raise
         except yt_dlp.utils.DownloadError as error:
             last_error = error
-            if (
-                _is_cdn_access_failure(error)
-                or _is_cdn_transport_failure(error)
+            if not recovery.retry_after(
+                attempt_index,
+                error,
+                audio_profile,
+                is_aria2_failure_fn=_is_aria2_failure,
+                is_cdn_access_failure_fn=_is_cdn_access_failure,
+                is_cdn_transport_failure_fn=_is_cdn_transport_failure,
             ):
-                while backup_hosts:
-                    backup_host = backup_hosts.pop(0)
-                    backup_info = copy.deepcopy(original_info)
-                    if not apply_cdn_host(backup_info, backup_host):
-                        continue
-                    backup_info["_media_type"] = media_type
-                    if audio_profile:
-                        backup_info["_audio_format_used"] = audio_profile.used
-                        backup_info["_audio_output_ext"] = audio_profile.output_ext
-                    attempts.append(
-                        (
-                            STANDARD,
-                            backup_info,
-                            AccelerationPlan(
-                                True,
-                                backup_host,
-                                BILIBILI_HTTP_CHUNK_SIZE,
-                            ),
-                            used_mode == TURBO,
-                        )
-                    )
-                    represented_hosts.add(backup_host)
-                    break
-            next_is_standard = (
-                attempt_index + 1 < len(attempts)
-                and attempts[attempt_index + 1][0] == STANDARD
-            )
-            can_retry_aria2 = (
-                attempt_mode == TURBO
-                and _is_aria2_failure(error)
-                and next_is_standard
-            )
-            can_retry_cdn = (
-                _is_cdn_access_failure(error)
-                and any(
-                    future_plan.cdn_host != attempt_plan.cdn_host
-                    for _, _, future_plan, _ in attempts[attempt_index + 1 :]
-                )
-            )
-            can_retry_transport = (
-                _is_cdn_transport_failure(error)
-                and any(
-                    future_plan.cdn_host != attempt_plan.cdn_host
-                    for _, _, future_plan, _ in attempts[attempt_index + 1 :]
-                )
-            )
-            if not can_retry_aria2 and not can_retry_cdn and not can_retry_transport:
                 raise
         finally:
             _cleanup_attempt_workspace(attempt_workspace)

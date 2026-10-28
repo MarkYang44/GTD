@@ -43,16 +43,11 @@
     $('upload-label').textContent = uploadStage === 'sent' ? tr('上传完成，正在加入队列…', 'Upload complete. Adding to the queue…') : uploadStage === 'queued' ? tr('上传完成，已加入提取队列。可继续选择其他视频。', 'Upload complete and queued. You can choose another video.') : `${tr('上传视频', 'Uploading video')} · ${uploadPercent}%`;
   }
   async function request(url, options = {}) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
     try {
-      const response = await fetch(url, {...options, signal: controller.signal});
-      let data;
-      try { data = await response.json(); } catch (_) { throw {error_code: 'NETWORK_ERROR'}; }
-      if (!response.ok) throw data;
-      return data;
+      const response = await window.GtdTaskApi.fetchJson(url, options);
+      if (!response.ok) throw response.data;
+      return response.data;
     } catch (error) { throw error?.error_code ? error : {error_code: 'NETWORK_ERROR'}; }
-    finally { clearTimeout(timeout); }
   }
   function statusLabel(status) {
     const labels = {queued:['等待中','Queued'], running:['提取中','Extracting'], completed:['已完成','Completed'], failed:['失败','Failed'], cancelled:['已取消','Cancelled']};
@@ -101,7 +96,7 @@
     } catch (error) {
       if (token !== generation) return;
       failures += 1; $('history-feedback').textContent = errorText(error);
-      if (failures < 6 && error.error_code !== 'BATCH_NOT_FOUND') timer = setTimeout(() => poll(token), Math.min(30000, 1500 * 2 ** failures));
+      if (failures < 6 && error.error_code !== 'BATCH_NOT_FOUND') timer = setTimeout(() => poll(token), window.GtdTaskApi.backoffDelay(1500, failures));
     }
   }
   function selectBatch(id) { clearTimeout(timer); generation += 1; failures = 0; batchId = id; batch = null; persist(); renderHistory(); renderTasks(); if (id) poll(generation); }

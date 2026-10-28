@@ -31,3 +31,8 @@ class HistoryApiTests(unittest.TestCase):
         result = subprocess.run(['node', 'tests/js/polling_recovery_harness.js'], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('Polling recovery harness passed', result.stdout)
+
+    def test_shared_task_api_harness(self):
+        result = subprocess.run(['node', 'tests/js/task_api_harness.js'], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('Task API harness passed', result.stdout)

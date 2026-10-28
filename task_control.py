@@ -31,6 +31,7 @@ from output_files import (
 )
 
 
+from task_models import AttemptState, BatchState, ProgressSnapshot, TaskState, TerminalStatus
 from subtitle_preferences import normalize_subtitle_options
 
 MAX_PUBLIC_ATTEMPTS = 20
@@ -104,7 +105,7 @@ class TaskManager:
             thread_name_prefix="instagram-download",
         )
         self._global_slots = threading.BoundedSemaphore(max_workers)
-        self._batches: dict[str, dict[str, object]] = {}
+        self._batches: dict[str, BatchState] = {}
         self._tokens: dict[str, CancellationToken] = {}
         self._futures: dict[str, Future] = {}
         self._generations: dict[str, int] = {}
@@ -140,7 +141,7 @@ class TaskManager:
 
         with self._lock:
             batch_id = uuid.uuid4().hex
-            tasks = []
+            tasks: list[TaskState] = []
             for index, entry in enumerate(entries, start=1):
                 version_key = self._seed_version_key(
                     entry,
@@ -163,7 +164,7 @@ class TaskManager:
                         subtitle_options=subtitle_options,
                     )
                 )
-            batch: dict[str, object] = {
+            batch: BatchState = {
                 "id": batch_id,
                 "created_at": time.time(),
                 "media_type": media_type,
@@ -381,11 +382,11 @@ class TaskManager:
         audio_format: str,
         speed_mode: str,
         download_dir: str | None = None,
-        prepared_output_dir: object | None = None,
+        prepared_output_dir: _PreparedOutputDir | None = None,
         output_version: int = 1,
         version_key: str | None = None,
         subtitle_options: dict | None = None,
-    ) -> dict[str, object]:
+    ) -> TaskState:
         return {
             "id": uuid.uuid4().hex,
             "index": index,
@@ -416,7 +417,7 @@ class TaskManager:
     def _submit_locked(
         self,
         batch_id: str,
-        task: dict[str, object],
+        task: TaskState,
     ) -> None:
         task_id = str(task["id"])
         generation = self._generations.get(task_id, 0) + 1
@@ -463,7 +464,7 @@ class TaskManager:
             task["status"] = "running"
             task["attempt_count"] += 1
             attempt_number = task["attempt_count"]
-            attempt = {
+            attempt: AttemptState = {
                 "number": attempt_number,
                 "status": "running",
                 "started_at": time.time(),
@@ -499,14 +500,7 @@ class TaskManager:
                 if current["status"] in self.TERMINAL_STATES:
                     return
                 if event == "mode":
-                    if data.get("speed_mode") == "turbo" and token.cancelled:
-                        raise DownloadCancelled()
-                    current["speed_mode_used"] = data.get("speed_mode")
-                    current["turbo_fallback"] = bool(
-                        data.get("turbo_fallback")
-                    )
-                    if data.get("speed_mode") == "turbo":
-                        current["status"] = "running_uninterruptible"
+                    self._apply_mode_event(current, data, token)
                     log_download_event(
                         self._logger,
                         "mode",
@@ -517,24 +511,8 @@ class TaskManager:
                         turbo_fallback=bool(data.get("turbo_fallback")),
                     )
                     self._persist_batch_locked(batch_id)
-                elif event == "progress":
-                    current.pop("postprocessing", None)
-                    current["progress"] = deepcopy(data)
-                    for key in (
-                        "percent_text",
-                        "speed_mbps",
-                        "speed_text",
-                        "eta_text",
-                        "total_size_bytes",
-                        "total_size_text",
-                        "total_size_is_estimate",
-                    ):
-                        if key in data:
-                            current[key] = data[key]
-                elif event == "postprocessing":
-                    current["progress"] = None
-                    self._clear_progress_fields(current)
-                    current["postprocessing"] = deepcopy(data)
+                elif event in {"progress", "postprocessing"}:
+                    self._apply_progress_event(current, event, data)
 
         try:
             result = self._runner(
@@ -607,7 +585,7 @@ class TaskManager:
         batch_id: str,
         task_id: str,
         generation: int,
-        status: str,
+        status: TerminalStatus,
         started_at: float,
         result: dict[str, object] | None = None,
         error: DownloadFailure | None = None,
@@ -686,7 +664,7 @@ class TaskManager:
             self._persist_batch_locked(batch_id)
             self._prune_locked()
 
-    def _public_batch(self, batch: dict[str, object]) -> dict[str, object]:
+    def _public_batch(self, batch: BatchState) -> dict[str, object]:
         tasks = [self._public_task(task) for task in batch["tasks"]]
         counts = {
             "active": sum(task["status"] in self.ACTIVE_STATES for task in tasks),
@@ -709,7 +687,7 @@ class TaskManager:
             "tasks": tasks,
         }
 
-    def _public_task(self, task: dict[str, object]) -> dict[str, object]:
+    def _public_task(self, task: TaskState) -> dict[str, object]:
         status = task["status"]
         public = {
             key: deepcopy(value)
@@ -735,7 +713,7 @@ class TaskManager:
         public["can_redownload"] = status == "completed"
         return public
 
-    def _require_batch(self, batch_id: str) -> dict[str, object]:
+    def _require_batch(self, batch_id: str) -> BatchState:
         batch = self._batches.get(batch_id)
         if batch is None:
             raise KeyError("下载批次不存在")
@@ -745,7 +723,7 @@ class TaskManager:
         self,
         batch_id: str,
         task_id: str,
-    ) -> dict[str, object]:
+    ) -> TaskState:
         batch = self._require_batch(batch_id)
         for task in batch["tasks"]:
             if task["id"] == task_id:
@@ -788,7 +766,7 @@ class TaskManager:
                 # A full or temporarily locked disk must not strand live tasks.
                 self._logger.warning("Could not save local task history")
 
-    def _prepare_restored_task_locked(self, task: dict[str, object]) -> None:
+    def _prepare_restored_task_locked(self, task: TaskState) -> None:
         if task.get("_prepared_output_dir") is None:
             prepared = self._directory_preparer(task.get("download_dir"))
             prepared_output_dir(prepared)
@@ -823,7 +801,34 @@ class TaskManager:
         self._futures.pop(task_id, None)
 
     @staticmethod
-    def _clear_progress_fields(task: dict[str, object]) -> None:
+    def _apply_mode_event(task: TaskState, data: dict, token: CancellationToken) -> None:
+        """Apply transfer capability changes inside the guarded event relay."""
+        if data.get("speed_mode") == "turbo" and token.cancelled:
+            raise DownloadCancelled()
+        task["speed_mode_used"] = data.get("speed_mode")
+        task["turbo_fallback"] = bool(data.get("turbo_fallback"))
+        if data.get("speed_mode") == "turbo":
+            task["status"] = "running_uninterruptible"
+
+    @classmethod
+    def _apply_progress_event(cls, task: TaskState, event: str, data: ProgressSnapshot) -> None:
+        """Called only after the relay's lock, generation and terminal guards."""
+        if event == "progress":
+            task.pop("postprocessing", None)
+            task["progress"] = deepcopy(data)
+            for key in (
+                "percent_text", "speed_mbps", "speed_text", "eta_text",
+                "total_size_bytes", "total_size_text", "total_size_is_estimate",
+            ):
+                if key in data:
+                    task[key] = data[key]
+        else:
+            task["progress"] = None
+            cls._clear_progress_fields(task)
+            task["postprocessing"] = deepcopy(data)
+
+    @staticmethod
+    def _clear_progress_fields(task: TaskState) -> None:
         for key in (
             "percent_text",
             "speed_mbps",

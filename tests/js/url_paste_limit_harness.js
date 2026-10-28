@@ -75,6 +75,7 @@ const context = vm.createContext({
   window,
 });
 
+vm.runInContext(fs.readFileSync('static/js/task_api.js', 'utf8'), context);
 vm.runInContext(fs.readFileSync('static/js/index.js', 'utf8'), context);
 
 function lines(first, last) {
