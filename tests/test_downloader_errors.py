@@ -67,6 +67,28 @@ class DownloadErrorMessageTests(unittest.TestCase):
                 False,
             ),
             (
+                {"acodec": "flac", "ext": "m4a", "abr": 1649.142},
+                downloader.SOURCE,
+                audio_output.AudioOutputProfile(
+                    downloader.SOURCE, downloader.SOURCE, False, "FLAC", 1649, "flac", True
+                ),
+                "Source FLAC · 1649kbps",
+                "flac",
+                None,
+                True,
+            ),
+            (
+                {"acodec": "mp4a.40.2", "ext": "m4a", "abr": 209.482},
+                downloader.SOURCE,
+                audio_output.AudioOutputProfile(
+                    downloader.SOURCE, downloader.SOURCE, False, "AAC", 209, "m4a", True
+                ),
+                "Source AAC · 209kbps",
+                "best",
+                None,
+                True,
+            ),
+            (
                 {"acodec": "mp4a.40.2", "ext": "m4a", "abr": 128},
                 downloader.WAV,
                 audio_output.AudioOutputProfile(

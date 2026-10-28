@@ -73,7 +73,7 @@ def audio_output_profile(
         output_ext = FLAC if used == FLAC else MP3
     elif requested == SOURCE:
         used = SOURCE
-        output_ext = source_ext or "mka"
+        output_ext = FLAC if source_acodec == "FLAC" else source_ext or "mka"
     elif requested == WAV:
         used = WAV
         output_ext = WAV
@@ -130,7 +130,8 @@ def audio_postprocessors(
     preferred_codec = {
         MP3: MP3,
         FLAC: FLAC,
-        SOURCE: "best",
+        # FLAC inside M4A must be remuxed before FFmpeg writes metadata.
+        SOURCE: FLAC if profile.source_acodec == "FLAC" else "best",
         WAV: WAV,
     }[profile.used]
     extractor: dict[str, object] = {
