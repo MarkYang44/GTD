@@ -10,18 +10,18 @@ Once the project web server is running, visit [http://127.0.0.1:8233](http://127
 
 Use the **ZH / EN** switch at the top right to change languages. Your choice applies across all project pages and is remembered in this browser.
 
-Use the **Dark / Light** slider in the upper-right corner to switch themes. Dark is the default; light uses clean white and soft gray surfaces. Both keep Petronas green accents. Your theme preference is independent of language, remembered in this browser, and shared across pages and tabs.
+Use the moon / sun slider in the upper-right corner to switch themes. Dark is the default; light uses clean white and soft gray surfaces. Both keep Petronas green accents. Your theme preference is independent of language, remembered in this browser, and shared across pages and tabs.
 
 > The web interface and system folder picker are intended for the local desktop session running this project. The browser does not read or upload arbitrary local folder contents.
 
 ## Download workflow
 
-1. To download video, paste links or platform share text into **Best-quality video**; for audio only, use **Best-quality audio**. Put each link on its own line.
+1. To download video, paste links or platform share text into **Best-quality video**; for audio only, use **Best-quality audio**. Put each link on its own line; the corner of the box shows how many of the 20 available lines you have used. Press Ctrl / ⌘ + Enter in the box to start downloading.
 2. Audio options are **MP3 V0**, **Source FLAC**, **Original audio**, and **WAV PCM**. WAV files are larger and do not improve source quality. Source FLAC automatically falls back to MP3 V0 when the platform does not provide FLAC.
 3. Under **Download location**, enter a path or click **Choose folder** to open the Windows/macOS system picker. Leave it blank to use the default `downloads/` shown on the page.
 4. The dropdown beside the download location keeps the last 3 folders successfully used in this browser. Duplicate paths are removed, with the most recently used path first.
 5. Single items are submitted directly. Playlists, collections, and multipart videos first open a preview panel. You can select up to 100 items at a time.
-6. After submitting, the task area shows the queue, speed, estimated time remaining, progress, processing stage, output specifications, and save path.
+6. After submitting, the page scrolls to the task area and the box clears, ready for the next batch. The task header shows active, queued, and parallel-limit counts; each task shows a progress bar, speed, estimated time remaining, processing stage, output specifications, and save path (one click selects the whole path).
 
 ## Video, audio, and output files
 
@@ -118,7 +118,7 @@ This tool is only for downloading video or audio you own, are authorized to use,
 
 ## Extract audio from a local video
 
-Choose **Extract audio from a local video** on the homepage, or open `/extract-audio`. Drop or select one local video (up to 2 GiB), choose **Original audio** or **MP3 V0**, and start extraction. Original audio copies the stream without re-encoding, using the default audio track or the first track when no default is set. AAC normally produces M4A; other extensions depend on the codec. Extraction cannot improve the source quality.
+Choose **Extract its audio locally** in the homepage's **Best-quality audio** card, or open `/extract-audio`. Drop or select one local video (up to 2 GiB), choose **Original audio** or **MP3 V0**, and start extraction. Original audio copies the stream without re-encoding, using the default audio track or the first track when no default is set. AAC normally produces M4A; other extensions depend on the codec. Extraction cannot improve the source quality.
 
 Upload and processing progress are shown separately. Extraction shares the existing queue, cancellation/retry, and task history. Results are saved to the default `downloads` folder and can also be saved with **Download audio**. Upload copies are staged in `state/audio_uploads` for 24 hours; expired inactive copies are cleaned on startup, upload, or extraction-history refresh. Re-upload after expiration to retry. Staging is limited to 8 GiB / 256 files. Source videos are unchanged and completed outputs are not automatically removed.
 
