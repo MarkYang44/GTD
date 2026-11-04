@@ -58,8 +58,7 @@ vm.runInContext(fs.readFileSync('static/js/index.js', 'utf8'), context);
 
 function render(tasks, extra = {}) {
   context.__batch = {tasks, ...extra};
-  vm.runInContext('renderTasks(__batch)', context);
-  return nodes.get('task-container').innerHTML;
+  return vm.runInContext('renderTaskList(__batch, new Set())', context);
 }
 
 // Running downloads show a progress bar beside the speed and time details.

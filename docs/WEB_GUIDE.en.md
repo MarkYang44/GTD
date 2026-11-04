@@ -21,7 +21,7 @@ Use the moon / sun slider in the upper-right corner to switch themes. Dark is th
 3. Under **Download location**, enter a path or click **Choose folder** to open the Windows/macOS system picker. Leave it blank to use the default `downloads/` shown on the page.
 4. The dropdown beside the download location keeps the last 3 folders successfully used in this browser. Duplicate paths are removed, with the most recently used path first.
 5. Single items are submitted directly. Playlists, collections, and multipart videos first open a preview panel. You can select up to 100 items at a time.
-6. After submitting, the page scrolls to the task area and the box clears, ready for the next batch. The task header shows active, queued, and parallel-limit counts; each task shows a progress bar, speed, estimated time remaining, processing stage, output specifications, and save path (one click selects the whole path).
+6. After submitting, the page scrolls to the task area and the box clears, ready for the next batch. You can keep submitting while earlier batches download: a card is busy only while its own links are being read or sent. Every running batch stays listed, newest first, and the task header counts active and queued tasks across all of them beside the parallel limit. Each task shows a progress bar, speed, estimated time remaining, processing stage, output specifications, and save path (one click selects the whole path).
 
 ## Video, audio, and output files
 
@@ -56,7 +56,7 @@ Only subtitles actually offered by the source and accessible with your current l
 - **Retry**: failed or canceled tasks rejoin the same queue, keeping a record of every attempt.
 - **Retry all failed tasks**: resubmit only failed tasks that can be retried.
 - **Redownload**: create a new task for a completed download, preserving the original file.
-- Task history is saved locally in `state/tasks.sqlite3` (override with the `GTD_HISTORY_PATH` environment variable), including source URLs, output paths, and task results, but excluding cookie files and downloader internals. Up to 100 batches are retained by pruning the oldest finished batches; active batches are never pruned. Opening or refreshing the download homepage shows the character empty state instead of restoring a previous batch. Select a batch manually from Task history; refreshing does not cancel background tasks. After a server restart, unfinished tasks become retryable `INTERRUPTED` failures and require a manual retry; no downloads start automatically, and downloaded files are kept.
+- Task history is saved locally in `state/tasks.sqlite3` (override with the `GTD_HISTORY_PATH` environment variable), including source URLs, output paths, and task results, but excluding cookie files and downloader internals. Up to 100 batches are retained by pruning the oldest finished batches; active batches are never pruned. Opening or refreshing the download homepage shows the character empty state instead of restoring a previous batch. Select a batch manually from Task history; it opens above any batches still running, and refreshing does not cancel background tasks. After a server restart, unfinished tasks become retryable `INTERRUPTED` failures and require a manual retry; no downloads start automatically, and downloaded files are kept.
 
 ## Bilibili turbo mode
 

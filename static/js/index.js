@@ -1,8 +1,6 @@
   // Only app-owned text is localized; media metadata and diagnostic details stay intact.
   // Each entry re-renders one element's text after a language switch.
   const localizedLabels = new Map();
-  let lastRenderedBatch = null;
-  let pendingSkeletonCount = null;
   function subtitleWarningText(code) {
     const labels = {
       manual: tr('字幕', 'Subtitles'), automatic: tr('自动字幕', 'Automatic captions'), danmaku: tr('弹幕', 'Danmaku'),
@@ -43,15 +41,11 @@
     element.hidden = true;
   }
   function mediaName(type) { return type === 'audio' ? tr('音频', 'Audio') : tr('视频', 'Video'); }
-  function setTaskHeading(type, format) {
-    // Store the raw format so switching can also translate its display name.
-    taskHeading = {type, format};
-    taskTitle.textContent = type === 'audio'
-      ? tr('{format} 音频下载任务', '{format} audio downloads', {format: audioFormatTitle(format)})
-      : tr('视频下载任务', 'Video downloads');
-    localizedLabels.delete(taskTitle);
+  // Titles keep the raw format, so a language switch also translates its display name.
+  function batchTitle(type, format) {
+    if (type === 'audio') return tr('{format} 音频下载任务', '{format} audio downloads', {format: audioFormatTitle(format)});
+    return type === 'video' ? tr('视频下载任务', 'Video downloads') : tr('下载任务', 'Download tasks');
   }
-  let taskHeading = null;
   function statusLabel(status) {
     const labels = {queued:['等待中','Queued'], running:['下载中','Downloading'], running_uninterruptible:['极速下载','Turbo download'], completed:['下载完成','Completed'], failed:['下载失败','Failed'], cancelled:['已取消','Cancelled']};
     return labels[status] ? tr(...labels[status]) : status;
@@ -127,7 +121,6 @@
   }
   function refreshDownloadLanguage() {
     for (const [element, render] of localizedLabels) element.textContent = render();
-    if (taskHeading) setTaskHeading(taskHeading.type, taskHeading.format);
     renderDownloadDirectoryHistories();
     renderBatchHistory();
     if (pendingPreview) {
@@ -135,13 +128,15 @@
       renderCollectionEntries(pendingDownloadSettings?.mediaType);
       updateCollectionSelection();
     }
-    if (pendingSkeletonCount !== null) renderPendingSkeleton(pendingSkeletonCount);
-    else if (lastRenderedBatch) renderTasks(lastRenderedBatch);
+    renderTaskPanel(true);
   }
   const videoDownloadButton = document.getElementById("videoDownloadButton");
   const audioDownloadButton = document.getElementById("audioDownloadButton");
   const downloadControls = {
     video: {
+      card: document.getElementById("video-download-card"),
+      // null, or "parsing" / "choosing" / "submitting" while this card's links are being prepared.
+      phase: null,
       textarea: document.getElementById("videoUrls"),
       urlCount: document.getElementById("videoUrlCount"),
       notice: document.getElementById("videoNotice"),
@@ -158,6 +153,8 @@
       formatInputs: [],
     },
     audio: {
+      card: document.getElementById("audio-download-card"),
+      phase: null,
       textarea: document.getElementById("audioUrls"),
       urlCount: document.getElementById("audioUrlCount"),
       notice: document.getElementById("audioNotice"),
@@ -207,10 +204,16 @@
   let pollingTimer = null;
   let pollInFlight = false;
   let pollingActive = false;
-  let lastTaskRenderSignature = null;
-  let currentBatchId = null;
-  let isDownloading = false;
+  // Set when new work arrives during a sweep, so the next sweep starts at once.
+  let pollAgain = false;
+  let connectionLost = false;
+  // The panel lists batches newest first: every batch still running, plus the focused one
+  // (the latest submission or saved batch). Each group renders into its own element.
+  let taskGroups = [];
+  let renderedGroups = [];
+  let focusedBatchId = null;
   let aria2Available = false;
+  // The one item list waiting for a choice in the shared selection panel.
   let pendingPreview = null;
   let pendingDownloadSettings = null;
   let collectionRenderLimit = COLLECTION_PAGE_SIZE;
@@ -283,7 +286,7 @@
 
   function selectDownloadDirectoryHistory(mediaType, path) {
     const control = downloadControls[mediaType];
-    if (!control || isDownloading) return;
+    if (!control || isPreparing(control)) return;
     control.downloadDirInput.value = path;
     setDownloadDirectoryHistoryExpanded(control, false);
     control.downloadDirInput.focus();
@@ -316,7 +319,7 @@
   function toggleDownloadDirectoryHistory(mediaType, event = null) {
     if (event) event.stopPropagation();
     const control = downloadControls[mediaType];
-    if (!control || isDownloading) return;
+    if (!control || isPreparing(control)) return;
     const shouldOpen = control.historyMenu.hidden;
     closeDownloadDirectoryHistories(mediaType);
     renderDownloadDirectoryHistories();
@@ -363,14 +366,14 @@
     control.urlCount.hidden = count === 0;
     setLocalized(control.urlCount, "{n} / {limit} 行", "{n} / {limit} lines", {n: count, limit: URL_PASTE_LINE_LIMIT});
     control.urlCount.classList[count >= URL_PASTE_LINE_LIMIT ? "add" : "remove"]("is-full");
-    control.clearButton.disabled = isDownloading || count === 0;
+    control.clearButton.disabled = isPreparing(control) || count === 0;
     if (count > 0) clearNotice(control.notice, "empty");
     if (count < URL_PASTE_LINE_LIMIT) clearNotice(control.notice, "limit");
   }
 
   function clearInput(mediaType) {
-    if (isDownloading) return;
     const control = downloadControls[mediaType];
+    if (isPreparing(control)) return;
     control.textarea.value = "";
     updateUrlCount(mediaType);
     clearNotice(control.notice);
@@ -421,27 +424,44 @@
   const videoDanmakuToggle = document.getElementById("videoDanmakuToggle");
   videoSubtitlesToggle.addEventListener("change", () => {
     if (!videoSubtitlesToggle.checked) videoAutomaticCaptionsToggle.checked = false;
-    videoAutomaticCaptionsToggle.disabled = isDownloading || !videoSubtitlesToggle.checked;
+    videoAutomaticCaptionsToggle.disabled = isPreparing(downloadControls.video) || !videoSubtitlesToggle.checked;
   });
 
-  function setControlsDisabled(disabled) {
-    videoSubtitlesToggle.disabled = disabled;
-    videoDanmakuToggle.disabled = disabled;
-    videoAutomaticCaptionsToggle.disabled = disabled || !videoSubtitlesToggle.checked;
-    if (batchHistory) batchHistory.disabled = disabled;
-    Object.values(downloadControls).forEach(control => {
-      control.textarea.disabled = disabled;
-      control.downloadButton.disabled = disabled;
-      control.clearButton.disabled = disabled || countUrlLines(control.textarea.value) === 0;
-      control.downloadDirInput.disabled = disabled;
-      control.historyButton.disabled = disabled;
-      if (disabled) setDownloadDirectoryHistoryExpanded(control, false);
-      control.browseButton.disabled = disabled || !folderPickerAvailable;
-      control.turboToggle.disabled = disabled || !aria2Available;
-      control.formatInputs.forEach(formatInput => {
-        formatInput.disabled = disabled;
-      });
+  function isPreparing(control) {
+    return control.phase !== null;
+  }
+
+  function cardInPhase(phase) {
+    return Object.values(downloadControls).some(control => control.phase === phase);
+  }
+
+  // A card is disabled only while its own links are parsed, chosen from or submitted, so
+  // what someone sees is what gets sent. Running batches never hold a card.
+  function setCardPhase(mediaType, phase) {
+    downloadControls[mediaType].phase = phase;
+    setCardDisabled(mediaType, phase !== null);
+    renderTaskPanelHeading();
+  }
+
+  function setCardDisabled(mediaType, disabled) {
+    const control = downloadControls[mediaType];
+    control.card.setAttribute("aria-busy", String(disabled));
+    control.textarea.disabled = disabled;
+    control.downloadButton.disabled = disabled;
+    control.clearButton.disabled = disabled || countUrlLines(control.textarea.value) === 0;
+    control.downloadDirInput.disabled = disabled;
+    control.historyButton.disabled = disabled;
+    if (disabled) setDownloadDirectoryHistoryExpanded(control, false);
+    control.browseButton.disabled = disabled || !folderPickerAvailable;
+    control.turboToggle.disabled = disabled || !aria2Available;
+    control.formatInputs.forEach(formatInput => {
+      formatInput.disabled = disabled;
     });
+    if (mediaType === "video") {
+      videoSubtitlesToggle.disabled = disabled;
+      videoDanmakuToggle.disabled = disabled;
+      videoAutomaticCaptionsToggle.disabled = disabled || !videoSubtitlesToggle.checked;
+    }
   }
 
   // Long default folders keep their last two segments, which is the part people recognize.
@@ -475,12 +495,12 @@
     }
 
     Object.values(downloadControls).forEach(control => {
-      control.turboToggle.disabled = !aria2Available || isDownloading;
+      control.turboToggle.disabled = !aria2Available || isPreparing(control);
       aria2Available
         ? setLocalized(control.turboHint, "已检测到 aria2c，大文件可多连接下载", "aria2c found: large files can use multiple connections")
         : setLocalized(control.turboHint, "未安装 aria2c，使用标准模式", "aria2c isn't installed, so standard mode is used");
       if (!aria2Available) control.turboToggle.checked = false;
-      control.browseButton.disabled = !folderPickerAvailable || isDownloading;
+      control.browseButton.disabled = !folderPickerAvailable || isPreparing(control);
       showDefaultDownloadDir(control);
       if (folderPickerAvailable) clearNotice(control.downloadDirHint);
       else showNotice(control.downloadDirHint, () => tr(
@@ -491,9 +511,8 @@
   }
 
   async function chooseDownloadDirectory(mediaType) {
-    if (isDownloading) return;
     const control = downloadControls[mediaType];
-    if (!control || !folderPickerAvailable) return;
+    if (!control || isPreparing(control) || !folderPickerAvailable) return;
     control.browseButton.disabled = true;
     setLocalized(control.browseButton, "等待选择…", "Waiting for selection…");
     clearNotice(control.notice);
@@ -516,7 +535,7 @@
       showNotice(control.notice, () => tr("无法选择文件夹：", "Unable to select a folder: ") + error.message);
     } finally {
       setLocalized(control.browseButton, "选择文件夹", "Choose folder");
-      control.browseButton.disabled = isDownloading || !folderPickerAvailable;
+      control.browseButton.disabled = isPreparing(control) || !folderPickerAvailable;
     }
   }
 
@@ -541,7 +560,7 @@
     });
   }
 
-  function updateOperationalMetrics(batch) {
+  function batchWorkCounts(batch) {
     const tasks = Array.isArray(batch.tasks) ? batch.tasks : [];
     const active = Number.isInteger(batch.active)
       ? batch.active
@@ -549,6 +568,18 @@
     const queue = Number.isInteger(batch.queued)
       ? batch.queued
       : tasks.filter(task => task.status === "queued").length;
+    return {active, queue};
+  }
+
+  // The live counts cover every batch in the panel; rows still being submitted count as queued.
+  function updateOperationalMetrics() {
+    let active = 0;
+    let queue = 0;
+    taskGroups.forEach(group => {
+      const counts = group.batch ? batchWorkCounts(group.batch) : {active: 0, queue: group.pendingCount};
+      active += counts.active;
+      queue += counts.queue;
+    });
     setOperationalMetrics(active, queue);
   }
 
@@ -576,9 +607,8 @@
   }
 
   async function startDownload(mediaType) {
-    if (isDownloading) return;
     const control = downloadControls[mediaType];
-    if (!control) return;
+    if (!control || isPreparing(control)) return;
     clearNotice(control.notice);
 
     const urls = control.textarea.value.split("\n").map(s => s.trim()).filter(Boolean);
@@ -596,7 +626,8 @@
       ? document.querySelector('input[name="audioFormat"]:checked').value
       : "mp3";
 
-    pendingDownloadSettings = {
+    // Settings are captured now; the card stays disabled until the server answers.
+    const settings = {
       mediaType,
       subtitleOptions: mediaType === "video" ? {
         subtitles: videoSubtitlesToggle.checked,
@@ -607,36 +638,56 @@
       audioFormat,
       downloadDir: control.downloadDirInput.value.trim(),
     };
-    isDownloading = true;
-    setControlsDisabled(true);
     clearNotice(taskNotice);
-    taskHeading = null;
-    setLocalized(taskTitle, "正在解析输入", "Parsing input");
-    setLocalized(taskSummary, "读取播放列表、合集与分 P 信息...", "Reading playlists, collections, and multipart videos...");
-    await previewInput(mediaType, urls);
+    setCardPhase(mediaType, "parsing");
+    await previewInput(settings, urls);
   }
 
-  async function previewInput(mediaType, inputs) {
+  async function previewInput(settings, inputs) {
+    const {mediaType} = settings;
     const control = downloadControls[mediaType];
+    let preview;
     try {
       const response = await fetch("/api/preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ inputs }),
       });
-      const preview = await response.json();
+      preview = await response.json();
       if (!response.ok) {
-        resetUI();
+        setCardPhase(mediaType, null);
         showNotice(control.notice, () => formatApiError(preview));
         return;
       }
-      pendingPreview = preview;
-      renderCollectionPreview(preview, mediaType);
-      if (!preview.requires_selection) await submitPreview(mediaType);
     } catch (error) {
-      resetUI();
+      setCardPhase(mediaType, null);
       showNotice(control.notice, () => tr("网络错误：", "Network error: ") + error.message);
+      return;
     }
+    if (!preview.requires_selection) {
+      await submitDownload(preview, settings, selectableEntryIds(preview));
+      return;
+    }
+    if (pendingPreview) {
+      // The selection panel holds one list at a time; these links stay in their box.
+      setCardPhase(mediaType, null);
+      showNotice(control.notice, () => tr(
+        "另一组链接正在等待选择条目，请先完成或取消后再提交。",
+        "Another link list is waiting for you to choose items. Finish or cancel it first.",
+      ), {tone: "info", kind: "selection"});
+      scrollToElement(collectionPreview, "center");
+      return;
+    }
+    pendingPreview = preview;
+    pendingDownloadSettings = settings;
+    setCardPhase(mediaType, "choosing");
+    renderCollectionPreview(preview, mediaType);
+  }
+
+  // Previews start with every available entry selected, up to the 100-item limit.
+  function selectableEntryIds(preview) {
+    const entries = Array.isArray(preview && preview.entries) ? preview.entries : [];
+    return entries.filter(entry => entry.selectable === true).slice(0, 100).map(entry => entry.id);
   }
 
   function previewHeading(preview) {
@@ -647,23 +698,14 @@
   }
 
   function renderCollectionPreview(preview, mediaType) {
-    const entries = Array.isArray(preview.entries) ? preview.entries : [];
     collectionPreviewTitle.textContent = previewHeading(preview);
     collectionRenderLimit = COLLECTION_PAGE_SIZE;
-    collectionSelectedIds = new Set(
-      entries.filter(entry => entry.selectable === true).slice(0, 100).map(entry => entry.id)
-    );
+    collectionSelectedIds = new Set(selectableEntryIds(preview));
     renderCollectionEntries(mediaType);
     clearNotice(collectionNotice);
     collectionPreview.hidden = false;
     updateCollectionSelection();
-    if (preview.requires_selection) {
-      // Parsing is done; the page is now waiting for a choice, not working.
-      taskHeading = null;
-      setLocalized(taskTitle, "等待选择条目", "Choose items to download");
-      setLocalized(taskSummary, "勾选上方条目，然后点击“下载所选条目”。", "Pick items above, then select Download selected items.");
-      scrollToElement(collectionPreview, "center");
-    }
+    scrollToElement(collectionPreview, "center");
   }
 
   function renderCollectionEntries(mediaType) {
@@ -705,11 +747,8 @@
   }
 
   function toggleCollectionSelectAll() {
-    const entries = Array.isArray(pendingPreview && pendingPreview.entries)
-      ? pendingPreview.entries
-      : [];
     collectionSelectedIds = collectionSelectAll.checked
-      ? new Set(entries.filter(entry => entry.selectable === true).slice(0, 100).map(entry => entry.id))
+      ? new Set(selectableEntryIds(pendingPreview))
       : new Set();
     updateCollectionSelection();
   }
@@ -749,17 +788,25 @@
     if (selected.length > 0) clearNotice(collectionNotice);
   }
 
-  function cancelCollectionPreview() {
+  function closeCollectionPreview() {
     pendingPreview = null;
     pendingDownloadSettings = null;
     collectionPreview.hidden = true;
     collectionPreviewList.innerHTML = "";
     collectionLoadMoreButton.hidden = true;
     collectionSelectedIds = new Set();
-    resetUI();
+    clearNotice(collectionNotice);
+    // Cards told to wait for this choice can submit again.
+    Object.values(downloadControls).forEach(control => clearNotice(control.notice, "selection"));
   }
 
-  async function submitPreview(mediaType = pendingDownloadSettings && pendingDownloadSettings.mediaType) {
+  function cancelCollectionPreview() {
+    const mediaType = pendingDownloadSettings && pendingDownloadSettings.mediaType;
+    closeCollectionPreview();
+    if (mediaType) setCardPhase(mediaType, null);
+  }
+
+  async function submitPreview() {
     if (!pendingPreview || !pendingDownloadSettings) return;
     const selected = selectedEntryIds();
     clearNotice(collectionNotice);
@@ -771,62 +818,92 @@
       showNotice(collectionNotice, () => tr("一次最多选择 100 项。", "Select up to 100 items at a time."), {tone: "info"});
       return;
     }
-
     collectionSubmitButton.disabled = true;
     collectionPreview.hidden = true;
-    setOperationalMetrics(0, selected.length);
-    renderPendingSkeleton(selected.length);
-    setTaskHeading(mediaType, pendingDownloadSettings.audioFormat);
-    setLocalized(taskSummary, "正在提交...", "Submitting...");
+    await submitDownload(pendingPreview, pendingDownloadSettings, selected);
+  }
+
+  function downloadPayload(preview, settings, selected) {
+    const payload = {
+      preview_id: preview.preview_id,
+      selected_entry_ids: selected,
+      media_type: settings.mediaType,
+      speed_mode: settings.speedMode,
+      audio_format: settings.audioFormat,
+      download_dir: settings.downloadDir || null,
+    };
+    if (settings.subtitleOptions && Object.values(settings.subtitleOptions).some(Boolean)) {
+      payload.subtitle_options = settings.subtitleOptions;
+    }
+    return payload;
+  }
+
+  // The new batch appears above the others at once; earlier batches keep running untouched.
+  async function submitDownload(preview, settings, selected) {
+    const {mediaType} = settings;
+    const control = downloadControls[mediaType];
+    const fromSelection = preview === pendingPreview;
+    setCardPhase(mediaType, "submitting");
+    const group = addTaskGroup({mediaType, audioFormat: settings.audioFormat, pendingCount: selected.length});
+    renderTaskPanel();
     scrollToElement(taskCard, "start");
 
-    const payload = {
-      preview_id: pendingPreview.preview_id,
-      selected_entry_ids: selected,
-      media_type: mediaType,
-      speed_mode: pendingDownloadSettings.speedMode,
-      audio_format: pendingDownloadSettings.audioFormat,
-      download_dir: pendingDownloadSettings.downloadDir || null,
-    };
-    if (pendingDownloadSettings.subtitleOptions && Object.values(pendingDownloadSettings.subtitleOptions).some(Boolean)) {
-      payload.subtitle_options = pendingDownloadSettings.subtitleOptions;
-    }
+    const payload = downloadPayload(preview, settings, selected);
+    let data = null;
+    let failure = null;
     try {
       const response = await fetch("/api/download", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = await response.json();
-      if (!response.ok) {
-        restoreTaskPanel();
+      data = await response.json();
+      if (!response.ok) failure = () => formatApiError(data);
+    } catch (error) {
+      failure = () => tr("网络错误：", "Network error: ") + error.message;
+    }
+    if (failure) {
+      removeTaskGroup(group);
+      renderTaskPanel();
+      if (fromSelection) {
+        setCardPhase(mediaType, "choosing");
         collectionPreview.hidden = false;
         collectionSubmitButton.disabled = false;
-        showNotice(collectionNotice, () => formatApiError(data));
-        return;
+        showNotice(collectionNotice, failure);
+      } else {
+        setCardPhase(mediaType, null);
+        showNotice(control.notice, failure);
       }
-      rememberDownloadDirectory(data.download_dir);
-      currentBatchId = data.batch_id;
-      rememberCurrentBatch(currentBatchId);
-      pendingPreview = null;
-      pendingDownloadSettings = null;
-      // The links now live in the task list, so the box is ready for the next batch.
-      downloadControls[mediaType].textarea.value = "";
-      updateUrlCount(mediaType);
-      setLocalized(taskSummary, "共 {n} 个任务 · 保存到 {path}", "{n} tasks · Save to {path}", {n: data.task_count, path: data.download_dir || defaultDownloadDir});
-      startPolling();
-    } catch (error) {
-      restoreTaskPanel();
-      collectionPreview.hidden = false;
-      collectionSubmitButton.disabled = false;
-      showNotice(collectionNotice, () => tr("网络错误：", "Network error: ") + error.message);
+      return;
     }
+
+    if (fromSelection) closeCollectionPreview();
+    rememberDownloadDirectory(data.download_dir);
+    Object.assign(group, {
+      batchId: data.batch_id,
+      taskCount: data.task_count,
+      downloadDir: data.download_dir || defaultDownloadDir,
+      createdAt: Date.now() / 1000,
+      needsUpdate: true,
+    });
+    // The links now live in the task list, so the box is ready for the next batch.
+    control.textarea.value = "";
+    updateUrlCount(mediaType);
+    setCardPhase(mediaType, null);
+    focusTaskGroup(group);
+    renderTaskPanel();
+    startPolling();
+    refreshBatchHistory();
   }
 
   function startPolling() {
-    stopPolling();
     pollingActive = true;
     pollFailureCount = 0;
+    if (pollInFlight) {
+      // The sweep in progress hands over to a new one as soon as it ends.
+      pollAgain = true;
+      return;
+    }
     pollStatus();
   }
 
@@ -839,7 +916,7 @@
   }
 
   function scheduleNextPoll(delay) {
-    if (!pollingActive || !currentBatchId) return;
+    if (!pollingActive) return;
     if (pollingTimer) clearTimeout(pollingTimer);
     pollingTimer = setTimeout(() => {
       pollingTimer = null;
@@ -878,77 +955,236 @@
     }
   });
 
-  function setBatchSummary(batch) {
-    setLocalized(
-      taskSummary,
-      "共 {total} 个 · 完成 {completed} · 失败 {failed} · 取消 {cancelled}",
-      "{total} total · {completed} completed · {failed} failed · {cancelled} cancelled",
-      {
-        total: batch.total ?? (Array.isArray(batch.tasks) ? batch.tasks.length : 0),
-        completed: batch.completed || 0,
-        failed: batch.failed || 0,
-        cancelled: batch.cancelled || 0,
-      },
-    );
+  function needsPoll(group) {
+    return Boolean(group.batchId) && group.needsUpdate;
   }
 
+  // One sweep reads every batch that is still changing, one request at a time.
   async function pollStatus() {
-    if (!pollingActive || !currentBatchId || pollInFlight) return;
-    const requestedBatchId = currentBatchId;
+    if (!pollingActive || pollInFlight) return;
+    if (pollingTimer) {
+      clearTimeout(pollingTimer);
+      pollingTimer = null;
+    }
     pollInFlight = true;
+    pollAgain = false;
+    let reachable = true;
+    let historyStale = false;
     try {
-      const resp = await fetchJsonWithTimeout("/api/batch/" + requestedBatchId);
-      if (currentBatchId !== requestedBatchId) return;
-      if (resp.status === 404 || resp.status === 410) {
-        stopPolling();
-        currentBatchId = null;
-        rememberCurrentBatch(null);
-        isDownloading = false;
-        setControlsDisabled(false);
-        setOperationalMetrics(0, 0);
-        pendingSkeletonCount = null;
-        lastRenderedBatch = null;
-        lastTaskRenderSignature = null;
-        retryFailedButton.hidden = true;
-        taskHeading = null;
-        setLocalized(taskTitle, "下载任务", "Download tasks");
-        setLocalized(taskSummary, "任务不存在或已过期，请重新提交或选择历史记录。", "This batch is missing or expired. Submit again or select a saved batch.");
-        taskContainer.innerHTML = '<div class="empty-state"><p><span data-guide-copy="zh">原任务已无法查询，已下载文件不会被删除。</span><span data-guide-copy="en">This batch is no longer available. Downloaded files are kept.</span></p></div>';
-        return;
-      }
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const batch = resp.data;
-      if (currentBatchId !== requestedBatchId) return;
-      pollFailureCount = 0;
-      updateOperationalMetrics(batch);
-      const renderSignature = taskRenderSignature(batch);
-      if (renderSignature !== lastTaskRenderSignature) {
-        renderTasks(batch);
-        lastTaskRenderSignature = renderSignature;
-      }
-
-      setTaskHeading(batch.media_type, batch.audio_format);
-      setBatchSummary(batch);
-      retryFailedButton.hidden = !batch.tasks.some(task => task.can_retry && task.status === "failed");
-
-      if (batch.all_done) {
-        stopPolling();
-        isDownloading = false;
-        setControlsDisabled(false);
+      for (const group of taskGroups.filter(needsPoll)) {
+        const outcome = await pollBatch(group);
+        if (outcome === "unreachable") {
+          reachable = false;
+          break;
+        }
+        if (outcome === "finished" && savedSummaryIsStale(group.batch)) historyStale = true;
       }
     } catch (_) {
-      if (currentBatchId !== requestedBatchId) return;
-      pollFailureCount = Math.min(pollFailureCount + 1, 6);
-      setLocalized(taskSummary, "连接暂不可用，正在自动重试…", "Connection unavailable. Retrying automatically…");
+      reachable = false;
     } finally {
       pollInFlight = false;
-      const normalDelay = document.hidden ? HIDDEN_POLL_INTERVAL_MS : VISIBLE_POLL_INTERVAL_MS;
-      scheduleNextPoll(window.GtdTaskApi.backoffDelay(normalDelay, pollFailureCount));
+      pollFailureCount = reachable ? 0 : Math.min(pollFailureCount + 1, 6);
+      connectionLost = !reachable;
+      renderTaskPanel();
+      if (historyStale) refreshBatchHistory();
+      if (taskGroups.some(needsPoll)) {
+        const normalDelay = document.hidden ? HIDDEN_POLL_INTERVAL_MS : VISIBLE_POLL_INTERVAL_MS;
+        scheduleNextPoll(pollAgain ? 0 : window.GtdTaskApi.backoffDelay(normalDelay, pollFailureCount));
+      } else {
+        stopPolling();
+      }
     }
   }
 
-  function renderPendingSkeleton(count) {
-    pendingSkeletonCount = count;
+  // Returns "unreachable" when the sweep should stop and back off.
+  async function pollBatch(group) {
+    const {batchId, revision} = group;
+    let response;
+    try {
+      response = await fetchJsonWithTimeout("/api/batch/" + batchId);
+    } catch (_) {
+      return "unreachable";
+    }
+    // Ignore answers for batches that left the panel or changed through a task action meanwhile.
+    if (!taskGroups.includes(group) || group.revision !== revision) return "stale";
+    if (response.status === 404 || response.status === 410) {
+      removeTaskGroup(group);
+      showNotice(taskNotice, () => tr(
+        "有一个任务批次不存在或已过期，已从列表移除；已下载的文件不会被删除。",
+        "A batch is missing or expired and was removed from the list. Downloaded files are kept.",
+      ), {kind: "missing"});
+      return "missing";
+    }
+    if (!response.ok) return "unreachable";
+    applyBatchSnapshot(group, response.data);
+    return group.needsUpdate ? "running" : "finished";
+  }
+
+  // The history picker shows counts; refresh it when a finished batch outgrew them.
+  function savedSummaryIsStale(batch) {
+    const saved = historyBatches.find(item => item.id === batch.id);
+    return !saved || ["completed", "failed", "cancelled", "all_done"].some(key => saved[key] !== batch[key]);
+  }
+
+  function addTaskGroup({batchId = null, mediaType = null, audioFormat = null, createdAt = null, pendingCount = 0} = {}) {
+    const element = document.createElement("div");
+    element.className = "task-group";
+    const group = {
+      element, batchId, mediaType, audioFormat, createdAt, pendingCount,
+      batch: null, needsUpdate: Boolean(batchId), revision: 0, snapshotRevision: 0,
+      renderSignature: null, taskCount: null, downloadDir: null,
+    };
+    taskGroups.unshift(group);
+    return group;
+  }
+
+  function removeTaskGroup(group) {
+    taskGroups = taskGroups.filter(other => other !== group);
+    if (group.batchId && group.batchId === focusedBatchId) setFocusedBatch(null);
+  }
+
+  // A finished batch needs no reads until someone acts on it again.
+  function isSettled(group) {
+    return Boolean(group.batch && group.batch.all_done) && !group.needsUpdate;
+  }
+
+  // The focused batch leads. Finished batches out of focus return to history; running ones stay.
+  function focusTaskGroup(group) {
+    taskGroups = [group, ...taskGroups.filter(other => other !== group && !isSettled(other))];
+    setFocusedBatch(group.batchId);
+  }
+
+  function setFocusedBatch(batchId) {
+    focusedBatchId = batchId;
+    rememberCurrentBatch(batchId);
+    syncBatchHistorySelection();
+  }
+
+  // Task actions change a batch on the server, so an answer already on its way is out of date.
+  function markForRefresh(group) {
+    group.revision += 1;
+    group.needsUpdate = true;
+  }
+
+  function applyBatchSnapshot(group, batch) {
+    group.batch = batch;
+    group.snapshotRevision = group.revision;
+    group.mediaType = batch.media_type || group.mediaType;
+    group.audioFormat = batch.audio_format || group.audioFormat;
+    group.needsUpdate = !batch.all_done;
+    renderTaskPanel();
+  }
+
+  function groupTitle(group) {
+    return batchTitle(group.mediaType, group.audioFormat);
+  }
+
+  function groupSummary(group) {
+    const batch = group.batch;
+    if (batch) {
+      return tr(
+        "共 {total} 个 · 完成 {completed} · 失败 {failed} · 取消 {cancelled}",
+        "{total} total · {completed} completed · {failed} failed · {cancelled} cancelled",
+        {
+          total: batch.total ?? (Array.isArray(batch.tasks) ? batch.tasks.length : 0),
+          completed: batch.completed || 0,
+          failed: batch.failed || 0,
+          cancelled: batch.cancelled || 0,
+        },
+      );
+    }
+    if (!group.batchId) return tr("正在提交...", "Submitting...");
+    if (group.taskCount !== null) {
+      return tr("共 {n} 个任务 · 保存到 {path}", "{n} tasks · Save to {path}", {n: group.taskCount, path: group.downloadDir});
+    }
+    return tr("正在恢复任务状态…", "Restoring task status…");
+  }
+
+  function formatBatchTime(seconds) {
+    return new Date(seconds * 1000).toLocaleString(window.GtdLanguage?.language === "en" ? "en-US" : "zh-CN", {
+      month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
+    });
+  }
+
+  // With more than one batch listed, each gets a compact header of its own.
+  function taskGroupHeader(group) {
+    const time = group.createdAt ? `<span class="task-group-time">${escHtml(formatBatchTime(group.createdAt))}</span>` : "";
+    return `<div class="task-group-header"><h3 class="task-group-title">${escHtml(groupTitle(group))}</h3>${time}<p class="task-group-summary">${escHtml(groupSummary(group))}</p></div>`;
+  }
+
+  function renderTaskGroup(group, multiple, force) {
+    const header = multiple ? taskGroupHeader(group) : "";
+    const body = group.batch ? taskRenderSignature(group.batch) : `pending:${group.pendingCount}`;
+    const signature = `${header}\n${body}`;
+    if (!force && signature === group.renderSignature) return;
+    group.renderSignature = signature;
+    // Keep any attempt history the reader opened across live re-renders.
+    const openAttempts = new Set(
+      Array.from(group.element.querySelectorAll("details.task-attempts[open]")).map(node => node.dataset.taskId),
+    );
+    if (group.batchId) group.element.dataset.batchId = group.batchId;
+    group.element.innerHTML = header + (group.batch
+      ? renderTaskList(group.batch, openAttempts)
+      : renderSkeletonList(group.pendingCount));
+  }
+
+  // Groups re-render only when their own data changes, so text selected in one batch survives
+  // live updates in another.
+  function renderTaskPanel(force = false) {
+    if (taskGroups.length === 0) {
+      if (renderedGroups.length) taskContainer.innerHTML = emptyStateMarkup;
+      renderedGroups = [];
+    } else {
+      const sameOrder = renderedGroups.length === taskGroups.length
+        && taskGroups.every((group, index) => renderedGroups[index] === group);
+      if (!sameOrder) {
+        taskContainer.replaceChildren(...taskGroups.map(group => group.element));
+        renderedGroups = [...taskGroups];
+      }
+      const multiple = taskGroups.length > 1;
+      taskGroups.forEach(group => renderTaskGroup(group, multiple, force));
+    }
+    renderTaskPanelHeading();
+    updateOperationalMetrics();
+    retryFailedButton.hidden = !taskGroups.some(hasRetryableFailures);
+  }
+
+  function renderTaskPanelHeading() {
+    let title = tr("下载任务", "Download tasks");
+    let summary = tr("等待链接输入", "Waiting for links");
+    if (taskGroups.length > 1) {
+      const running = taskGroups.filter(group => !isSettled(group)).length;
+      summary = tr(
+        "{n} 个批次 · 进行中 {running} · 已结束 {finished}",
+        "{n} batches · {running} in progress · {finished} finished",
+        {n: taskGroups.length, running, finished: taskGroups.length - running},
+      );
+    } else if (taskGroups.length === 1) {
+      title = groupTitle(taskGroups[0]);
+      summary = groupSummary(taskGroups[0]);
+    } else if (cardInPhase("choosing")) {
+      // An empty panel says what is happening; once batches are listed it describes them.
+      title = tr("等待选择条目", "Choose items to download");
+      summary = tr("勾选上方条目，然后点击“下载所选条目”。", "Pick items above, then select Download selected items.");
+    } else if (cardInPhase("parsing")) {
+      title = tr("正在解析输入", "Parsing input");
+      summary = tr("读取播放列表、合集与分 P 信息...", "Reading playlists, collections, and multipart videos...");
+    }
+    if (connectionLost && taskGroups.length) {
+      summary = tr("连接暂不可用，正在自动重试…", "Connection unavailable. Retrying automatically…");
+    }
+    taskTitle.textContent = title;
+    taskSummary.textContent = summary;
+  }
+
+  function hasRetryableFailures(group) {
+    // A snapshot older than the latest action may still list tasks that are already retrying.
+    return Boolean(group.batchId && group.batch) && group.snapshotRevision === group.revision
+      && Array.isArray(group.batch.tasks) && group.batch.tasks.some(task => task.can_retry && task.status === "failed");
+  }
+
+  // Rows stand in for a batch until the server confirms it and the first update arrives.
+  function renderSkeletonList(count) {
     let html = '<ul class="task-list">';
     for (let i = 0; i < count; i++) {
       html += `
@@ -957,32 +1193,7 @@
           <div class="task-body"><div class="task-heading"><span class="task-name">${tr("等待可用下载槽位", "Waiting for an available download slot")}</span><span class="badge badge-queued">${tr("等待中", "Queued")}</span></div></div>
         </li>`;
     }
-    html += "</ul>";
-    taskContainer.innerHTML = html;
-  }
-
-  // Put the panel back to the last real state after a submission that never started.
-  function restoreTaskPanel() {
-    pendingSkeletonCount = null;
-    if (lastRenderedBatch) {
-      renderTasks(lastRenderedBatch);
-      updateOperationalMetrics(lastRenderedBatch);
-    } else {
-      taskContainer.innerHTML = emptyStateMarkup;
-      setOperationalMetrics(0, 0);
-    }
-    restoreTaskPanelHeading();
-  }
-
-  function restoreTaskPanelHeading() {
-    if (lastRenderedBatch) {
-      setTaskHeading(lastRenderedBatch.media_type, lastRenderedBatch.audio_format);
-      setBatchSummary(lastRenderedBatch);
-      return;
-    }
-    taskHeading = null;
-    setLocalized(taskTitle, "下载任务", "Download tasks");
-    setLocalized(taskSummary, "等待链接输入", "Waiting for links");
+    return html + "</ul>";
   }
 
   function formatAttemptTime(value) {
@@ -1105,10 +1316,12 @@
       html += `</div></details>`;
     }
 
+    // Each action names its batch, because rows from several batches share the panel.
+    const target = `'${escHtml(t.id)}', '${escHtml(batch.id)}'`;
     let actions = "";
-    if (t.can_cancel) actions += `<button class="task-action" type="button" onclick="operateTask('cancel', '${escHtml(t.id)}')">${tr("取消", "Cancel")}</button>`;
-    if (t.can_retry) actions += `<button class="task-action" type="button" onclick="operateTask('retry', '${escHtml(t.id)}')">${tr("重试", "Retry")}</button>`;
-    if (t.can_redownload) actions += `<button class="task-action" type="button" onclick="operateTask('redownload', '${escHtml(t.id)}')">${tr("重新下载", "Redownload")}</button>`;
+    if (t.can_cancel) actions += `<button class="task-action" type="button" onclick="operateTask('cancel', ${target})">${tr("取消", "Cancel")}</button>`;
+    if (t.can_retry) actions += `<button class="task-action" type="button" onclick="operateTask('retry', ${target})">${tr("重试", "Retry")}</button>`;
+    if (t.can_redownload) actions += `<button class="task-action" type="button" onclick="operateTask('redownload', ${target})">${tr("重新下载", "Redownload")}</button>`;
     if (t.platform === 'local' && t.status === "completed" && typeof r.download_url === 'string' && r.download_url.startsWith('/api/extract-audio/')) {
       actions += `<a class="task-action" href="${escHtml(r.download_url)}" download>${tr('下载音频', 'Download audio')}</a>`;
     }
@@ -1117,54 +1330,48 @@
     return html;
   }
 
-  function renderTasks(batch) {
-    lastRenderedBatch = batch;
-    pendingSkeletonCount = null;
-    // Keep any attempt history the reader opened across live re-renders.
-    const openAttempts = new Set(
-      Array.from(taskContainer.querySelectorAll("details.task-attempts[open]")).map(node => node.dataset.taskId),
-    );
+  function renderTaskList(batch, openAttempts) {
     const tasks = Array.isArray(batch.tasks) ? batch.tasks : [];
-    taskContainer.innerHTML = `<ul class="task-list">${tasks.map((task, index) => renderTask(batch, task, index, openAttempts)).join("")}</ul>`;
+    return `<ul class="task-list">${tasks.map((task, index) => renderTask(batch, task, index, openAttempts)).join("")}</ul>`;
   }
 
-  async function operateTask(action, taskId) {
-    if (!currentBatchId) return;
+  async function operateTask(action, taskId, batchId) {
+    const group = taskGroups.find(item => item.batchId === batchId);
+    if (!group) return;
     clearNotice(taskNotice);
     try {
-      const response = await fetch(`/api/batch/${currentBatchId}/task/${taskId}/${action}`, { method: "POST" });
+      const response = await fetch(`/api/batch/${batchId}/task/${taskId}/${action}`, { method: "POST" });
       const data = await response.json();
       if (!response.ok) {
         showNotice(taskNotice, () => formatApiError(data));
         return;
       }
-      if (["retry", "redownload"].includes(action)) {
-        isDownloading = true;
-        setControlsDisabled(true);
-      }
+      markForRefresh(group);
+      renderTaskPanel();
       startPolling();
     } catch (error) {
       showNotice(taskNotice, () => tr("网络错误：", "Network error: ") + error.message);
     }
   }
 
+  // Retries the failed tasks of every batch in the panel, one request at a time.
   async function retryFailedTasks() {
-    if (!currentBatchId) return;
     clearNotice(taskNotice);
-    try {
-      const response = await fetch(`/api/batch/${currentBatchId}/retry-failed`, { method: "POST" });
-      const data = await response.json();
-      if (!response.ok) {
-        showNotice(taskNotice, () => formatApiError(data));
-        return;
+    for (const group of taskGroups.filter(hasRetryableFailures)) {
+      try {
+        const response = await fetch(`/api/batch/${group.batchId}/retry-failed`, { method: "POST" });
+        const data = await response.json();
+        if (!response.ok) {
+          showNotice(taskNotice, () => formatApiError(data));
+          continue;
+        }
+        markForRefresh(group);
+      } catch (error) {
+        showNotice(taskNotice, () => tr("网络错误：", "Network error: ") + error.message);
       }
-      retryFailedButton.hidden = true;
-      isDownloading = true;
-      setControlsDisabled(true);
-      startPolling();
-    } catch (error) {
-      showNotice(taskNotice, () => tr("网络错误：", "Network error: ") + error.message);
     }
+    renderTaskPanel();
+    startPolling();
   }
 
   function renderDownloadProgress(progress) {
@@ -1184,18 +1391,6 @@
     html += item(totalSizeLabel, totalSize);
     html += `</div>`;
     return html;
-  }
-
-  function resetUI(resetMetrics = true) {
-    isDownloading = false;
-    setControlsDisabled(false);
-    pendingPreview = null;
-    pendingDownloadSettings = null;
-    collectionSelectedIds = new Set();
-    collectionPreview.hidden = true;
-    clearNotice(collectionNotice);
-    if (resetMetrics) setOperationalMetrics(0, 0);
-    restoreTaskPanelHeading();
   }
 
   // Escapes text for element content and quoted attributes alike.
@@ -1219,13 +1414,18 @@
 
   function renderBatchHistory() {
     if (!batchHistory) return;
-    const selected = currentBatchId || batchHistory.value;
     batchHistory.innerHTML = `<option value="">${tr("选择历史任务", "Select a saved batch")}</option>` + historyBatches.map(batch => {
       const date = new Date(batch.created_at * 1000).toLocaleString(window.GtdLanguage?.language === "en" ? "en-US" : "zh-CN", {hour12: false});
       const description = tr("{date} · {n} 项 · 完成 {done} · 失败 {failed}", "{date} · {n} items · {done} completed · {failed} failed", {date, n: batch.total, done: batch.completed, failed: batch.failed});
       return `<option value="${escHtml(batch.id)}">${escHtml(description)}</option>`;
     }).join("");
-    batchHistory.value = selected || "";
+    syncBatchHistorySelection();
+  }
+
+  // The picker shows the focused batch once history lists it.
+  function syncBatchHistorySelection() {
+    if (!batchHistory) return;
+    batchHistory.value = historyBatches.some(batch => batch.id === focusedBatchId) ? focusedBatchId : "";
   }
 
   async function refreshBatchHistory() {
@@ -1243,16 +1443,18 @@
     } finally { historyLoading = false; }
   }
 
+  // A saved batch opens on top of the panel and refreshes; running batches keep going below it.
   function selectHistoryBatch(batchId) {
-    if (!batchId || isDownloading || pendingPreview) return;
-    stopPolling();
+    if (!batchId) return;
     clearNotice(taskNotice);
-    currentBatchId = batchId;
-    rememberCurrentBatch(batchId);
-    lastTaskRenderSignature = null;
-    isDownloading = true;
-    setControlsDisabled(true);
-    setLocalized(taskSummary, "正在恢复任务状态…", "Restoring task status…");
+    let group = taskGroups.find(item => item.batchId === batchId);
+    if (!group) {
+      const saved = historyBatches.find(item => item.id === batchId) || {};
+      group = addTaskGroup({batchId, mediaType: saved.media_type, audioFormat: saved.audio_format, createdAt: saved.created_at});
+    }
+    markForRefresh(group);
+    focusTaskGroup(group);
+    renderTaskPanel();
     startPolling();
   }
 

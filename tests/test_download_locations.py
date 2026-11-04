@@ -317,7 +317,7 @@ class DownloadLocationSurfaceTests(unittest.TestCase):
         self.assertIn('id="audioDownloadDir"', html)
         self.assertIn("chooseDownloadDirectory('video')", html)
         self.assertIn(
-            "download_dir: pendingDownloadSettings.downloadDir || null",
+            "download_dir: settings.downloadDir || null",
             html,
         )
 

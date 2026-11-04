@@ -3,8 +3,8 @@ const assert = require('assert');
 const fs = require('fs');
 const vm = require('vm');
 class Element {
-  constructor() { this.textContent = ''; this.innerHTML = ''; this.value = ''; this.dataset = {}; this.hidden = true; this.classList = {remove(){}, add(){}}; }
-  addEventListener() {} setAttribute() {} replaceChildren() { this.innerHTML = ''; }
+  constructor() { this.textContent = ''; this.innerHTML = ''; this.value = ''; this.dataset = {}; this.hidden = true; this.children = []; this.classList = {remove(){}, add(){}}; }
+  addEventListener() {} setAttribute() {} replaceChildren(...children) { this.children = children; this.innerHTML = ''; }
   appendChild(child) { this.innerHTML += String(child.textContent).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;'); }
   querySelectorAll() { return []; } contains() { return false; } focus() {} scrollIntoView() {}
 }
@@ -14,14 +14,15 @@ const window = {GtdLanguage: {get language(){ return language; }, t(zh,en,params
 const context = vm.createContext({document,window,localStorage:{getItem(){return null;}},fetch(){requests++;return new Promise(()=>{});}, setTimeout(){}, clearTimeout(){}, console});
 vm.runInContext(fs.readFileSync('static/js/task_api.js', 'utf8'), context);
 vm.runInContext(fs.readFileSync('static/js/index.js','utf8'), context);
-vm.runInContext(`renderTasks({media_type:'audio', tasks:[{id:'a',url:'https://example.com/中文',status:'completed',result:{title:'用户中文标题',filepath:'/中文/音频.mp3'},can_redownload:true}]});`,context);
+const panel = () => nodes.get('task-container').children.map(child => child.innerHTML).join('');
+vm.runInContext(`applyBatchSnapshot(addTaskGroup({batchId:'a'}), {id:'a', media_type:'audio', tasks:[{id:'a',url:'https://example.com/中文',status:'completed',result:{title:'用户中文标题',filepath:'/中文/音频.mp3'},can_redownload:true}], all_done:true});`,context);
 language = 'en';
 assert.strictEqual(typeof listeners['gtd:languagechange'], 'function', 'dynamic UI must respond to language changes');
 listeners['gtd:languagechange']({detail:{language}});
-assert.match(nodes.get('task-container').innerHTML,/Completed/);
-assert.match(nodes.get('task-container').innerHTML,/用户中文标题/);
-assert.match(nodes.get('task-container').innerHTML,/\/中文\/音频.mp3/);
-assert.match(nodes.get('task-container').innerHTML,/Redownload/);
+assert.match(panel(),/Completed/);
+assert.match(panel(),/用户中文标题/);
+assert.match(panel(),/\/中文\/音频.mp3/);
+assert.match(panel(),/Redownload/);
 assert.strictEqual(requests,2,'switching a completed task must not restart polling');
 assert.match(vm.runInContext('renderDownloadProgress({speed_text:"计算中",eta_text:"计算中"})',context),/Calculating/);
 assert.match(vm.runInContext('formatApiError({error_code:"NETWORK_TIMEOUT",message:"网络连接源站超时",suggestion:"请检查网络或代理设置后重试"})',context),/timed out/);
@@ -37,12 +38,12 @@ assert.doesNotMatch(vm.runInContext('formatApiError({error_code:"INVALID_REQUEST
 
 // App-owned statuses and progress stay English while source strings stay unchanged.
 for (const state of ['queued','running','running_uninterruptible','failed','cancelled']) {
-  vm.runInContext(`renderTasks({tasks:[{id:'x', url:'https://example.com/test', status:'${state}', can_cancel:true, error:{error_code:'AUTH_REQUIRED',message:'当前凭证无法访问该内容',suggestion:'请更新对应平台 Cookie 后重试'}, progress:{speed_text:'计算中',eta_text:'计算中'}}]})`, context);
-  assert.doesNotMatch(nodes.get('task-container').innerHTML, /[\u4e00-\u9fff]/);
+  const html = vm.runInContext(`renderTaskList({tasks:[{id:'x', url:'https://example.com/test', status:'${state}', can_cancel:true, error:{error_code:'AUTH_REQUIRED',message:'当前凭证无法访问该内容',suggestion:'请更新对应平台 Cookie 后重试'}, progress:{speed_text:'计算中',eta_text:'计算中'}}]}, new Set())`, context);
+  assert.doesNotMatch(html, /[\u4e00-\u9fff]/);
 }
-vm.runInContext(`renderTasks({tasks:[{id:'x',url:'test',status:'running',postprocessing:{stage_text:'正在嵌入封面…',detail_text:'程序正在把封面写入最终媒体文件。'}}]})`, context);
-assert.match(nodes.get('task-container').innerHTML,/Embedding cover art/);
-assert.doesNotMatch(nodes.get('task-container').innerHTML,/[\u4e00-\u9fff]/);
+const processingHtml = vm.runInContext(`renderTaskList({tasks:[{id:'x',url:'test',status:'running',postprocessing:{stage_text:'正在嵌入封面…',detail_text:'程序正在把封面写入最终媒体文件。'}}]}, new Set())`, context);
+assert.match(processingHtml,/Embedding cover art/);
+assert.doesNotMatch(processingHtml,/[\u4e00-\u9fff]/);
 // Pending labels must change without enabling a disabled control or dropping form input.
 vm.runInContext(`downloadControls.video.textarea.value='https://example.com/keep';downloadControls.video.browseButton.disabled=true;setLocalized(downloadControls.video.browseButton,'等待选择…','Waiting for selection…');`, context);
 language = 'zh'; listeners['gtd:languagechange']({detail:{language}});

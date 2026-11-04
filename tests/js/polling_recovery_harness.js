@@ -3,8 +3,9 @@ const assert = require('assert');
 const fs = require('fs');
 const vm = require('vm');
 class Element {
-  constructor() { this.textContent = ''; this.innerHTML = ''; this.value = ''; this.dataset = {}; this.hidden = true; this.classList = {remove(){}, add(){}}; }
-  addEventListener() {} setAttribute() {} replaceChildren() { this.innerHTML = ''; }
+  constructor() { this.textContent = ''; this.html = ''; this.children = []; this.value = ''; this.dataset = {}; this.hidden = true; this.classList = {remove(){}, add(){}}; }
+  get innerHTML() { return this.html; } set innerHTML(value) { this.html = String(value); this.children = []; }
+  addEventListener() {} setAttribute() {} replaceChildren(...children) { this.children = children; this.html = ''; }
   appendChild(child) { this.innerHTML += String(child.textContent).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;'); }
   querySelectorAll() { return []; } contains() { return false; } focus() {} scrollIntoView() {}
 }
@@ -21,37 +22,52 @@ vm.runInContext(fs.readFileSync('static/js/index.js','utf8'), context);
   context.clearTimeout = () => {};
   const stored = new Map();
   context.localStorage = {getItem:k=>stored.get(k)??null, setItem:(k,v)=>stored.set(k,v),removeItem:k=>stored.delete(k)};
-  context.fetch = async () => ({ok:false,status:404});
-  await vm.runInContext("currentBatchId='missing';isDownloading=true;pollingActive=true;setControlsDisabled(true);pollStatus()",context);
-  assert.strictEqual(vm.runInContext('pollingActive',context),false,'missing batches must stop polling');
-  assert.strictEqual(nodes.get('videoDownloadButton').disabled,false);
-  assert.match(nodes.get('task-summary').textContent,/不存在|已过期/);
+  const settle = async () => { for (let round = 0; round < 6; round += 1) await new Promise(resolve => setImmediate(resolve)); };
+  const panel = () => nodes.get('task-container').children.map(child => child.innerHTML).join('');
 
+  // A saved batch that no longer exists leaves the panel with a notice and stops polling.
+  context.fetch = async () => ({ok:false,status:404});
+  vm.runInContext("selectHistoryBatch('missing')",context);
+  await settle();
+  assert.strictEqual(vm.runInContext('pollingActive',context),false,'missing batches must stop polling');
+  assert.ok(!nodes.get('videoDownloadButton').disabled,'saved batches never hold the download cards');
+  assert.strictEqual(nodes.get('taskNotice').hidden,false);
+  assert.match(nodes.get('taskNotice').textContent,/不存在|已过期/);
+  assert.strictEqual(stored.get('gtd_current_batch_v1'),undefined,'a vanished batch is not remembered');
+  assert.strictEqual(panel(),'');
+
+  // Network errors back off and keep the batch on screen.
   context.fetch = async () => { throw new Error('offline'); };
   timers=[];
-  await vm.runInContext("currentBatchId='recoverable';isDownloading=true;pollingActive=true;pollStatus()",context);
-  assert.strictEqual(vm.runInContext('currentBatchId',context),'recoverable');
+  vm.runInContext("selectHistoryBatch('recoverable')",context);
+  await settle();
   assert.strictEqual(vm.runInContext('pollingActive',context),true);
   assert.ok(timers.at(-1).delay>=1600,'network errors must back off');
   assert.match(nodes.get('task-summary').textContent,/连接|重试/);
+  assert.strictEqual(nodes.get('task-container').children.length,1);
 
+  // Recovery renders the batch and stops polling once it has finished.
   context.fetch = async () => ({ok:true,json:async()=>({id:'recoverable',media_type:'video',total:1,completed:1,failed:0,tasks:[{id:'t',url:'test',status:'completed',result:{title:'done'},can_redownload:true}],all_done:true})});
   await vm.runInContext('pollStatus()',context);
+  await settle();
   assert.strictEqual(vm.runInContext('pollingActive',context),false);
-  assert.strictEqual(nodes.get('videoDownloadButton').disabled,false);
-  assert.match(nodes.get('task-container').innerHTML,/done/);
+  assert.ok(!nodes.get('videoDownloadButton').disabled,'saved batches never hold the download cards');
+  assert.match(panel(),/done/);
   assert.match(nodes.get('task-summary').textContent,/完成 1/);
   assert.doesNotMatch(nodes.get('task-summary').textContent,/recoverable/,'summaries omit the internal batch ID');
 
-  // A late response for the previously selected batch cannot replace the new view.
+  // An answer that started before a task action cannot end tracking for that batch.
   let finishOld;
-  context.fetch = () => new Promise(resolve => { finishOld = resolve; });
-  const oldPoll = vm.runInContext("currentBatchId='old-batch';pollingActive=true;pollStatus()", context);
-  vm.runInContext("currentBatchId='new-batch'", context);
-  finishOld({ok:true,status:200,json:async()=>({id:'old-batch',tasks:[{id:'stale',status:'completed',result:{title:'stale-title'}}]})});
-  await oldPoll;
-  assert.strictEqual(vm.runInContext('currentBatchId', context), 'new-batch');
-  assert.doesNotMatch(nodes.get('task-container').innerHTML, /stale-title/);
+  context.fetch = (_url, options = {}) => options.method === 'POST'
+    ? Promise.resolve({ok:true,status:200,json:async()=>({})})
+    : new Promise(resolve => { finishOld = resolve; });
+  vm.runInContext("selectHistoryBatch('old-batch')", context);
+  await settle();
+  await vm.runInContext("operateTask('retry', 'stale', 'old-batch')", context);
+  finishOld({ok:true,status:200,json:async()=>({id:'old-batch',all_done:true,tasks:[{id:'stale',status:'completed',result:{title:'stale-title'}}]})});
+  await settle();
+  assert.doesNotMatch(panel(), /stale-title/);
+  assert.strictEqual(vm.runInContext('pollingActive', context), true, 'the batch is read again after the action');
 
   // Persisting a batch reference is independent of download-directory history.
   vm.runInContext("rememberCurrentBatch('saved-id')",context);

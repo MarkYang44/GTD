@@ -620,6 +620,20 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .task-notice { margin-top: 16px; }
 #task-container, #extract-tasks { margin-top: 16px; }
 
+/* Several batches can run at once; each listed batch is a group, newest first. */
+.task-group + .task-group { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--border); }
+.task-group-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 12px;
+  margin-bottom: 12px;
+}
+.task-group-title { min-width: 0; font-size: 15px; font-weight: 600; letter-spacing: -.01em; overflow-wrap: anywhere; }
+.task-group-time { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.task-group-summary { flex: 1 0 100%; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+
 .task-list { display: grid; gap: 10px; list-style: none; }
 .task-item {
   display: grid;

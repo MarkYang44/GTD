@@ -1,6 +1,9 @@
 import json
 import re
 import subprocess
+import tempfile
+import threading
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -8,6 +11,7 @@ from unittest.mock import patch
 import app as web_app
 import downloader
 from collection_resolver import CollectionEntry, CollectionPreview
+from task_control import TaskManager
 
 TEMPLATE_PATH = Path("templates/index.html")
 
@@ -65,6 +69,16 @@ class WebConfigurationTests(unittest.TestCase):
             check=False,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_concurrent_batches_harness(self):
+        result = subprocess.run(
+            ["node", "tests/js/concurrent_batches_harness.js"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Concurrent batches harness passed", result.stdout)
 
     def test_homepage_serves_the_rendered_static_assets_with_expected_mime_types(self):
         client = web_app.app.test_client()
@@ -328,8 +342,8 @@ class WebProgressStateTests(unittest.TestCase):
     def test_frontend_skips_unchanged_task_dom_render(self):
         source = frontend_script_source()
 
-        self.assertIn("lastTaskRenderSignature", source)
-        self.assertIn("if (renderSignature !== lastTaskRenderSignature)", source)
+        # Each batch keeps its own signature, so one batch's update leaves the others alone.
+        self.assertIn("if (!force && signature === group.renderSignature) return;", source)
 
     def test_frontend_task_render_signature_includes_dynamic_card_fields(self):
         signature = task_render_signature_source()
@@ -442,7 +456,7 @@ class WebProgressStateTests(unittest.TestCase):
         html = frontend_surface_source()
 
         self.assertIn(
-            "audio_format: pendingDownloadSettings.audioFormat",
+            "audio_format: settings.audioFormat",
             html,
         )
         self.assertIn('input[name="audioFormat"]:checked', html)
@@ -450,11 +464,11 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn("source_acodec", html)
         self.assertIn("source_abr_kbps", html)
 
-    def test_frontend_sends_media_type_and_disables_both_sections(self):
+    def test_frontend_sends_media_type_from_each_card(self):
+        # Which controls lock, and for how long, is exercised by concurrent_batches_harness.js.
         html = frontend_surface_source()
 
-        self.assertIn("media_type: mediaType", html)
-        self.assertIn("setControlsDisabled(true)", html)
+        self.assertIn("media_type: settings.mediaType", html)
         self.assertIn("videoDownloadButton", html)
         self.assertIn("audioDownloadButton", html)
 
@@ -481,7 +495,7 @@ class WebProgressStateTests(unittest.TestCase):
             html,
         )
         self.assertIn(
-            "speed_mode: pendingDownloadSettings.speedMode",
+            "speed_mode: settings.speedMode",
             html,
         )
         self.assertIn("body: JSON.stringify(payload)", html)
@@ -674,7 +688,8 @@ assert.deepStrictEqual(
     def test_frontend_computes_active_and_queued_task_counts(self):
         html = frontend_surface_source()
 
-        self.assertIn("function updateOperationalMetrics(batch)", html)
+        # Counts come from each batch and are summed across the panel.
+        self.assertIn("function batchWorkCounts(batch)", html)
         self.assertIn("Number.isInteger(batch.active)", html)
         self.assertIn("Number.isInteger(batch.queued)", html)
         self.assertIn('task.status === "queued"', html)
@@ -925,6 +940,50 @@ class WebDownloadApiTests(unittest.TestCase):
         payload = response.get_json()
         self.assertEqual(payload["rejected_count"], 2)
         self.assertEqual(len(payload["rejected"]), 2)
+
+
+class ConcurrentBatchApiTests(unittest.TestCase):
+    """The page submits new links while earlier batches run; the API must accept that."""
+
+    def test_second_submission_runs_while_the_first_batch_is_still_downloading(self):
+        first_started = threading.Event()
+        release_first = threading.Event()
+
+        def runner(url, **kwargs):
+            if url.endswith("/first"):
+                first_started.set()
+                release_first.wait(5)
+            return {"title": url.rsplit("/", 1)[-1], "filepath": f"/tmp/{url.rsplit('/', 1)[-1]}.mp4"}
+
+        manager = TaskManager(runner)
+        self.addCleanup(manager.shutdown)
+        self.addCleanup(release_first.set)
+        with tempfile.TemporaryDirectory() as temporary:
+            client = web_app.create_app({
+                "TESTING": True,
+                "GTD_HISTORY_PATH": str(Path(temporary) / "tasks.sqlite3"),
+                "GTD_UPLOAD_ROOT": str(Path(temporary) / "uploads"),
+            }, manager=manager).test_client()
+            first = client.post("/api/download", json={"urls": ["https://youtu.be/first"], "download_dir": temporary})
+            self.assertEqual(first.status_code, 200)
+            self.assertTrue(first_started.wait(2))
+
+            second = client.post("/api/download", json={
+                "urls": ["https://youtu.be/second"], "media_type": "audio", "download_dir": temporary})
+            self.assertEqual(second.status_code, 200)
+            second_id = second.get_json()["batch_id"]
+            deadline = time.monotonic() + 5
+            while not client.get(f"/api/batch/{second_id}").get_json()["all_done"]:
+                self.assertLess(time.monotonic(), deadline, "the second batch must not wait for the first")
+                time.sleep(0.01)
+
+            running = client.get(f"/api/batch/{first.get_json()['batch_id']}").get_json()
+            self.assertEqual((running["active"], running["all_done"]), (1, False))
+            saved = {batch["id"]: batch for batch in client.get("/api/batches").get_json()["batches"]}
+            self.assertEqual(saved[second_id]["completed"], 1)
+            self.assertFalse(saved[first.get_json()["batch_id"]]["all_done"])
+            release_first.set()
+            self.assertTrue(manager.wait_for_idle())
 
 
 class WebTurboApiTests(unittest.TestCase):

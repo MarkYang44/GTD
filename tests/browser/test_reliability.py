@@ -190,10 +190,58 @@ class BrowserReliabilityTests(unittest.TestCase):
         expect(self.page.locator('#task-container .empty-state')).to_be_visible()
         expect(self.page.locator('#task-container a[href="/kozekilmu/tracks"]')).to_be_visible()
         self.page.locator('#batchHistory').select_option(BATCH_ID)
-        expect(self.page.locator('#task-summary')).to_contain_text('missing or expired')
+        expect(self.page.locator('#taskNotice')).to_contain_text('missing or expired')
+        expect(self.page.locator('#task-container .empty-state')).to_be_visible()
         expect(self.page.locator('#videoDownloadButton')).to_be_enabled()
         self.assertIsNone(self.page.evaluate("localStorage.getItem('gtd_current_batch_v1')"))
         self.assertEqual(self.posts, [])
+
+    def test_second_batch_runs_beside_the_first(self):
+        first, second = 'b' * 32, 'c' * 32
+        running = dict(total=1, active=1, queued=0, completed=0, failed=0, cancelled=0, all_done=False)
+        batches = {
+            first: dict(running, id=first, media_type='video', audio_format='mp3', total=2, queued=1, tasks=[
+                dict(id='v1', url='https://youtu.be/one', title='Morning ferry', status='running',
+                     progress={'percent_text': '35%'}, can_cancel=True),
+                dict(id='v2', url='https://youtu.be/two', title='Harbour lights', status='queued', can_cancel=True)]),
+            second: dict(running, id=second, media_type='audio', audio_format='mp3', tasks=[
+                dict(id='a1', url='https://youtu.be/three', title='Evening tide', status='running', can_cancel=True)]),
+        }
+        accepted = iter([first, second])
+
+        def route(route):
+            path = urlparse(route.request.url).path
+            if path == '/api/download':
+                self.posts.append(path)
+                route.fulfill(json={'batch_id': next(accepted), 'task_count': 1, 'download_dir': 'downloads'})
+            elif path.rsplit('/', 1)[-1] in batches:
+                route.fulfill(json=batches[path.rsplit('/', 1)[-1]])
+            else:
+                self.route_api(route)
+
+        self.context.route('**/api/**', route)
+        self.page.goto(self.url)
+        self.page.locator('#videoUrls').fill('https://youtu.be/one\nhttps://youtu.be/two')
+        self.page.locator('#videoDownloadButton').click()
+        self.page.locator('#collectionSubmitButton').click()
+        expect(self.page.locator('#task-container')).to_contain_text('Morning ferry')
+        # The first batch keeps downloading while both cards and history stay usable.
+        for selector in ('#videoUrls', '#audioUrls'):
+            expect(self.page.locator(selector)).to_be_editable()
+        expect(self.page.locator('#batchHistory')).to_be_enabled()
+        self.page.locator('#audioUrls').fill('https://youtu.be/three')
+        self.page.locator('#audioUrls').press('Control+Enter')
+        self.page.locator('#collectionSubmitButton').click()
+        groups = self.page.locator('#task-container .task-group')
+        expect(groups).to_have_count(2)
+        expect(groups.nth(0)).to_contain_text('Evening tide')
+        expect(groups.nth(1)).to_contain_text('Morning ferry')
+        expect(self.page.locator('#task-title')).to_have_text('Download tasks')
+        expect(self.page.locator('#metric-active')).to_have_text('02')
+        expect(self.page.locator('#metric-queue')).to_have_text('01')
+        self.assertEqual(self.posts.count('/api/download'), 2)
+        self.page.set_viewport_size({'width': 375, 'height': 812})
+        self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
 
     def test_refined_theme_on_all_pages_in_both_languages_and_mobile(self):
         for width in (1280, 375, 320):
