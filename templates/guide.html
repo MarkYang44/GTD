@@ -6,7 +6,7 @@
 <script src="{{ url_for('static', filename='js/lmu_guide_language.js') }}"></script>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/language.css') }}">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#0f172a">
+<meta name="theme-color" content="#0b1111">
 <link rel="icon" href="{{ url_for('static', filename='icons/favicon.ico', v='20260811') }}" sizes="any">
 <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='icons/favicon-16x16.png', v='20260811') }}">
 <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/favicon-32x32.png', v='20260811') }}">
@@ -182,14 +182,6 @@
     justify-content: space-between;
     gap: 24px;
   }
-  .guide-kicker {
-    margin-bottom: 12px;
-    color: var(--accent);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: .16em;
-    text-transform: uppercase;
-  }
   .guide-heading h1 {
     font-family: "Cormorant Garamond", Georgia, serif;
     font-size: clamp(50px, 7vw, 84px);
@@ -210,15 +202,9 @@
   .guide-layout {
     display: grid;
     grid-template-columns: 240px minmax(0, 1fr);
-    border: 1px solid var(--border);
-    background: rgba(17, 24, 39, .52);
-    box-shadow: 0 24px 70px rgba(2, 6, 23, .16);
+    gap: 24px;
   }
-  .guide-toc {
-    position: relative;
-    border-right: 1px solid var(--border);
-    background: rgba(11, 18, 34, .34);
-  }
+  .guide-toc { position: relative; }
   .guide-toc-inner {
     position: sticky;
     top: 92px;
@@ -251,17 +237,6 @@
     background: linear-gradient(90deg, rgba(0, 161, 155, .09), transparent);
   }
   .guide-document { min-width: 0; padding: 48px clamp(28px, 6vw, 72px) 64px; }
-  .markdown-source-label {
-    display: flex;
-    margin-bottom: 36px;
-    align-items: center;
-    gap: 13px;
-    color: var(--muted);
-    font-size: 10px;
-    letter-spacing: .12em;
-    text-transform: uppercase;
-  }
-  .markdown-source-label::before { content: ""; width: 34px; height: 1px; background: var(--accent); }
 
   .guide-markdown { min-width: 0; color: var(--muted-strong); font-size: 15px; }
   .guide-markdown > h1 {
@@ -357,8 +332,7 @@
     .guide-intro { width: auto; max-width: 100%; text-align: left; white-space: normal; }
   }
   @media (max-width: 900px) {
-    .guide-layout { grid-template-columns: 1fr; }
-    .guide-toc { border-right: 0; border-bottom: 1px solid var(--border); }
+    .guide-layout { grid-template-columns: 1fr; gap: 20px; }
     .guide-toc-inner { position: static; padding: 22px 26px; }
     .guide-toc-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px 12px; }
   }
@@ -420,11 +394,8 @@
 
 <main class="guide-main">
   <header class="guide-heading" data-motion-group="guide-hero">
-    <div>
-      <p class="guide-kicker" data-motion-reveal data-motion-group="guide-hero" data-motion-order="0"><span data-guide-copy="zh">03 / 使用说明</span><span data-guide-copy="en" lang="en">03 / DOCUMENTATION</span></p>
-      <h1 data-motion-reveal data-motion-group="guide-hero" data-motion-order="1"><span data-guide-copy="zh">阅读、了解、执行。</span><span data-guide-copy="en" lang="en">Read. Inspect. Execute.</span></h1>
-    </div>
-    <p class="guide-intro" data-motion-reveal data-motion-group="guide-hero" data-motion-order="2"><span data-guide-copy="zh">项目功能介绍，格式与位置选择、任务提交、查看进度，以及常见问题处理</span><span data-guide-copy="en" lang="en">Features, formats, folders, task submission, progress, and troubleshooting</span></p>
+    <h1 data-motion-reveal data-motion-group="guide-hero" data-motion-order="0"><span data-guide-copy="zh">阅读、了解、执行。</span><span data-guide-copy="en" lang="en">Read. Inspect. Execute.</span></h1>
+    <p class="guide-intro" data-motion-reveal data-motion-group="guide-hero" data-motion-order="1"><span data-guide-copy="zh">项目功能介绍，格式与位置选择、任务提交、查看进度，以及常见问题处理</span><span data-guide-copy="en" lang="en">Features, formats, folders, task submission, progress, and troubleshooting</span></p>
   </header>
 
   <div class="guide-layout">
@@ -435,7 +406,7 @@
       </div>
     </nav>
     <section class="guide-document" data-motion-surface data-motion-tilt-strength="0.4" aria-label="网页使用说明正文" data-i18n-aria-label-zh="网页使用说明正文" data-i18n-aria-label-en="Web user guide">
-      <div class="markdown-source-label"><span data-guide-copy="zh">使用说明</span><span data-guide-copy="en" lang="en">User guide</span><!-- Rendered from docs/WEB_GUIDE.md --></div>
+      <!-- Rendered from docs/WEB_GUIDE.md -->
       <article class="guide-markdown" id="guide-markdown" data-guide-copy="zh">{{ guide_content }}</article>
       <article class="guide-markdown" id="guide-markdown-en" data-guide-copy="en" lang="en">{{ guide_content_en }}</article>
     </section>

@@ -14,7 +14,7 @@ html[data-guide-language="en"] [data-guide-copy="en"] {
   gap: 7px;
   color: var(--muted-strong);
   font-size: 11px;
-  letter-spacing: .04em;
+  letter-spacing: 0;
   cursor: pointer;
   user-select: none;
 }
@@ -33,7 +33,7 @@ html[data-guide-language="en"] [data-guide-copy="en"] {
   height: 22px;
   border: 1px solid var(--border-strong);
   border-radius: 999px;
-  background: rgba(15, 23, 42, .72);
+  background: var(--surface);
   transition: border-color .18s ease, background-color .18s ease;
 }
 
@@ -45,7 +45,6 @@ html[data-guide-language="en"] [data-guide-copy="en"] {
   height: 14px;
   border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 0 12px rgba(0, 161, 155, .38);
   transition: transform .18s ease;
 }
 

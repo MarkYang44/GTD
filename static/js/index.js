@@ -1,4 +1,5 @@
   // Only app-owned text is localized; media metadata and diagnostic details stay intact.
+  // Each entry re-renders one element's text after a language switch.
   const localizedLabels = new Map();
   let lastRenderedBatch = null;
   let pendingSkeletonCount = null;
@@ -19,9 +20,27 @@
     if (window.GtdLanguage) return window.GtdLanguage.t(zh, en, params);
     return zh.replace(/\{(\w+)\}/g, (_, key) => params[key] ?? `{${key}}`);
   }
+  function setLocalizedText(element, render) {
+    localizedLabels.set(element, render);
+    element.textContent = render();
+  }
   function setLocalized(element, zh, en, params = {}) {
-    localizedLabels.set(element, {zh, en, params});
-    element.textContent = tr(zh, en, params);
+    setLocalizedText(element, () => tr(zh, en, params));
+  }
+  // Inline messages replace blocking dialogs; `kind` lets the page clear one reason without another.
+  function showNotice(element, render, {tone = "error", kind = ""} = {}) {
+    if (!element) return;
+    element.dataset.tone = tone;
+    element.dataset.kind = kind;
+    setLocalizedText(element, render);
+    element.hidden = false;
+  }
+  function clearNotice(element, kind = null) {
+    if (!element || (kind !== null && element.dataset.kind !== kind)) return;
+    localizedLabels.delete(element);
+    element.textContent = "";
+    element.dataset.kind = "";
+    element.hidden = true;
   }
   function mediaName(type) { return type === 'audio' ? tr('音频', 'Audio') : tr('视频', 'Video'); }
   function setTaskHeading(type, format) {
@@ -107,7 +126,7 @@
     return window.GtdLanguage?.language === 'en' ? (backendTranslations[value] || value) : value;
   }
   function refreshDownloadLanguage() {
-    for (const [element, label] of localizedLabels) setLocalized(element, label.zh, label.en, label.params);
+    for (const [element, render] of localizedLabels) element.textContent = render();
     if (taskHeading) setTaskHeading(taskHeading.type, taskHeading.format);
     renderDownloadDirectoryHistories();
     renderBatchHistory();
@@ -124,6 +143,8 @@
   const downloadControls = {
     video: {
       textarea: document.getElementById("videoUrls"),
+      urlCount: document.getElementById("videoUrlCount"),
+      notice: document.getElementById("videoNotice"),
       downloadButton: videoDownloadButton,
       clearButton: document.getElementById("videoClearButton"),
       turboToggle: document.getElementById("videoTurboToggle"),
@@ -135,10 +156,11 @@
       browseButton: document.getElementById("videoBrowseButton"),
       downloadDirHint: document.getElementById("videoDownloadDirHint"),
       formatInputs: [],
-
     },
     audio: {
       textarea: document.getElementById("audioUrls"),
+      urlCount: document.getElementById("audioUrlCount"),
+      notice: document.getElementById("audioNotice"),
       downloadButton: audioDownloadButton,
       clearButton: document.getElementById("audioClearButton"),
       turboToggle: document.getElementById("audioTurboToggle"),
@@ -150,12 +172,14 @@
       browseButton: document.getElementById("audioBrowseButton"),
       downloadDirHint: document.getElementById("audioDownloadDirHint"),
       formatInputs: Array.from(document.querySelectorAll('input[name="audioFormat"]')),
-
     },
   };
+  const taskCard = document.getElementById("task-card");
   const taskTitle = document.getElementById("task-title");
   const taskSummary = document.getElementById("task-summary");
+  const taskNotice = document.getElementById("taskNotice");
   const taskContainer = document.getElementById("task-container");
+  const emptyStateMarkup = taskContainer.innerHTML;
   const activeMetric = document.getElementById("metric-active");
   const queueMetric = document.getElementById("metric-queue");
   const collectionPreview = document.getElementById("collectionPreview");
@@ -166,6 +190,7 @@
   const collectionSelectAllLabel = document.getElementById("collectionSelectAllLabel");
   const collectionSubmitButton = document.getElementById("collectionSubmitButton");
   const collectionLoadMoreButton = document.getElementById("collectionLoadMoreButton");
+  const collectionNotice = document.getElementById("collectionNotice");
   const retryFailedButton = document.getElementById("retryFailedButton");
   const URL_PASTE_LINE_LIMIT = 20;
   const COLLECTION_PAGE_SIZE = 50;
@@ -176,7 +201,6 @@
 
   const CURRENT_BATCH_KEY = "gtd_current_batch_v1";
   const batchHistory = document.getElementById("batchHistory");
-  const historyFeedback = document.getElementById("historyFeedback");
   let historyBatches = [];
   let historyLoading = false;
   let pollFailureCount = 0;
@@ -261,7 +285,6 @@
     const control = downloadControls[mediaType];
     if (!control || isDownloading) return;
     control.downloadDirInput.value = path;
-    setLocalized(control.downloadDirHint, "将保存到：{path}", "Save to: {path}", {path});
     setDownloadDirectoryHistoryExpanded(control, false);
     control.downloadDirInput.focus();
   }
@@ -329,36 +352,67 @@
     });
   }
 
+  function countUrlLines(value) {
+    return value.split("\n").map(line => line.trim()).filter(Boolean).length;
+  }
+
+  // The counter makes the paste limit visible before it is reached.
+  function updateUrlCount(mediaType) {
+    const control = downloadControls[mediaType];
+    const count = countUrlLines(control.textarea.value);
+    control.urlCount.hidden = count === 0;
+    setLocalized(control.urlCount, "{n} / {limit} 行", "{n} / {limit} lines", {n: count, limit: URL_PASTE_LINE_LIMIT});
+    control.urlCount.classList[count >= URL_PASTE_LINE_LIMIT ? "add" : "remove"]("is-full");
+    control.clearButton.disabled = isDownloading || count === 0;
+    if (count > 0) clearNotice(control.notice, "empty");
+    if (count < URL_PASTE_LINE_LIMIT) clearNotice(control.notice, "limit");
+  }
+
   function clearInput(mediaType) {
     if (isDownloading) return;
     const control = downloadControls[mediaType];
     control.textarea.value = "";
+    updateUrlCount(mediaType);
+    clearNotice(control.notice);
     control.textarea.focus();
   }
 
-  function handleUrlPaste(textarea, event) {
+  function handleUrlPaste(mediaType, event) {
+    const control = downloadControls[mediaType];
+    const textarea = control.textarea;
     const pastedText = event.clipboardData && event.clipboardData.getData("text");
     if (!pastedText) return;
     const start = textarea.selectionStart ?? textarea.value.length;
     const end = textarea.selectionEnd ?? start;
     const nextValue = textarea.value.slice(0, start) + pastedText + textarea.value.slice(end);
-    const lineCount = nextValue.split("\n").map(line => line.trim()).filter(Boolean).length;
+    const lineCount = countUrlLines(nextValue);
     if (lineCount < URL_PASTE_LINE_LIMIT) return;
-    const notifyLimit = () => alert(tr(
-      "已达到 20 行链接上限，请勿继续粘贴。",
-      "The 20-line URL limit has been reached. Do not paste more links.",
-    ));
     if (lineCount > URL_PASTE_LINE_LIMIT) {
       event.preventDefault();
-      notifyLimit();
+      showNotice(control.notice, () => tr(
+        "粘贴内容会超过 20 行上限，未添加。",
+        "That paste would go past the 20-line limit, so it wasn't added.",
+      ), {kind: "limit"});
       return;
     }
-    window.setTimeout(notifyLimit, 0);
+    showNotice(control.notice, () => tr(
+      "已达到 20 行上限，更多链接请分批提交。",
+      "You've reached the 20-line limit. Submit more links in another batch.",
+    ), {tone: "info", kind: "limit"});
   }
 
-  function initializeUrlPasteLimits() {
-    Object.values(downloadControls).forEach(control => {
-      control.textarea.addEventListener("paste", event => handleUrlPaste(control.textarea, event));
+  function handleUrlKeydown(mediaType, event) {
+    if (event.key !== "Enter" || !(event.metaKey || event.ctrlKey) || event.isComposing) return;
+    event.preventDefault();
+    startDownload(mediaType);
+  }
+
+  function initializeUrlInputs() {
+    Object.entries(downloadControls).forEach(([mediaType, control]) => {
+      control.textarea.addEventListener("paste", event => handleUrlPaste(mediaType, event));
+      control.textarea.addEventListener("input", () => updateUrlCount(mediaType));
+      control.textarea.addEventListener("keydown", event => handleUrlKeydown(mediaType, event));
+      updateUrlCount(mediaType);
     });
   }
 
@@ -378,7 +432,7 @@
     Object.values(downloadControls).forEach(control => {
       control.textarea.disabled = disabled;
       control.downloadButton.disabled = disabled;
-      control.clearButton.disabled = disabled;
+      control.clearButton.disabled = disabled || countUrlLines(control.textarea.value) === 0;
       control.downloadDirInput.disabled = disabled;
       control.historyButton.disabled = disabled;
       if (disabled) setDownloadDirectoryHistoryExpanded(control, false);
@@ -388,6 +442,23 @@
         formatInput.disabled = disabled;
       });
     });
+  }
+
+  // Long default folders keep their last two segments, which is the part people recognize.
+  function shortenPath(path) {
+    const value = String(path || "");
+    if (value.length <= 32) return value;
+    const separator = value.includes("\\") && !value.includes("/") ? "\\" : "/";
+    const parts = value.split(/[\\/]+/).filter(Boolean);
+    return parts.length > 2 ? `…${separator}${parts.slice(-2).join(separator)}` : value;
+  }
+
+  function showDefaultDownloadDir(control) {
+    const path = shortenPath(defaultDownloadDir);
+    const input = control.downloadDirInput;
+    input.setAttribute("data-i18n-placeholder-zh", `默认：${path}`);
+    input.setAttribute("data-i18n-placeholder-en", `Default: ${path}`);
+    input.placeholder = window.GtdLanguage?.language === "en" ? `Default: ${path}` : `默认：${path}`;
   }
 
   async function loadCapabilities() {
@@ -406,13 +477,16 @@
     Object.values(downloadControls).forEach(control => {
       control.turboToggle.disabled = !aria2Available || isDownloading;
       aria2Available
-        ? setLocalized(control.turboHint, "已检测到 aria2c，可为 Bilibili 大文件启用多连接下载", "aria2c detected: multi-connection downloads available for large Bilibili files")
-        : setLocalized(control.turboHint, "未安装 aria2c，当前使用标准模式", "aria2c is not installed; using standard mode");
+        ? setLocalized(control.turboHint, "已检测到 aria2c，大文件可多连接下载", "aria2c found: large files can use multiple connections")
+        : setLocalized(control.turboHint, "未安装 aria2c，使用标准模式", "aria2c isn't installed, so standard mode is used");
       if (!aria2Available) control.turboToggle.checked = false;
       control.browseButton.disabled = !folderPickerAvailable || isDownloading;
-      folderPickerAvailable
-        ? setLocalized(control.downloadDirHint, "留空使用默认位置：{path}", "Leave blank for the default: {path}", {path: defaultDownloadDir})
-        : setLocalized(control.downloadDirHint, "留空使用默认位置：{path}；当前环境请手动输入路径", "Leave blank for the default: {path}; enter a path manually in this environment", {path: defaultDownloadDir});
+      showDefaultDownloadDir(control);
+      if (folderPickerAvailable) clearNotice(control.downloadDirHint);
+      else showNotice(control.downloadDirHint, () => tr(
+        "此处无法打开文件夹选择器，请直接输入路径；留空使用默认位置。",
+        "The folder picker isn't available here. Type a path, or leave it blank for the default.",
+      ), {tone: "info"});
     });
   }
 
@@ -422,6 +496,7 @@
     if (!control || !folderPickerAvailable) return;
     control.browseButton.disabled = true;
     setLocalized(control.browseButton, "等待选择…", "Waiting for selection…");
+    clearNotice(control.notice);
     try {
       const response = await fetch("/api/select-directory", {
         method: "POST",
@@ -430,16 +505,15 @@
       });
       const data = await response.json();
       if (!response.ok) {
-        alert("❌ " + formatApiError(data, tr("无法打开文件夹选择器", "Unable to open the folder picker")));
+        showNotice(control.notice, () => formatApiError(data, tr("无法打开文件夹选择器", "Unable to open the folder picker")));
         return;
       }
       if (!data.cancelled && data.download_dir) {
         control.downloadDirInput.value = data.download_dir;
-        setLocalized(control.downloadDirHint, "将保存到：{path}", "Save to: {path}", {path: data.download_dir});
         setDownloadDirectoryHistoryExpanded(control, false);
       }
     } catch (error) {
-      alert(tr("❌ 无法选择文件夹：", "❌ Unable to select a folder: ") + error.message);
+      showNotice(control.notice, () => tr("无法选择文件夹：", "Unable to select a folder: ") + error.message);
     } finally {
       setLocalized(control.browseButton, "选择文件夹", "Choose folder");
       control.browseButton.disabled = isDownloading || !folderPickerAvailable;
@@ -496,20 +570,24 @@
     return `${code}${message}${suggestion}`;
   }
 
+  function scrollToElement(element, block) {
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    element.scrollIntoView?.({ behavior: reduced ? "auto" : "smooth", block });
+  }
+
   async function startDownload(mediaType) {
     if (isDownloading) return;
     const control = downloadControls[mediaType];
     if (!control) return;
+    clearNotice(control.notice);
 
-    const raw = control.textarea.value.trim();
-    if (!raw) {
-      alert(tr("请先粘贴至少一个{type}链接。", "Paste at least one {type} URL first.", {type: mediaName(mediaType)}));
-      return;
-    }
-
-    const urls = raw.split("\n").map(s => s.trim()).filter(Boolean);
+    const urls = control.textarea.value.split("\n").map(s => s.trim()).filter(Boolean);
     if (urls.length === 0) {
-      alert(tr("未检测到有效的链接行。", "No valid URL lines found."));
+      showNotice(control.notice, mediaType === "audio"
+        ? () => tr("请先粘贴至少一个音频链接。", "Paste at least one audio link first.")
+        : () => tr("请先粘贴至少一个视频链接。", "Paste at least one video link first."),
+      {tone: "info", kind: "empty"});
+      control.textarea.focus();
       return;
     }
 
@@ -531,6 +609,7 @@
     };
     isDownloading = true;
     setControlsDisabled(true);
+    clearNotice(taskNotice);
     taskHeading = null;
     setLocalized(taskTitle, "正在解析输入", "Parsing input");
     setLocalized(taskSummary, "读取播放列表、合集与分 P 信息...", "Reading playlists, collections, and multipart videos...");
@@ -538,6 +617,7 @@
   }
 
   async function previewInput(mediaType, inputs) {
+    const control = downloadControls[mediaType];
     try {
       const response = await fetch("/api/preview", {
         method: "POST",
@@ -546,16 +626,16 @@
       });
       const preview = await response.json();
       if (!response.ok) {
-        alert("❌ " + formatApiError(preview));
         resetUI();
+        showNotice(control.notice, () => formatApiError(preview));
         return;
       }
       pendingPreview = preview;
       renderCollectionPreview(preview, mediaType);
       if (!preview.requires_selection) await submitPreview(mediaType);
     } catch (error) {
-      alert(tr("❌ 网络错误：", "❌ Network error: ") + error.message);
       resetUI();
+      showNotice(control.notice, () => tr("网络错误：", "Network error: ") + error.message);
     }
   }
 
@@ -574,9 +654,16 @@
       entries.filter(entry => entry.selectable === true).slice(0, 100).map(entry => entry.id)
     );
     renderCollectionEntries(mediaType);
+    clearNotice(collectionNotice);
     collectionPreview.hidden = false;
     updateCollectionSelection();
-    collectionPreview.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (preview.requires_selection) {
+      // Parsing is done; the page is now waiting for a choice, not working.
+      taskHeading = null;
+      setLocalized(taskTitle, "等待选择条目", "Choose items to download");
+      setLocalized(taskSummary, "勾选上方条目，然后点击“下载所选条目”。", "Pick items above, then select Download selected items.");
+      scrollToElement(collectionPreview, "center");
+    }
   }
 
   function renderCollectionEntries(mediaType) {
@@ -659,6 +746,7 @@
       : "";
     setLocalized(collectionPreviewCount, "已选择 {n} 项 · 最多选择 100 项{note}", "{n} selected · Up to 100 items{note}", {n: selected.length, note: truncationNote});
     collectionSubmitButton.disabled = selected.length === 0 || selected.length > 100;
+    if (selected.length > 0) clearNotice(collectionNotice);
   }
 
   function cancelCollectionPreview() {
@@ -674,12 +762,13 @@
   async function submitPreview(mediaType = pendingDownloadSettings && pendingDownloadSettings.mediaType) {
     if (!pendingPreview || !pendingDownloadSettings) return;
     const selected = selectedEntryIds();
+    clearNotice(collectionNotice);
     if (selected.length === 0) {
-      alert(tr("请至少选择一个可下载条目。", "Select at least one available item."));
+      showNotice(collectionNotice, () => tr("请至少选择一个可下载条目。", "Select at least one available item."), {tone: "info"});
       return;
     }
     if (selected.length > 100) {
-      alert(tr("一次最多选择 100 项。", "Select up to 100 items at a time."));
+      showNotice(collectionNotice, () => tr("一次最多选择 100 项。", "Select up to 100 items at a time."), {tone: "info"});
       return;
     }
 
@@ -689,6 +778,7 @@
     renderPendingSkeleton(selected.length);
     setTaskHeading(mediaType, pendingDownloadSettings.audioFormat);
     setLocalized(taskSummary, "正在提交...", "Submitting...");
+    scrollToElement(taskCard, "start");
 
     const payload = {
       preview_id: pendingPreview.preview_id,
@@ -709,9 +799,10 @@
       });
       const data = await response.json();
       if (!response.ok) {
-        alert("❌ " + formatApiError(data));
+        restoreTaskPanel();
         collectionPreview.hidden = false;
         collectionSubmitButton.disabled = false;
+        showNotice(collectionNotice, () => formatApiError(data));
         return;
       }
       rememberDownloadDirectory(data.download_dir);
@@ -719,12 +810,16 @@
       rememberCurrentBatch(currentBatchId);
       pendingPreview = null;
       pendingDownloadSettings = null;
+      // The links now live in the task list, so the box is ready for the next batch.
+      downloadControls[mediaType].textarea.value = "";
+      updateUrlCount(mediaType);
       setLocalized(taskSummary, "共 {n} 个任务 · 保存到 {path}", "{n} tasks · Save to {path}", {n: data.task_count, path: data.download_dir || defaultDownloadDir});
       startPolling();
     } catch (error) {
-      alert(tr("❌ 网络错误：", "❌ Network error: ") + error.message);
+      restoreTaskPanel();
       collectionPreview.hidden = false;
       collectionSubmitButton.disabled = false;
+      showNotice(collectionNotice, () => tr("网络错误：", "Network error: ") + error.message);
     }
   }
 
@@ -757,6 +852,7 @@
     return JSON.stringify(tasks.map(task => ({
       id: task.id,
       url: task.url,
+      title: task.title,
       status: task.status,
       progress: task.progress,
       result: task.result,
@@ -782,6 +878,20 @@
     }
   });
 
+  function setBatchSummary(batch) {
+    setLocalized(
+      taskSummary,
+      "共 {total} 个 · 完成 {completed} · 失败 {failed} · 取消 {cancelled}",
+      "{total} total · {completed} completed · {failed} failed · {cancelled} cancelled",
+      {
+        total: batch.total ?? (Array.isArray(batch.tasks) ? batch.tasks.length : 0),
+        completed: batch.completed || 0,
+        failed: batch.failed || 0,
+        cancelled: batch.cancelled || 0,
+      },
+    );
+  }
+
   async function pollStatus() {
     if (!pollingActive || !currentBatchId || pollInFlight) return;
     const requestedBatchId = currentBatchId;
@@ -803,7 +913,7 @@
         taskHeading = null;
         setLocalized(taskTitle, "下载任务", "Download tasks");
         setLocalized(taskSummary, "任务不存在或已过期，请重新提交或选择历史记录。", "This batch is missing or expired. Submit again or select a saved batch.");
-        taskContainer.innerHTML = '<div class="empty-state"><span data-guide-copy="zh">原任务已无法查询，已下载文件不会被删除。</span><span data-guide-copy="en">This batch is no longer available. Downloaded files are kept.</span></div>';
+        taskContainer.innerHTML = '<div class="empty-state"><p><span data-guide-copy="zh">原任务已无法查询，已下载文件不会被删除。</span><span data-guide-copy="en">This batch is no longer available. Downloaded files are kept.</span></p></div>';
         return;
       }
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -818,7 +928,7 @@
       }
 
       setTaskHeading(batch.media_type, batch.audio_format);
-      setLocalized(taskSummary, "共 {total} 个 · 完成 {completed} · 失败 {failed} · 取消 {cancelled} · 批次 {id}", "{total} total · {completed} completed · {failed} failed · {cancelled} cancelled · Batch {id}", {...batch, cancelled: batch.cancelled || 0});
+      setBatchSummary(batch);
       retryFailedButton.hidden = !batch.tasks.some(task => task.can_retry && task.status === "failed");
 
       if (batch.all_done) {
@@ -844,12 +954,35 @@
       html += `
         <li class="task-item task-item-enter status-queued">
           <span class="task-index">${String(i + 1).padStart(2, "0")}</span>
-          <div class="task-body"><div class="task-meta">${tr("等待可用下载槽位", "Waiting for an available download slot")}</div></div>
-          <span class="badge badge-queued">${tr("等待中", "Queued")}</span>
+          <div class="task-body"><div class="task-heading"><span class="task-name">${tr("等待可用下载槽位", "Waiting for an available download slot")}</span><span class="badge badge-queued">${tr("等待中", "Queued")}</span></div></div>
         </li>`;
     }
     html += "</ul>";
     taskContainer.innerHTML = html;
+  }
+
+  // Put the panel back to the last real state after a submission that never started.
+  function restoreTaskPanel() {
+    pendingSkeletonCount = null;
+    if (lastRenderedBatch) {
+      renderTasks(lastRenderedBatch);
+      updateOperationalMetrics(lastRenderedBatch);
+    } else {
+      taskContainer.innerHTML = emptyStateMarkup;
+      setOperationalMetrics(0, 0);
+    }
+    restoreTaskPanelHeading();
+  }
+
+  function restoreTaskPanelHeading() {
+    if (lastRenderedBatch) {
+      setTaskHeading(lastRenderedBatch.media_type, lastRenderedBatch.audio_format);
+      setBatchSummary(lastRenderedBatch);
+      return;
+    }
+    taskHeading = null;
+    setLocalized(taskTitle, "下载任务", "Download tasks");
+    setLocalized(taskSummary, "等待链接输入", "Waiting for links");
   }
 
   function formatAttemptTime(value) {
@@ -858,126 +991,151 @@
     return new Date(milliseconds).toLocaleString(window.GtdLanguage?.language === "en" ? "en-US" : "zh-CN", { hour12: false });
   }
 
+  // The media title is what people recognize; generated placeholders follow the page language.
+  function taskDisplayTitle(task) {
+    const resultTitle = task.status === "completed" && task.result && task.result.title;
+    if (resultTitle) return String(resultTitle);
+    const title = typeof task.title === "string" ? task.title.trim() : "";
+    const generated = /^第 (\d+) 项$/.exec(title);
+    if (generated) return tr("第 {n} 项", "Item {n}", {n: generated[1]});
+    if (title) return title;
+    return task.platform === "local" ? tr("本地视频", "Local video") : "";
+  }
+
+  function progressPercent(progress) {
+    const value = Number.parseFloat(progress && progress.percent_text);
+    return Number.isFinite(value) ? Math.min(100, Math.max(0, value)) : null;
+  }
+
+  function renderProgressBar(percent, label) {
+    return `<div class="task-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}" aria-label="${escHtml(label)}"><span style="width: ${percent}%"></span></div>`;
+  }
+
+  function renderTask(batch, t, i, openAttempts) {
+    const running = ["running", "running_uninterruptible"].includes(t.status);
+    const badgeMap = {
+      queued: [tr("等待中", "Queued"), "badge-queued"],
+      running: [tr("下载中", "Downloading"), "badge-running"],
+      running_uninterruptible: [tr("极速下载", "Turbo download"), "badge-running"],
+      completed: [tr("下载完成", "Completed"), "badge-completed"],
+      failed: [tr("下载失败", "Failed"), "badge-failed"],
+      cancelled: [tr("已取消", "Cancelled"), "badge-cancelled"],
+    };
+    let [label, badgeCls] = badgeMap[t.status] || [tr("未知", "Unknown"), ""];
+    if (t.platform === 'local' && t.status === 'running') label = tr('提取中', 'Extracting');
+    else if (running && t.postprocessing) label = tr("处理中", "Processing");
+    const name = taskDisplayTitle(t);
+    const url = t.platform === "local" ? "" : (t.url || "");
+    const r = t.result || {};
+    let html = `<li class="task-item status-${escHtml(t.status)}">`;
+    html += `<span class="task-index">${String(i + 1).padStart(2, "0")}</span>`;
+    html += `<div class="task-body">`;
+    html += `<div class="task-heading"><span class="task-name">${escHtml(name || url || tr("未知", "Unknown"))}</span>`;
+    html += `<span class="badge ${badgeCls}">${running ? '<span class="spinner" aria-hidden="true"></span>' : ""}${label}</span></div>`;
+    if (name && url) html += `<div class="task-url" title="${escHtml(url)}">${escHtml(url)}</div>`;
+
+    if (t.status === "completed" && t.result) {
+      const facts = [];
+      if (batch.media_type === "audio") {
+        facts.push(`${tr("格式: ", "Format: ")}${escHtml(r.format || "MP3")}`);
+        facts.push(`${tr("音频编码: ", "Audio codec: ")}${escHtml(r.acodec || "mp3")}`);
+        if (r.source_acodec && r.source_acodec !== "未知") {
+          const bitrate = r.source_abr_kbps && r.source_abr_kbps !== "未知" ? ` ${escHtml(r.source_abr_kbps)} kbps` : "";
+          facts.push(`${tr("源编码: ", "Source codec: ")}${escHtml(r.source_acodec)}${bitrate}`);
+        }
+      } else {
+        facts.push(`${tr("分辨率: ", "Resolution: ")}${escHtml(backendText(r.resolution) || "?")}`);
+      }
+      facts.push(`${tr("大小: ", "Size: ")}${escHtml(backendText(r.filesize) || "?")}`);
+      html += `<div class="task-meta">${facts.join(" · ")}</div>`;
+      if (batch.media_type === "audio" && r.audio_format_fallback) {
+        html += `<div class="task-meta">${tr("源站未提供 FLAC，已自动回退至 MP3 V0", "The source has no FLAC audio; automatically fell back to MP3 V0")}</div>`;
+      }
+      const subtitleStatus = {
+        embedded: tr("已嵌入可切换字幕轨道", "Switchable subtitle tracks embedded"),
+        partial: tr("仅嵌入部分字幕轨道", "Some subtitle tracks embedded"),
+        unavailable: tr("未获取到可嵌入的字幕轨道", "No subtitle tracks available to embed"),
+      }[r.subtitle_status];
+      if (subtitleStatus) html += `<div class="task-meta">${escHtml(subtitleStatus)}</div>`;
+      if (Array.isArray(r.subtitle_warnings)) {
+        r.subtitle_warnings.forEach(warning => {
+          html += `<div class="task-meta">${tr("字幕提示: ", "Subtitle note: ")}${escHtml(subtitleWarningText(String(warning)))}</div>`;
+        });
+      }
+      if (r.filepath) html += `<div class="task-path"><span>${tr("保存路径", "Saved to")}</span><span class="task-path-value">${escHtml(r.filepath)}</span></div>`;
+    } else if (running) {
+      if (t.postprocessing) {
+        html += `<div class="task-meta">${escHtml(backendText(t.postprocessing.stage_text) || tr("正在处理媒体文件…", "Processing media…"))}</div>`;
+        if (t.postprocessing.detail_text) {
+          html += `<div class="task-meta">${escHtml(backendText(t.postprocessing.detail_text))}</div>`;
+        }
+      } else if (t.platform === "local") {
+        const percent = progressPercent(t.progress);
+        if (percent !== null) html += renderProgressBar(percent, tr("音频处理进度", "Audio processing progress"));
+      } else if (t.speed_mode_used === "turbo" && !t.turbo_fallback) {
+        html += `<div class="task-meta">${tr("高速下载中", "Downloading in turbo mode")}</div>`;
+      } else {
+        if (t.turbo_fallback) {
+          html += `<div class="task-meta">${tr("极速模式不可用，已切换标准模式", "Turbo mode unavailable; switched to standard mode")}</div>`;
+        }
+        html += renderDownloadProgress(t.progress);
+      }
+      if (t.status === "running_uninterruptible") {
+        html += `<div class="task-meta">${tr("aria2c 极速任务不可取消，将继续下载直至完成", "aria2c turbo tasks cannot be cancelled and will run until complete")}</div>`;
+      }
+    } else if (t.status === "queued") {
+      html += `<div class="task-meta">${tr("等待可用下载槽位", "Waiting for an available download slot")}</div>`;
+    } else if (t.status === "failed" && t.error) {
+      const errorText = localizedError(t.error);
+      html += `<div class="task-error"><span>${escHtml(errorText.message || tr("下载失败", "Failed"))}</span>`;
+      if (errorText.suggestion) html += `<span>${tr("建议：", "Suggestion: ")}${escHtml(errorText.suggestion)}</span>`;
+      html += `<span class="task-error-code">${escHtml(t.error.error_code || "DOWNLOAD_FAILED")}</span></div>`;
+    } else if (t.status === "cancelled") {
+      html += `<div class="task-meta">${tr("任务已取消，已完成文件仍然保留。", "Task cancelled. Completed files are kept.")}</div>`;
+    }
+
+    // A single attempt is the task itself; the history only helps once there was a retry.
+    if (t.attempt_count > 1 && Array.isArray(t.attempts)) {
+      html += `<details class="task-attempts" data-task-id="${escHtml(t.id)}"${openAttempts.has(t.id) ? " open" : ""}><summary>${tr("尝试记录 ", "Attempts ")}${t.attempt_count}</summary><div class="task-attempts-list">`;
+      t.attempts.forEach(attempt => {
+        const started = formatAttemptTime(attempt.started_at);
+        const finished = formatAttemptTime(attempt.finished_at);
+        html += `<span class="task-attempt">#${escHtml(attempt.number)} · ${escHtml(statusLabel(attempt.status))}${attempt.output_version > 1 ? `${tr(" · 版本 ", " · Version ")}${escHtml(attempt.output_version)}` : ""}${tr(" · 开始 ", " · Started ")}${escHtml(started)}${tr(" · 结束 ", " · Finished ")}${escHtml(finished)}</span>`;
+      });
+      html += `</div></details>`;
+    }
+
+    let actions = "";
+    if (t.can_cancel) actions += `<button class="task-action" type="button" onclick="operateTask('cancel', '${escHtml(t.id)}')">${tr("取消", "Cancel")}</button>`;
+    if (t.can_retry) actions += `<button class="task-action" type="button" onclick="operateTask('retry', '${escHtml(t.id)}')">${tr("重试", "Retry")}</button>`;
+    if (t.can_redownload) actions += `<button class="task-action" type="button" onclick="operateTask('redownload', '${escHtml(t.id)}')">${tr("重新下载", "Redownload")}</button>`;
+    if (t.platform === 'local' && t.status === "completed" && typeof r.download_url === 'string' && r.download_url.startsWith('/api/extract-audio/')) {
+      actions += `<a class="task-action" href="${escHtml(r.download_url)}" download>${tr('下载音频', 'Download audio')}</a>`;
+    }
+    html += `<div class="task-actions">${actions}</div>`;
+    html += `</div></li>`;
+    return html;
+  }
+
   function renderTasks(batch) {
     lastRenderedBatch = batch;
     pendingSkeletonCount = null;
-    let html = '<ul class="task-list">';
-    batch.tasks.forEach((t, i) => {
-      const cls = "status-" + t.status;
-      const badgeMap = {
-        queued: [tr("等待中", "Queued"), "badge-queued"],
-        running: [tr("下载中", "Downloading"), "badge-running"],
-        running_uninterruptible: [tr("极速下载", "Turbo download"), "badge-running"],
-        completed: [tr("下载完成", "Completed"), "badge-completed"],
-        failed: [tr("下载失败", "Failed"), "badge-failed"],
-        cancelled: [tr("已取消", "Cancelled"), "badge-cancelled"],
-      };
-      let [label, badgeCls] = badgeMap[t.status] || [tr("未知", "Unknown"), ""];
-
-      if (t.platform === 'local' && t.status === 'running') label = tr('提取中', 'Extracting');
-      html += `<li class="task-item ${cls}">`;
-      html += `<span class="task-index">${String(i + 1).padStart(2, "0")}</span>`;
-      html += `<div class="task-body">`;
-      html += `<div class="task-url">${escHtml(t.platform === "local" ? (t.title || tr("本地视频", "Local video")) : t.url)}</div>`;
-
-      if (t.status === "completed" && t.result) {
-        const r = t.result;
-        html += `<div class="task-meta">`;
-        html += `<strong>${escHtml(r.title || tr("未知", "Unknown"))}</strong><br>`;
-        if (batch.media_type === "audio") {
-          html += `${tr("格式: ", "Format: ")}${escHtml(r.format || "MP3")} · `;
-          html += `${tr("音频编码: ", "Audio codec: ")}${escHtml(r.acodec || "mp3")} · `;
-          if (r.source_acodec && r.source_acodec !== "未知") {
-            html += `${tr("源编码: ", "Source codec: ")}${escHtml(r.source_acodec)}`;
-            if (r.source_abr_kbps && r.source_abr_kbps !== "未知") {
-              html += ` ${escHtml(r.source_abr_kbps)} kbps`;
-            }
-            html += ` · `;
-          }
-        } else {
-          html += `${tr("分辨率: ", "Resolution: ")}${escHtml(backendText(r.resolution) || "?")} · `;
-        }
-        html += `${tr("大小: ", "Size: ")}${escHtml(backendText(r.filesize) || "?")}`;
-        if (batch.media_type === "audio" && r.audio_format_fallback) {
-          html += `<br>${tr("源站未提供 FLAC，已自动回退至 MP3 V0", "The source has no FLAC audio; automatically fell back to MP3 V0")}`;
-        }
-        const subtitleStatus = {
-          embedded: tr("已嵌入可切换字幕轨道", "Switchable subtitle tracks embedded"),
-          partial: tr("仅嵌入部分字幕轨道", "Some subtitle tracks embedded"),
-          unavailable: tr("未获取到可嵌入的字幕轨道", "No subtitle tracks available to embed"),
-        }[r.subtitle_status];
-        if (subtitleStatus) html += `<br>${escHtml(subtitleStatus)}`;
-        if (Array.isArray(r.subtitle_warnings)) {
-          r.subtitle_warnings.forEach(warning => {
-            html += `<br>${tr("字幕提示: ", "Subtitle note: ")}${escHtml(subtitleWarningText(String(warning)))}`;
-          });
-        }
-        if (t.platform === 'local' && typeof r.download_url === 'string' && r.download_url.startsWith('/api/extract-audio/')) html += `<br><a class="task-action" href="${escHtml(r.download_url)}" download>${tr('下载音频', 'Download audio')}</a>`;
-        if (r.filepath) html += `<br>${tr("保存路径: ", "Saved to: ")}${escHtml(r.filepath)}`;
-        html += `</div>`;
-      } else if (["running", "running_uninterruptible"].includes(t.status)) {
-        if (t.postprocessing) {
-          html += `<div class="task-meta"><span class="spinner"></span> ${escHtml(backendText(t.postprocessing.stage_text) || tr("正在处理媒体文件…", "Processing media…"))}</div>`;
-          if (t.postprocessing.detail_text) {
-            html += `<div class="task-meta">${escHtml(backendText(t.postprocessing.detail_text))}</div>`;
-          }
-        } else if (t.speed_mode_used === "turbo" && !t.turbo_fallback) {
-          html += `<div class="task-meta"><span class="spinner"></span> ${tr("高速下载中", "Downloading in turbo mode")}</div>`;
-        } else {
-          if (t.turbo_fallback) {
-            html += `<div class="task-meta">${tr("极速模式不可用，已切换标准模式", "Turbo mode unavailable; switched to standard mode")}</div>`;
-          }
-          html += `<div class="task-meta"><span class="spinner"></span> ${tr("正在下载，请稍候…", "Downloading, please wait…")}</div>`;
-          html += renderDownloadProgress(t.progress);
-        }
-        if (t.status === "running_uninterruptible") {
-          html += `<div class="task-meta">${tr("aria2c 极速任务不可取消，将继续下载直至完成", "aria2c turbo tasks cannot be cancelled and will run until complete")}</div>`;
-        }
-      } else if (t.status === "queued") {
-        html += `<div class="task-meta">${tr("等待可用下载槽位", "Waiting for an available download slot")}</div>`;
-      } else if (t.status === "failed") {
-        html += `<div class="task-meta">${tr("下载失败", "Failed")}</div>`;
-        if (t.error) {
-          const errorText = localizedError(t.error);
-          html += `<div class="task-error"><span class="task-error-code">${escHtml(t.error.error_code || "DOWNLOAD_FAILED")}</span> · ${escHtml(errorText.message || tr("下载失败", "Failed"))}`;
-          if (errorText.suggestion) html += `<br>${tr("建议：", "Suggestion: ")}${escHtml(errorText.suggestion)}`;
-          html += `</div>`;
-        }
-      } else if (t.status === "cancelled") {
-        html += `<div class="task-meta">${tr("任务已取消，已完成文件仍然保留。", "Task cancelled. Completed files are kept.")}</div>`;
-      }
-
-      if (t.attempt_count > 0 && Array.isArray(t.attempts)) {
-        html += `<details class="task-attempts"><summary>${tr("尝试记录 ", "Attempts ")}${t.attempt_count}</summary><div class="task-attempts-list">`;
-        t.attempts.forEach(attempt => {
-          const started = formatAttemptTime(attempt.started_at);
-          const finished = formatAttemptTime(attempt.finished_at);
-          html += `<span class="task-attempt">#${attempt.number} · ${escHtml(statusLabel(attempt.status))}${attempt.output_version > 1 ? `${tr(" · 版本 ", " · Version ")}${attempt.output_version}` : ""}${tr(" · 开始 ", " · Started ")}${escHtml(started)}${tr(" · 结束 ", " · Finished ")}${escHtml(finished)}</span>`;
-        });
-        html += `</div></details>`;
-      }
-
-      html += `<div class="task-actions">`;
-      if (t.can_cancel) html += `<button class="task-action" onclick="operateTask('cancel', '${escHtml(t.id)}')">${tr("取消", "Cancel")}</button>`;
-      if (t.can_retry) html += `<button class="task-action" onclick="operateTask('retry', '${escHtml(t.id)}')">${tr("重试", "Retry")}</button>`;
-      if (t.can_redownload) html += `<button class="task-action" onclick="operateTask('redownload', '${escHtml(t.id)}')">${tr("重新下载", "Redownload")}</button>`;
-      html += `</div>`;
-
-      html += `</div>`;
-      html += `<span class="badge ${badgeCls}">${["running", "running_uninterruptible"].includes(t.status) ? '<span class="spinner"></span>' : ""}${label}</span>`;
-      html += `</li>`;
-    });
-    html += "</ul>";
-    taskContainer.innerHTML = html;
+    // Keep any attempt history the reader opened across live re-renders.
+    const openAttempts = new Set(
+      Array.from(taskContainer.querySelectorAll("details.task-attempts[open]")).map(node => node.dataset.taskId),
+    );
+    const tasks = Array.isArray(batch.tasks) ? batch.tasks : [];
+    taskContainer.innerHTML = `<ul class="task-list">${tasks.map((task, index) => renderTask(batch, task, index, openAttempts)).join("")}</ul>`;
   }
 
   async function operateTask(action, taskId) {
     if (!currentBatchId) return;
+    clearNotice(taskNotice);
     try {
       const response = await fetch(`/api/batch/${currentBatchId}/task/${taskId}/${action}`, { method: "POST" });
       const data = await response.json();
       if (!response.ok) {
-        alert("❌ " + formatApiError(data));
+        showNotice(taskNotice, () => formatApiError(data));
         return;
       }
       if (["retry", "redownload"].includes(action)) {
@@ -986,17 +1144,18 @@
       }
       startPolling();
     } catch (error) {
-      alert(tr("❌ 网络错误：", "❌ Network error: ") + error.message);
+      showNotice(taskNotice, () => tr("网络错误：", "Network error: ") + error.message);
     }
   }
 
   async function retryFailedTasks() {
     if (!currentBatchId) return;
+    clearNotice(taskNotice);
     try {
       const response = await fetch(`/api/batch/${currentBatchId}/retry-failed`, { method: "POST" });
       const data = await response.json();
       if (!response.ok) {
-        alert("❌ " + formatApiError(data));
+        showNotice(taskNotice, () => formatApiError(data));
         return;
       }
       retryFailedButton.hidden = true;
@@ -1004,24 +1163,25 @@
       setControlsDisabled(true);
       startPolling();
     } catch (error) {
-      alert(tr("❌ 网络错误：", "❌ Network error: ") + error.message);
+      showNotice(taskNotice, () => tr("网络错误：", "Network error: ") + error.message);
     }
   }
 
   function renderDownloadProgress(progress) {
     const speed = progress && progress.speed_text ? backendText(progress.speed_text) : tr("计算中", "Calculating");
     const eta = progress && progress.eta_text ? backendText(progress.eta_text) : tr("计算中", "Calculating");
-    const percent = progress && progress.percent_text ? progress.percent_text : "";
+    const percentText = progress && progress.percent_text ? progress.percent_text : "";
     const totalSize = progress && progress.total_size_text ? backendText(progress.total_size_text) : tr("计算中", "Calculating");
     const totalSizeLabel = progress && progress.total_size_is_estimate ? tr("预计总大小", "Estimated total size") : tr("总大小", "Total size");
+    const percent = progressPercent(progress);
+    const item = (labelText, value) => `<span class="task-progress-item"><span class="task-progress-label">${escHtml(labelText)}</span><span class="task-progress-value">${escHtml(value)}</span></span>`;
 
-    let html = `<div class="task-progress">`;
-    html += `<span class="task-progress-item"><span class="task-progress-label">${tr("下载速度", "Download speed")}</span><span class="task-progress-value">${escHtml(speed)}</span></span>`;
-    html += `<span class="task-progress-item"><span class="task-progress-label">${tr("预计剩余", "Time remaining")}</span><span class="task-progress-value">${escHtml(eta)}</span></span>`;
-    html += `<span class="task-progress-item"><span class="task-progress-label">${escHtml(totalSizeLabel)}</span><span class="task-progress-value">${escHtml(totalSize)}</span></span>`;
-    if (percent && percent !== "计算中") {
-      html += `<span class="task-progress-item"><span class="task-progress-label">${tr("进度", "Progress")}</span><span class="task-progress-value">${escHtml(percent)}</span></span>`;
-    }
+    let html = percent === null ? "" : renderProgressBar(percent, tr("下载进度", "Download progress"));
+    html += `<div class="task-progress">`;
+    if (percentText && percentText !== "计算中") html += item(tr("进度", "Progress"), percentText);
+    html += item(tr("下载速度", "Download speed"), speed);
+    html += item(tr("预计剩余", "Time remaining"), eta);
+    html += item(totalSizeLabel, totalSize);
     html += `</div>`;
     return html;
   }
@@ -1033,14 +1193,17 @@
     pendingDownloadSettings = null;
     collectionSelectedIds = new Set();
     collectionPreview.hidden = true;
+    clearNotice(collectionNotice);
     if (resetMetrics) setOperationalMetrics(0, 0);
+    restoreTaskPanelHeading();
   }
 
-  function escHtml(str) {
-    if (!str) return "";
-    const div = document.createElement("div");
-    div.appendChild(document.createTextNode(str));
-    return div.innerHTML;
+  // Escapes text for element content and quoted attributes alike.
+  function escHtml(value) {
+    if (value === null || value === undefined || value === "") return "";
+    return String(value).replace(/[&<>"']/g, character => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    })[character]);
   }
 
   function fetchJsonWithTimeout(url, timeoutMs = 15000) {
@@ -1074,15 +1237,16 @@
       const data = response.data;
       historyBatches = Array.isArray(data.batches) ? data.batches : [];
       renderBatchHistory();
-      if (historyFeedback) setLocalized(historyFeedback, "已保存 {n} 个批次；重启后中断的任务可手动重试。", "{n} saved batches. Tasks interrupted by a restart can be retried manually.", {n: historyBatches.length});
+      clearNotice(taskNotice, "history");
     } catch (_) {
-      if (historyFeedback) setLocalized(historyFeedback, "暂时无法读取历史，请点击刷新重试。", "History is unavailable. Click Refresh to try again.");
+      showNotice(taskNotice, () => tr("暂时无法读取任务历史，请点击“刷新”重试。", "Task history is unavailable right now. Select Refresh to try again."), {kind: "history"});
     } finally { historyLoading = false; }
   }
 
   function selectHistoryBatch(batchId) {
     if (!batchId || isDownloading || pendingPreview) return;
     stopPolling();
+    clearNotice(taskNotice);
     currentBatchId = batchId;
     rememberCurrentBatch(batchId);
     lastTaskRenderSignature = null;
@@ -1115,7 +1279,7 @@
     updateCollectionSelection,
   });
   document.addEventListener("gtd:languagechange", refreshDownloadLanguage);
-  initializeUrlPasteLimits();
+  initializeUrlInputs();
   initializeDownloadDirectoryHistory();
   loadCapabilities();
   initializeBatchHistory();

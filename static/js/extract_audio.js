@@ -28,7 +28,8 @@
   };
   function showError(error) { currentError = error; $('extract-error').hidden = !error; $('extract-error').textContent = error ? errorText(error) : ''; }
   function persist() { try { if (batchId) localStorage.setItem(KEY, batchId); else localStorage.removeItem(KEY); } catch (_) {} }
-  function renderFile() { $('selected-file').textContent = file ? `${file.name} · ${(file.size / 1048576).toFixed(1)} MiB` : tr('尚未选择文件', 'No file selected'); }
+  function renderFile() { $('selected-file').textContent = file ? `${file.name} · ${(file.size / 1048576).toFixed(1)} MiB` : ''; }
+  function setHistoryFeedback(text) { $('history-feedback').textContent = text; $('history-feedback').hidden = !text; }
   function choose(files) {
     if (xhr) return;
     file = null;
@@ -54,7 +55,7 @@
     return tr(...(labels[status] || ['处理中','Processing']));
   }
   function renderTasks() {
-    if (!batch) { $('extract-tasks').innerHTML = `<div class="empty-state"><p>${tr('选择视频后开始提取音频', 'Choose a video to start extracting audio')}</p></div>`; $('extract-summary').textContent = ''; return; }
+    if (!batch) { $('extract-tasks').innerHTML = `<div class="empty-state"><p>${tr('选择视频后开始提取音频，任务会显示在这里。', 'Choose a video to start. Your extraction tasks will appear here.')}</p></div>`; $('extract-summary').textContent = ''; return; }
     const tasks = Array.isArray(batch.tasks) ? batch.tasks : [];
     $('extract-summary').textContent = `${tasks.filter(t => t.status === 'completed').length} / ${tasks.length} ${tr('已完成', 'completed')}`;
     $('extract-tasks').innerHTML = '<ul class="task-list">' + tasks.map((task, i) => {
@@ -66,11 +67,12 @@
         detail = `<div class="task-meta">${tr('音频处理进度', 'Audio processing progress')}${Number.isFinite(percent) ? ` · ${esc(task.progress.percent_text)}` : ` · ${tr('处理中…', 'Processing…')}`}<progress max="100" ${Number.isFinite(percent) ? `value="${Math.max(0, Math.min(100, percent))}"` : ''} aria-label="${tr('音频处理进度', 'Audio processing progress')}"></progress></div>`;
       } else if (status === 'queued') detail = `<div class="task-meta">${tr('等待队列中的可用位置', 'Waiting for an available queue slot')}</div>`;
       else if (status === 'failed') detail = `<div class="task-error">${esc(errorText(task.error))}</div>`;
-      else if (status === 'completed') detail = `<div class="task-meta">${esc(result.format || '—')} · ${esc(result.acodec || '—')} · ${esc(result.filesize || '—')}${result.filepath ? `<br>${tr('保存位置：', 'Saved to: ')}${esc(result.filepath)}` : ''}</div>`;
+      else if (status === 'completed') detail = `<div class="task-meta">${esc(result.format || '—')} · ${esc(result.acodec || '—')} · ${esc(result.filesize || '—')}</div>${result.filepath ? `<div class="task-path"><span>${tr('保存位置', 'Saved to')}</span><span class="task-path-value">${esc(result.filepath)}</span></div>` : ''}`;
       let actions = '';
       for (const action of ['cancel', 'retry']) if (task[`can_${action}`]) actions += `<button type="button" class="task-action" data-task="${esc(task.id)}" data-action="${action}">${action === 'cancel' ? tr('取消', 'Cancel') : tr('重试', 'Retry')}</button>`;
-      if (status === 'completed' && typeof result.download_url === 'string' && result.download_url.startsWith('/api/extract-audio/') && !result.download_url.startsWith('//')) actions += `<a class="task-action" href="${esc(result.download_url)}" download>${tr('下载音频', 'Download audio')} ↗</a>`;
-      return `<li class="task-item status-${status}"><span class="task-index">${String(i + 1).padStart(2,'0')}</span><div class="task-body"><div class="task-url">${esc(result.title || task.title || task.url || tr('本地视频', 'Local video'))}</div>${detail}<div class="task-actions">${actions}</div></div><span class="badge badge-${status}">${statusLabel(status)}</span></li>`;
+      if (status === 'completed' && typeof result.download_url === 'string' && result.download_url.startsWith('/api/extract-audio/') && !result.download_url.startsWith('//')) actions += `<a class="task-action" href="${esc(result.download_url)}" download>${tr('下载音频', 'Download audio')}</a>`;
+      const spinner = status === 'running' ? '<span class="spinner" aria-hidden="true"></span>' : '';
+      return `<li class="task-item status-${status}"><span class="task-index">${String(i + 1).padStart(2,'0')}</span><div class="task-body"><div class="task-heading"><span class="task-name">${esc(result.title || task.title || task.url || tr('本地视频', 'Local video'))}</span><span class="badge badge-${status}">${spinner}${statusLabel(status)}</span></div>${detail}<div class="task-actions">${actions}</div></div></li>`;
     }).join('') + '</ul>';
   }
   function renderHistory() {
@@ -80,8 +82,8 @@
   async function refreshHistory() {
     if (historyLoading) return;
     historyLoading = true; $('refresh-history').disabled = true;
-    try { const data = await request('/api/extract-audio/batches'); history = data.batches || []; renderHistory(); $('history-feedback').textContent = ''; }
-    catch (error) { $('history-feedback').textContent = errorText(error); }
+    try { const data = await request('/api/extract-audio/batches'); history = data.batches || []; renderHistory(); setHistoryFeedback(''); }
+    catch (error) { setHistoryFeedback(errorText(error)); }
     finally { historyLoading = false; $('refresh-history').disabled = false; }
   }
   async function poll(token) {
@@ -90,12 +92,12 @@
     try {
       const data = await request(`/api/batch/${encodeURIComponent(requested)}`);
       if (token !== generation) return;
-      batch = data; failures = 0; renderTasks(); $('history-feedback').textContent = '';
+      batch = data; failures = 0; renderTasks(); setHistoryFeedback('');
       if ((data.tasks || []).some(task => ['queued','running','running_uninterruptible'].includes(task.status))) timer = setTimeout(() => poll(token), 1200);
       else refreshHistory();
     } catch (error) {
       if (token !== generation) return;
-      failures += 1; $('history-feedback').textContent = errorText(error);
+      failures += 1; setHistoryFeedback(errorText(error));
       if (failures < 6 && error.error_code !== 'BATCH_NOT_FOUND') timer = setTimeout(() => poll(token), window.GtdTaskApi.backoffDelay(1500, failures));
     }
   }

@@ -66,7 +66,6 @@ class SharedMotionAssetTests(unittest.TestCase):
 
     def test_css_composes_transforms_without_claiming_existing_card_pseudo_elements(self):
         css = CSS_PATH.read_text(encoding="utf-8")
-        index_css = Path("static/css/index.css").read_text(encoding="utf-8")
 
         self.assertNotIn("[data-motion-surface] > *", css)
         self.assertRegex(
@@ -77,7 +76,6 @@ class SharedMotionAssetTests(unittest.TestCase):
             css,
             r"\[data-motion-reveal\]\[data-motion-parallax\].*?--motion-parallax-offset",
         )
-        self.assertIn(".card::before", index_css)
         self.assertNotIn("[data-motion-surface]::before", css)
         self.assertNotIn("[data-motion-surface]::after", css)
         self.assertNotRegex(JS_PATH.read_text(encoding="utf-8"), r"\.style\.backgroundImage\s*=")
@@ -241,7 +239,8 @@ assert.strictEqual(failingNumber.textContent, "09");
         kozeki = web_app.app.test_client().get("/kozekilmu").get_data(as_text=True)
         self.assertIn('data-motion-profile="calm"', homepage)
         self.assertNotRegex(homepage, r'id="video-download-card"[^>]*data-motion-(?:reveal|surface)')
-        self.assertRegex(homepage, r'data-motion-parallax="0\.55"')
+        # The calm homepage has no decorative layer left to drift with scrolling.
+        self.assertNotIn("data-motion-parallax", homepage)
         self.assertRegex(kozeki, r'data-motion-reveal[^>]*data-motion-surface')
         self.assertRegex(kozeki, r'data-motion-reveal[^>]*data-motion-parallax')
 

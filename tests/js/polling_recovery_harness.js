@@ -40,6 +40,8 @@ vm.runInContext(fs.readFileSync('static/js/index.js','utf8'), context);
   assert.strictEqual(vm.runInContext('pollingActive',context),false);
   assert.strictEqual(nodes.get('videoDownloadButton').disabled,false);
   assert.match(nodes.get('task-container').innerHTML,/done/);
+  assert.match(nodes.get('task-summary').textContent,/完成 1/);
+  assert.doesNotMatch(nodes.get('task-summary').textContent,/recoverable/,'summaries omit the internal batch ID');
 
   // A late response for the previously selected batch cannot replace the new view.
   let finishOld;

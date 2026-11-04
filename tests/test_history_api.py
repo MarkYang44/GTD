@@ -25,7 +25,8 @@ class HistoryApiTests(unittest.TestCase):
     def test_homepage_exposes_history_controls(self):
         html = web_app.app.test_client().get('/').get_data(as_text=True)
         self.assertIn('id="batchHistory"', html)
-        self.assertIn('id="historyFeedback"', html)
+        # History load errors surface in the task panel's inline notice.
+        self.assertIn('id="taskNotice" role="alert" hidden', html)
 
     def test_polling_recovery_harness(self):
         result = subprocess.run(['node', 'tests/js/polling_recovery_harness.js'], capture_output=True, text=True)

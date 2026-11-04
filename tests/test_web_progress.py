@@ -41,10 +41,25 @@ def task_render_signature_source():
     )[0]
 
 
+def css_rule(css, selector):
+    """Return the declarations of the first rule written exactly for ``selector``."""
+    match = re.search(r"(?:^|\n)\s*" + re.escape(selector) + r"\s*\{([^}]*)\}", css)
+    return match.group(1) if match else None
+
+
 class WebConfigurationTests(unittest.TestCase):
     def test_url_paste_limit_harness(self):
         result = subprocess.run(
             ["node", "tests/js/url_paste_limit_harness.js"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_task_render_harness(self):
+        result = subprocess.run(
+            ["node", "tests/js/task_render_harness.js"],
             capture_output=True,
             text=True,
             check=False,
@@ -65,7 +80,7 @@ class WebConfigurationTests(unittest.TestCase):
         )
         self.assertEqual(
             stylesheet_urls,
-            ["/static/css/index.css", "/static/css/motion.css", "/static/css/language.css", "/static/css/refined.css", "/static/css/theme.css"],
+            ["/static/css/index.css", "/static/css/motion.css", "/static/css/language.css", "/static/css/theme.css"],
         )
         self.assertEqual(
             script_urls,
@@ -82,6 +97,37 @@ class WebConfigurationTests(unittest.TestCase):
             self.addCleanup(script.close)
             self.assertEqual(script.status_code, 200)
             self.assertEqual(script.mimetype, "text/javascript")
+
+    def test_download_pages_share_one_self_contained_stylesheet(self):
+        client = web_app.app.test_client()
+        refined = Path("static/css/refined.css").read_text(encoding="utf-8")
+        for route in ("/", "/extract-audio"):
+            with self.subTest(route=route):
+                html = client.get(route).get_data(as_text=True)
+                self.assertIn("/static/css/index.css", html)
+                self.assertNotIn("/static/css/refined.css", html)
+                self.assertNotIn("01 / ", html, "numbered eyebrow labels are gone")
+                self.assertNotIn("02 / ", html)
+        # The guide and LMU pages keep refined.css without download-only overrides.
+        self.assertNotIn(".download-page", refined)
+        self.assertIn("/static/css/refined.css", client.get("/guide").get_data(as_text=True))
+
+    def test_feedback_is_inline_instead_of_blocking_dialogs(self):
+        html = web_app.app.test_client().get("/").get_data(as_text=True)
+        for notice_id in ("videoNotice", "audioNotice", "collectionNotice", "taskNotice"):
+            self.assertIn(f'id="{notice_id}" role="alert" hidden', html)
+        for count_id in ("videoUrlCount", "audioUrlCount"):
+            self.assertIn(f'id="{count_id}" hidden', html)
+        self.assertIn('aria-keyshortcuts="Control+Enter Meta+Enter"', html)
+        self.assertNotIn("alert(", frontend_script_source())
+        self.assertNotIn("alert(", Path("static/js/extract_audio.js").read_text(encoding="utf-8"))
+
+    def test_local_extraction_is_offered_inside_the_audio_card(self):
+        html = web_app.app.test_client().get("/").get_data(as_text=True)
+        audio_card = html.split('id="audio-download-card"', 1)[1].split("</section>", 1)[0]
+        self.assertIn('class="inline-link" href="/extract-audio"', audio_card)
+        hero = html.split('class="hero"', 1)[1].split("</section>", 1)[0]
+        self.assertNotIn("/extract-audio", hero)
 
     def test_frontend_exports_all_static_and_dynamic_inline_handlers(self):
         template = frontend_template_source()
@@ -372,19 +418,25 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn("formatInputs", html)
         self.assertIn("formatInput.disabled = disabled", html)
 
-    def test_desktop_cards_do_not_emit_legacy_format_spacer(self):
+    def test_paired_cards_align_rows_without_spacer_markup(self):
         html = frontend_surface_source()
 
-        self.assertNotIn(
-            '<div class="format-control-spacer" aria-hidden="true"></div>',
-            html,
-        )
-        self.assertIn(
-            ".format-control, .format-control-spacer",
-            html,
-        )
-        self.assertIn("min-height: 98px", html)
-        self.assertIn(".format-control-spacer { display: none; }", html)
+        self.assertNotIn("format-control-spacer", html)
+        self.assertIn("grid-template-rows: subgrid", frontend_style_source())
+        # Both cards expose the same six row slots so their fields line up.
+        template = frontend_template_source()
+        for card_id in ("video-download-card", "audio-download-card"):
+            card = template.split(f'id="{card_id}"', 1)[1].split("\n    </section>", 1)[0]
+            for slot in ('class="card-header"', 'class="url-field"', 'class="card-options"',
+                         'class="download-location-control"', 'class="turbo-control"', 'class="card-actions"'):
+                self.assertEqual(card.count(slot), 1, (card_id, slot))
+
+    def test_subtitle_options_are_checkboxes_not_a_segmented_choice(self):
+        template = frontend_template_source()
+        control = template.split('id="videoSubtitleControl"', 1)[1].split("</fieldset>", 1)[0]
+        self.assertEqual(control.count('class="check-option"'), 3)
+        self.assertNotIn('class="format-option"', control)
+        self.assertIn(".check-option input:checked + span::before", frontend_style_source())
 
     def test_frontend_submits_and_renders_audio_format_details(self):
         html = frontend_surface_source()
@@ -412,9 +464,12 @@ class WebProgressStateTests(unittest.TestCase):
         self.assertIn('id="videoTurboToggle"', html)
         self.assertIn('id="audioTurboToggle"', html)
         self.assertEqual(
-            html.count('<span class="turbo-title">'),
+            html.count('class="turbo-title"'),
             2,
         )
+        # Each switch is named by its visible title.
+        self.assertIn('id="videoTurboToggle" aria-labelledby="videoTurboTitle"', html)
+        self.assertIn('id="audioTurboToggle" aria-labelledby="audioTurboTitle"', html)
         self.assertIn('fetch("/api/capabilities")', html)
         self.assertIn("aria2c_available", html)
 
@@ -480,34 +535,42 @@ class WebProgressStateTests(unittest.TestCase):
             r"\.task-meta\s*\{[^}]*overflow-wrap:\s*anywhere",
         )
 
-    def test_mobile_hero_clips_decorative_orbit_overflow(self):
-        html = frontend_surface_source()
+    def test_homepage_has_no_hidden_decorative_layers(self):
+        template = frontend_template_source()
+        css = frontend_style_source()
 
-        self.assertRegex(
-            html,
-            r"\.hero\s*\{[^}]*overflow:\s*hidden",
-        )
+        self.assertNotIn("hero-orbit", template + css)
+        self.assertNotIn("body::before", css)
+        self.assertNotIn("body::after", css)
+        self.assertNotIn(".card::before", css)
 
     def test_frontend_uses_dark_petronas_theme_tokens(self):
-        html = frontend_surface_source().lower()
+        css = frontend_style_source().lower()
 
-        self.assertIn("--background: #0f172a", html)
-        self.assertIn("--surface: #111827", html)
-        self.assertIn("--primary: #009b95", html)
-        self.assertIn("--accent: #00a19b", html)
+        self.assertIn("--background: #101817", css)
+        self.assertIn("--surface: #16201f", css)
+        self.assertIn("--primary: #009b95", css)
+        self.assertIn("--accent: #00a19b", css)
+        # Fields and warnings are tokens, so the light theme needs no per-component overrides.
+        self.assertIn("--field: #0b1111", css)
+        theme = Path("static/css/theme.css").read_text(encoding="utf-8").lower()
+        self.assertIn("--field: #fafcfb", theme)
+        self.assertIn("--warning: #865600", theme)
 
     def test_frontend_has_operational_metrics_with_expected_defaults(self):
         html = frontend_surface_source()
+        template = frontend_template_source()
 
         self.assertRegex(html, r'id="metric-active"[^>]*>00<')
         self.assertRegex(html, r'id="metric-queue"[^>]*>00<')
         self.assertRegex(html, r'id="metric-limit"[^>]*>03<')
-        metric_value_match = re.search(r"\.metric-value\s*\{([^}]*)\}", html)
-        self.assertIsNotNone(metric_value_match)
-        metric_value_rule = metric_value_match.group(1)
-        self.assertIn("letter-spacing: .08em", metric_value_rule)
-        self.assertIn("margin-right: -.08em", metric_value_rule)
+        # Live counts sit with the tasks they describe, labelled in both languages.
+        self.assertLess(template.index('id="task-card"'), template.index('id="metric-active"'))
+        self.assertIn('<span data-guide-copy="zh">下载中</span><span data-guide-copy="en">Active</span>', template)
+        metric_value_rule = css_rule(frontend_style_source(), ".metric-value")
+        self.assertIsNotNone(metric_value_rule)
         self.assertIn("font-variant-numeric: tabular-nums", metric_value_rule)
+        self.assertIn("font-family: var(--editorial-font)", metric_value_rule)
 
     def test_homepage_keeps_interactive_workspace_out_of_entrance_and_tilt_motion(self):
         template = frontend_template_source()
@@ -550,7 +613,11 @@ class Element {
   constructor() {
     this.textContent = "00";
     this.classList = new ClassList();
+    this.dataset = {};
+    this.hidden = true;
+    this.innerHTML = "";
     this.style = {};
+    this.value = "";
   }
   addEventListener() {}
   appendChild() {}
@@ -652,8 +719,9 @@ assert.deepStrictEqual(
             '<strong><span data-guide-copy="zh">最高画质视频，或最高音质音频下载。</span>',
             html,
         )
-        self.assertIn('<h3><span data-guide-copy="zh">最高画质视频</span>', html)
-        self.assertIn("下载源站可获取的最高画质视频，默认输出 MP4；开启字幕或弹幕时输出 MKV。", html)
+        self.assertIn('<h2 id="video-card-title"><span data-guide-copy="zh">最高画质视频</span>', html)
+        self.assertIn("源站可获取的最高画质，默认输出 MP4。", html)
+        self.assertIn("开启任一项将输出 MKV", html)
         self.assertNotIn("最高质量视频", html)
         self.assertIn("粘贴链接，其余交给下载队列。", html)
         self.assertIn(
@@ -677,54 +745,41 @@ assert.deepStrictEqual(
         self.assertNotIn("family=Allura", html)
         self.assertNotIn("family=Manrope", html)
 
-    def test_frontend_applies_cormorant_and_palatino_typography(self):
-        html = frontend_surface_source()
-        body_match = re.search(r"\n  body\s*\{([^}]*)\}", html)
-        brand_match = re.search(r"\.brand\s*\{([^}]*)\}", html)
-        hero_title_match = re.search(r"\.hero h1\s*\{([^}]*)\}", html)
-        shared_label_match = re.search(
-            r"\.hero-kicker,\s*\.section-index,\s*\.card-index,\s*"
-            r"\.metric-label\s*\{([^}]*)\}",
-            html,
-        )
+    def test_frontend_applies_display_editorial_and_ui_typography(self):
+        css = frontend_style_source()
 
-        self.assertIsNotNone(body_match)
-        self.assertIsNotNone(brand_match)
-        self.assertIsNotNone(hero_title_match)
-        self.assertIsNotNone(shared_label_match)
+        # Three roles: Cormorant display, Palatino editorial accents, system UI text.
+        self.assertIn('@font-face {', css)
+        self.assertIn('font-family: "Palatino UI Italic";', css)
+        self.assertIn('local("Palatino Italic")', css)
+        self.assertIn('local("Palatino-Italic")', css)
+        self.assertIn('--ui-font: -apple-system, BlinkMacSystemFont,', css)
+        self.assertIn('--editorial-font: "Palatino UI Italic", Palatino,', css)
+        self.assertIn('--display-font: "Cormorant Garamond", Georgia, serif;', css)
+        self.assertIn("font-family: var(--ui-font);", css_rule(css, "body"))
 
-        body_rule = body_match.group(1)
-        brand_rule = brand_match.group(1)
-        hero_title_rule = hero_title_match.group(1)
-        shared_label_rule = shared_label_match.group(1)
+        brand_rule = css_rule(css, ".brand")
+        for declaration in ("font-family: var(--display-font);", "font-style: italic;",
+                            "font-weight: 400;", "font-size: 17px;"):
+            self.assertIn(declaration, brand_rule)
+        self.assertIn(".brand { font-size: 15px; }", css)
 
-        self.assertIn('@font-face {', html)
-        self.assertIn('font-family: "Palatino UI Italic";', html)
-        self.assertIn('local("Palatino Italic")', html)
-        self.assertIn('local("Palatino-Italic")', html)
-        self.assertIn('--ui-font: "Palatino UI Italic", Palatino,', html)
-        self.assertIn("font-family: var(--ui-font);", body_rule)
-        self.assertIn(
-            'font-family: "Cormorant Garamond", Georgia, serif;',
-            brand_rule,
-        )
-        self.assertIn("font-style: italic;", brand_rule)
-        self.assertIn("font-weight: 400;", brand_rule)
-        self.assertIn("font-size: 17px;", brand_rule)
-        self.assertIn(".brand { font-size: 15px; }", html)
-        self.assertIn(
-            'font-family: "Cormorant Garamond", Georgia, serif;',
-            hero_title_rule,
-        )
-        self.assertIn("font-style: italic;", hero_title_rule)
-        self.assertIn("font-size: clamp(48px, 8vw, 102px);", hero_title_rule)
-        self.assertIn("font-weight: 400;", hero_title_rule)
-        self.assertIn("font-family: var(--ui-font);", shared_label_rule)
-        self.assertIn("font-size: 11px;", shared_label_rule)
-        self.assertIn(
-            ".hero h1 { font-size: clamp(44px, 15vw, 64px); }",
-            html,
-        )
+        hero_title_rule = css_rule(css, ".hero h1")
+        for declaration in ("font-family: var(--display-font);", "font-style: italic;",
+                            "font-weight: 400;", "font-size: clamp(40px, 5vw, 64px);"):
+            self.assertIn(declaration, hero_title_rule)
+        self.assertIn(".hero h1 { font-size: 40px; }", css)
+
+        for selector in (".hero-kicker", ".hero-description", ".metric-label", ".metric-value", ".footer"):
+            with self.subTest(selector=selector):
+                self.assertIn("font-family: var(--editorial-font);", css_rule(css, selector))
+        self.assertIn("font-size: 11px;", css_rule(css, ".hero-kicker"))
+
+    def test_text_stays_legible_at_twelve_pixels_or_more(self):
+        sizes = [int(size) for size in re.findall(r"font-size:\s*(\d+)px", frontend_style_source())]
+        # Badges, the kicker and the footer signature use 11px; everything else is 12px or larger.
+        self.assertGreaterEqual(min(sizes), 11)
+        self.assertLessEqual(sizes.count(11), 4)
 
 
 class WebDownloadApiTests(unittest.TestCase):

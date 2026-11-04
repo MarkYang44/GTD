@@ -1,4 +1,4 @@
-/* Shared theme control: native keyboard interaction, quiet slider motion. */
+/* Shared theme control: native keyboard interaction, moon and sun marks, quiet slider motion. */
 .theme-toggle {
   position: relative;
   display: inline-flex;
@@ -6,11 +6,23 @@
   flex-shrink: 0;
   gap: 6px;
   min-height: 44px;
-  color: var(--muted-strong);
+  color: var(--muted);
   font: 500 11px/1 var(--ui-font);
   cursor: pointer;
 }
 .theme-toggle input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.theme-toggle-icon {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: color 180ms ease;
+}
+.theme-toggle input:not(:checked) ~ .theme-toggle-icon-dark,
+.theme-toggle input:checked ~ .theme-toggle-icon-light { color: var(--accent-ink, var(--accent)); }
 .theme-toggle-track {
   display: block;
   position: relative;
@@ -30,8 +42,8 @@
   background: var(--accent);
   transition: transform 180ms ease;
 }
-.theme-toggle input:checked + .theme-toggle-track .theme-toggle-thumb { transform: translateX(18px); }
-.theme-toggle input:focus-visible + .theme-toggle-track { outline: 2px solid var(--accent); outline-offset: 4px; }
+.theme-toggle input:checked ~ .theme-toggle-track .theme-toggle-thumb { transform: translateX(18px); }
+.theme-toggle input:focus-visible ~ .theme-toggle-track { outline: 2px solid var(--accent); outline-offset: 4px; }
 header.topbar { height: auto; }
 header.topbar .topbar-inner { height: auto; min-height: 68px; padding-block: 10px; }
 header.topbar .topbar-actions { flex-wrap: wrap; }
@@ -50,6 +62,7 @@ header.topbar .topbar-actions { flex-wrap: wrap; }
   --border-strong: rgba(0, 123, 117, .38);
   --success: #087c61;
   --danger: #b42343;
+  --warning: #865600;
   --accent-ink: #00756f;
   --field: #fafcfb;
 }
@@ -60,18 +73,13 @@ header.topbar .topbar-actions { flex-wrap: wrap; }
 [data-theme="light"] :is(.card, .task-panel, .collection-preview, .circuit-card, .guide-document, .guide-toc-inner, .video-card, .shot) {
   box-shadow: 0 4px 24px rgba(24, 60, 49, .045);
 }
-[data-theme="light"] :is(.url-input, .url-input:focus, .download-location-input, .format-control, .download-location-history-toggle, .collection-entry, .task-item, .recommendation, .guide-markdown pre) {
-  background: var(--field);
-}
+[data-theme="light"] :is(.recommendation, .guide-markdown pre) { background: var(--field); }
 [data-theme="light"] :is(.url-input, .download-location-input)::placeholder { color: var(--muted); }
-[data-theme="light"] .task-item:hover { background: var(--surface-hover); }
-[data-theme="light"] :is(.guide-layout, .guide-toc) { background: var(--background); box-shadow: none; }
 [data-theme="light"] :is(.easter-nav-link, .topbar-link) { background: var(--surface); }
 [data-theme="light"] :is(.easter-nav-link.is-active, .easter-nav-link:hover, .topbar-link:hover) { background: rgba(0, 155, 149, .09); }
-[data-theme="light"] :is(.hero-kicker, .hero-date, .data-label, .stamp-copy, .section-index, .card-index, .guide-kicker, .guide-toc-label, .circuit-meta, .recommendation-group h3, .task-progress-value, .badge-running, .guide-markdown a, .guide-markdown code, .circuit-content a, .collection-thumb-placeholder) { color: var(--accent-ink); }
+[data-theme="light"] :is(.hero-kicker, .hero-date, .data-label, .stamp-copy, .section-index, .guide-kicker, .guide-toc-label, .circuit-meta, .recommendation-group h3, .guide-markdown a, .guide-markdown code, .circuit-content a) { color: var(--accent-ink); }
 [data-theme="light"] .guide-markdown pre code { color: var(--muted-strong); }
 [data-theme="light"] .task-error { color: var(--danger); }
-[data-theme="light"] .badge-cancelled { color: #865600; }
 [data-theme="light"] .footer-line-en { color: var(--muted); }
 /* Photo captions retain their dark scrims and light ink in either theme. */
 [data-theme="light"] :is(.video-overlay, .video-play) { color: #f2f7f6; }
