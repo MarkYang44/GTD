@@ -13,13 +13,14 @@ import os
 from pathlib import Path
 import re
 import signal
+from socketserver import TCPServer
 import sys
 from tempfile import NamedTemporaryFile
 from threading import Event, RLock, Thread
 
 from flask import jsonify, request
 from werkzeug.datastructures import FileStorage
-from werkzeug.serving import make_server
+from werkzeug.serving import ThreadedWSGIServer
 
 from app import create_app
 from download_errors import DownloadFailure, public_error
@@ -34,6 +35,13 @@ DOWNLOAD_ROUTES = {
     "api_retry_failed",
 }
 COOKIE_SIZE_LIMIT = 4 * 1024**2
+
+
+class LoopbackServer(ThreadedWSGIServer):
+    def server_bind(self):
+        # HTTPServer normally resolves the bound host via reverse DNS.
+        TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address
 
 
 def _atomic_write(path: Path, text: str) -> None:
@@ -276,7 +284,7 @@ def main():
     application = create_desktop_app(args.data_dir, args.download_dir, token)
     manager = get_runtime(application).task_manager
     logging.getLogger("werkzeug").setLevel(logging.ERROR)
-    server = make_server("127.0.0.1", 0, application, threaded=True)
+    server = LoopbackServer("127.0.0.1", 0, application)
     server.timeout = 0.2
     parent_closed = Event()
 

@@ -124,7 +124,20 @@ class DesktopBackendTests(unittest.TestCase):
             except PermissionError:
                 self.skipTest("environment does not allow loopback listeners")
         script = Path(__file__).resolve().parent.parent / "desktop_backend.py"
-        with subprocess.Popen([sys.executable, str(script), "--data-dir", str(self.data),
+        startup = """
+import faulthandler
+import runpy
+import socket
+import sys
+
+def unexpected_dns_lookup(*args):
+    raise AssertionError("Starting a loopback listener must not require reverse DNS")
+
+faulthandler.dump_traceback_later(8)
+socket.getfqdn = unexpected_dns_lookup
+runpy.run_path(sys.argv.pop(1), run_name="__main__")
+"""
+        with subprocess.Popen([sys.executable, "-c", startup, str(script), "--data-dir", str(self.data),
                                "--download-dir", str(self.downloads)],
                               stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                               stderr=subprocess.PIPE) as child:
