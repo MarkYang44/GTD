@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import io
+import os
 import re
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
 from urllib.parse import parse_qs, urlparse
@@ -176,9 +179,36 @@ def make_task(
 
 def find_cookie_file(platform: str, project_dir: Path | None = None) -> Optional[Path]:
     """Prefer a platform cookie file, then fall back to ``cookies.txt``."""
+    if desktop_directory := os.environ.get("GTD_COOKIE_DIR"):
+        project_dir = Path(desktop_directory)
     directory = PROJECT_DIR if project_dir is None else project_dir
     candidates = [directory / f"{platform}_cookies.txt", directory / "cookies.txt"]
     return next((path for path in candidates if path.is_file()), None)
+
+
+@dataclass(frozen=True)
+class _CookieSnapshot:
+    """File-like input for yt-dlp whose writes stay in the active job's cookie jar."""
+
+    content: str = field(repr=False)
+
+    def __iter__(self):
+        return iter(io.StringIO(self.content, newline=None))
+
+    def truncate(self, _size):
+        return 0
+
+    def write(self, value):
+        return len(value)
+
+
+def cookie_input(path: Path):
+    if not os.environ.get("GTD_COOKIE_DIR"):
+        return str(path)
+    try:
+        return _CookieSnapshot(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None  # The user removed the file between lookup and opening.
 
 
 def platform_http_headers(platform: str) -> dict[str, str]:

@@ -1,0 +1,150 @@
+name: Desktop packages
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            target: aarch64-apple-darwin
+            bundles: app,dmg
+            artifact: macos-arm64
+          - os: windows-2025
+            target: x86_64-pc-windows-msvc
+            bundles: nsis
+            artifact: windows-x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 55
+    env:
+      PYTHONUTF8: '1'
+      MACOSX_DEPLOYMENT_TARGET: '13.5'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            desktop/requirements-build.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+      - name: Check app version
+        shell: bash
+        env:
+          TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        run: python desktop/scripts/package_release.py --verify-version --tag "$TAG"
+      - name: Install Windows media build tools
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            curl make diffutils
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-nasm
+            mingw-w64-ucrt-x86_64-pkgconf
+      - name: Build media tools (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: bash desktop/scripts/build_media.sh
+      - name: Build media tools (macOS)
+        if: runner.os == 'macOS'
+        run: bash desktop/scripts/build_media.sh
+      - name: Stage Python sidecar and Node.js
+        run: |
+          python -m pip install -r desktop/requirements-build.txt
+          python -m pip check
+          python desktop/scripts/stage_runtime.py
+      - name: Verify the backend using the bundled media tools
+        shell: bash
+        run: |
+          export PATH="$PWD/desktop/src-tauri/runtime/bin:$PATH"
+          python -m unittest discover -s tests -p 'test_desktop_backend.py'
+          python -m unittest discover -s tests -p 'test_local_audio.py'
+          python -m unittest discover -s tests -p 'test_source_flac.py'
+      - name: Verify renderer
+        run: |
+          python -m pip install -r requirements-dev.txt
+          python -m playwright install chromium
+          python -m unittest discover -s tests/browser -p 'test_desktop_workspace.py'
+      - name: Verify desktop shell (macOS)
+        if: runner.os == 'macOS'
+        run: cargo test --locked --manifest-path desktop/src-tauri/Cargo.toml
+      - name: Build desktop packages
+        shell: bash
+        working-directory: desktop
+        run: npx --yes --package '@tauri-apps/cli@2.12.4' tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} -- --locked
+      - name: Smoke-test and collect macOS packages
+        if: runner.os == 'macOS'
+        run: python desktop/scripts/package_release.py
+      - name: Smoke-test and collect Windows packages
+        if: runner.os == 'Windows'
+        run: python desktop/scripts/package_release.py --test-installer
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gtd-${{ matrix.artifact }}
+          path: desktop/build/dist/*
+          if-no-files-found: error
+          compression-level: 0
+
+  release:
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: gtd-*
+          path: artifacts
+      - name: Verify artifacts and publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          version=$(python3 desktop/scripts/package_release.py --verify-version --tag "$TAG")
+          prefix="GTD-$version"
+          mkdir release
+          for target in macos-arm64 windows-x64; do
+            (cd "artifacts/gtd-$target" && sha256sum --check SHA256SUMS.txt)
+            cp "artifacts/gtd-$target/$prefix-$target-media-sources.zip" release/
+          done
+          cp "artifacts/gtd-macos-arm64/$prefix-macos-arm64.dmg" \
+             "artifacts/gtd-macos-arm64/$prefix-macos-arm64-app.zip" \
+             "artifacts/gtd-windows-x64/$prefix-windows-x64-setup.exe" \
+             "artifacts/gtd-windows-x64/$prefix-windows-x64-portable.zip" release/
+          (cd release && sha256sum -- *.dmg *.zip *.exe > SHA256SUMS.txt)
+          notes="$RUNNER_TEMP/gtd-release-notes.md"
+          cat > "$notes" <<'NOTES'
+          Native GTD desktop packages for Windows x64 and macOS Apple Silicon. Verify the downloads using `SHA256SUMS.txt`.
+
+          The macOS app is not Developer ID notarized and Windows installers are not signed. See the [install guide](https://github.com/MarkYang44/GTD#desktop-app) for first-launch instructions.
+
+          This software uses [FFmpeg](https://ffmpeg.org/) and LAME under the LGPL and [aria2](https://aria2.github.io/) under the GPL. The matching source archives and build script are included in the `*-media-sources.zip` assets. Distributed packages contain third-party license notices.
+          NOTES
+          if [ -f "docs/releases/$TAG.md" ]; then
+            printf '\n' >> "$notes"
+            cat "docs/releases/$TAG.md" >> "$notes"
+          fi
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "GTD $version" --generate-notes --notes-file "$notes" release/*

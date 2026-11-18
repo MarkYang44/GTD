@@ -10,15 +10,31 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&amp;logoColor=white" alt="Python 3.10+">
-  <img src="https://img.shields.io/badge/Interface-Web%20%2B%20CLI-008C88" alt="Web 与 CLI">
+  <img src="https://img.shields.io/badge/Interface-Desktop%20%2B%20Web%20%2B%20CLI-008C88" alt="桌面端、Web 与 CLI">
   <img src="https://img.shields.io/badge/Language-中文%20%7C%20English-59636E" alt="中文与 English">
 </p>
 
-GTD 基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp)、Flask 和 FFmpeg，为 YouTube、Instagram 与 Bilibili 提供统一的批量下载流程。通过浏览器管理任务，或从命令行直接下载；本地视频也可独立提取音轨。
+GTD 基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp)、Flask 和 FFmpeg，为 YouTube、Instagram 与 Bilibili 提供统一的批量下载流程。可在桌面客户端或浏览器中管理任务、提取本地视频的音轨，也可从命令行直接下载。
 
-**运行方式：源码启动 Web / CLI，适用于 macOS 与 Windows。** 安装 Python 依赖和媒体工具后即可使用。
+[桌面客户端](#桌面客户端) · [Web 和 CLI 快速开始](#快速开始) · [完整使用参考](docs/REFERENCE.md) · [网页使用指南](docs/WEB_GUIDE.md) · [问题反馈](https://github.com/MarkYang44/GTD/issues)
 
-[快速开始](#快速开始) · [命令行](#命令行使用) · [完整使用参考](docs/REFERENCE.md) · [网页使用指南](docs/WEB_GUIDE.md) · [问题反馈](https://github.com/MarkYang44/GTD/issues)
+## 桌面客户端
+
+桌面版本发布后，可从 [GitHub Releases](https://github.com/MarkYang44/GTD/releases) 获取对应平台的安装包。客户端已内置 Python、FFmpeg、ffprobe、Node.js 和 aria2，可在下载、队列、历史、音频提取和设置之间切换。
+
+| 平台 | 安装 |
+| --- | --- |
+| Windows 10/11 x64 | 运行 `windows-x64-setup.exe`。使用便携版时，请完整解压 ZIP，并保留 `gtd.exe` 旁的 `runtime` 文件夹。客户端使用 Microsoft Edge WebView2，系统缺少时可由安装程序下载。 |
+| macOS 13.5+（Apple Silicon） | 打开 `macos-arm64.dmg`，将 GTD 拖入「应用程序」。也可以解压应用 ZIP，直接获得 `GTD.app`。 |
+
+下载后请对照 `SHA256SUMS.txt` 校验文件。Windows PowerShell 使用 `Get-FileHash -Algorithm SHA256 <文件>`，macOS 终端使用 `shasum -a 256 <文件>`。
+
+- Windows 安装包未签名。如果 SmartScreen 拦截，核对来源和校验值后，可在系统允许时选择「更多信息 → 仍要运行」。
+- macOS 应用使用 ad-hoc 签名。如果首次打开时被拦截，核对来源和校验值后，可在「系统设置 → 隐私与安全性」中选择「仍要打开」。
+
+桌面端默认保存到 `Downloads/GTD`。在「设置」中可更改目录、主题和语言，也可按平台导入 Netscape 格式的 Cookies。设置、Cookies 副本、任务历史、日志和音频提取的临时输入位于 Windows 的 `%LOCALAPPDATA%\com.markyang44.gtd` 或 macOS 的 `~/Library/Application Support/com.markyang44.gtd`。便携版同样使用当前用户的应用数据目录。Web 和 CLI 可继续从源码启动并使用各自原有的目录。
+
+[开发构建与发布说明](desktop/README.md) · [第三方依赖与许可证](desktop/scripts/third-party.md)
 
 ## 界面与实际使用
 

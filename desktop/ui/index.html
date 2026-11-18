@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en" data-theme="system">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="GTD Desktop — Generalized Transmedia Downloader">
+  <link rel="icon" href="./brand.png">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./workspace.js"></script>
+  <title>GTD Desktop</title>
+</head>
+<body>
+  <div class="shell">
+    <aside class="rail">
+      <div class="brand">
+        <img src="./brand.png" alt="" width="39" height="39">
+        <div><strong>GTD</strong><span>Desktop</span></div>
+      </div>
+      <nav aria-label="Workspace" data-label="workspace">
+        <button type="button" data-page="download" aria-current="page"><span class="nav-icon" aria-hidden="true">↓</span><span data-copy="download">Download</span></button>
+        <button type="button" data-page="queue"><span class="nav-icon" aria-hidden="true">☷</span><span data-copy="queue">Queue</span><span class="nav-count" id="nav-count" aria-hidden="true" hidden></span></button>
+        <button type="button" data-page="history"><span class="nav-icon" aria-hidden="true">◷</span><span data-copy="history">History</span></button>
+        <button type="button" data-page="extract"><span class="nav-icon" aria-hidden="true">♫</span><span data-copy="extract">Extract audio</span></button>
+        <button type="button" data-page="settings"><span class="nav-icon" aria-hidden="true">⚙</span><span data-copy="settings">Settings</span></button>
+      </nav>
+      <div class="rail-footer"><span>Generalized Transmedia</span><span>Downloader</span></div>
+    </aside>
+
+    <main id="workspace">
+      <header class="top">
+        <h1 id="app-heading" tabindex="-1">Download</h1>
+        <div class="connection"><span class="connection-dot" id="connection-dot"></span><span id="connection-text" role="status">Starting desktop service…</span></div>
+      </header>
+      <div class="surface">
+        <p class="notice" id="workspace-notice" role="status" hidden></p>
+        <button class="button subdued" id="reconnect" type="button" data-copy="reconnect" hidden>Reconnect</button>
+
+        <section id="view-download" class="view">
+          <div class="feature">
+            <div>
+              <p class="feature-platforms">YouTube <span>·</span> Instagram <span>·</span> Bilibili</p>
+              <h2>Capture. Convert. Keep.</h2>
+              <p data-copy="featureIntro">Download the best available video or save the audio track.</p>
+            </div>
+            <img src="./brand.png" alt="" width="100" height="100">
+          </div>
+          <div class="compose-grid">
+            <section class="panel">
+              <div class="panel-heading">
+                <div><h2 data-copy="newDownload">New download</h2><p data-copy="newDownloadHint">Paste links to individual videos, playlists, or collections.</p></div>
+              </div>
+              <form id="download-form" class="form-stack">
+                <fieldset class="mode-switch">
+                  <legend class="sr-only" data-copy="downloadMode">Download type</legend>
+                  <label><input type="radio" name="media" value="video" checked><span data-copy="video">Video</span></label>
+                  <label><input type="radio" name="media" value="audio"><span data-copy="audio">Audio</span></label>
+                </fieldset>
+                <div class="field">
+                  <div class="field-top"><label for="download-links" data-copy="links">Links or share text</label><span class="muted small" id="link-count">0 / 20</span></div>
+                  <textarea id="download-links" name="links" rows="4" spellcheck="false" required
+                    aria-describedby="link-count" aria-keyshortcuts="Control+Enter Meta+Enter"
+                    data-placeholder="linksPlaceholder" placeholder="Paste one link or share message per line"></textarea>
+                </div>
+                <div id="video-options" class="field">
+                  <div class="check-grid">
+                    <label class="check"><input id="subtitles" type="checkbox"><span data-copy="subtitles">Download subtitles</span></label>
+                    <label class="check"><input id="automatic" type="checkbox" disabled><span data-copy="automatic">Automatic captions</span></label>
+                    <label class="check"><input id="danmaku" type="checkbox"><span data-copy="danmaku">Bilibili danmaku</span></label>
+                  </div>
+                  <p class="muted small" data-copy="subtitlesHint">Video saves as MP4 by default. Text track options use MKV with switchable tracks.</p>
+                </div>
+                <div id="audio-options" class="field" hidden>
+                  <label for="download-format" data-copy="audioFormat">Audio format</label>
+                  <select id="download-format">
+                    <option value="mp3">MP3 V0</option>
+                    <option value="flac" data-copy="flac">Source FLAC</option>
+                    <option value="source" data-copy="sourceAudio">Original audio</option>
+                    <option value="wav">WAV PCM</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="download-folder" data-copy="outputFolder">Output folder</label>
+                  <div class="field-row">
+                    <input id="download-folder" type="text" spellcheck="false" autocomplete="off">
+                    <button class="button" type="button" data-pick-folder="download-folder" data-copy="browse">Browse</button>
+                  </div>
+                </div>
+                <label class="check turbo"><input id="turbo" type="checkbox" disabled aria-describedby="turbo-hint"><span><strong data-copy="turbo">Bilibili turbo mode</strong><small id="turbo-hint"></small></span></label>
+                <p class="notice" id="download-notice" role="status" hidden></p>
+                <div class="form-actions">
+                  <button id="preview-button" class="button primary" type="submit" data-copy="previewLinks" disabled>Preview links</button>
+                  <button id="clear-links" class="button subdued" type="button" data-copy="clear">Clear</button>
+                </div>
+              </form>
+            </section>
+            <aside class="panel activity-panel">
+              <div class="panel-heading">
+                <div><h2 data-copy="queue">Queue</h2><p id="activity-count"></p></div>
+                <button class="button subdued" type="button" data-page="queue" data-copy="viewQueue">View queue</button>
+              </div>
+              <div id="activity-list"></div>
+            </aside>
+          </div>
+        </section>
+
+        <section id="view-queue" class="view" hidden aria-labelledby="app-heading">
+          <div class="metrics">
+            <div class="metric"><span data-copy="active">Active</span><strong id="queue-active">0</strong></div>
+            <div class="metric"><span data-copy="queued">Queued</span><strong id="queue-queued">0</strong></div>
+            <div class="metric"><span data-copy="completed">Completed</span><strong id="queue-completed">0</strong></div>
+          </div>
+          <p id="queue-notice" class="notice" role="status" hidden></p>
+          <div class="results-grid">
+            <section class="panel">
+              <div class="panel-heading queue-heading">
+                <div><h2 data-copy="currentTasks">Current tasks</h2><p data-copy="queueHint">Manage tasks submitted during this session.</p></div>
+                <div class="inline-actions">
+                  <button class="button subdued" id="queue-refresh" type="button" data-copy="refresh">Refresh</button>
+                  <button class="button subdued" type="button" data-page="download" data-copy="newDownload">New download</button>
+                </div>
+              </div>
+              <div id="queue-table"></div>
+            </section>
+            <aside id="queue-inspector" class="panel inspector" aria-label="Task details" data-label="details"></aside>
+          </div>
+        </section>
+
+        <section id="view-history" class="view" hidden aria-labelledby="app-heading">
+          <p id="history-notice" class="notice" role="status" hidden></p>
+          <section class="panel history-panel">
+            <div class="panel-heading">
+              <div><h2 data-copy="savedBatches">Saved batches</h2><p data-copy="savedBatchesHint">Open a batch to review its tasks and outputs.</p></div>
+              <button class="button subdued" id="history-refresh" type="button" data-copy="refresh">Refresh</button>
+            </div>
+            <div class="field">
+              <label for="history-batch" data-copy="batch">Batch</label>
+              <select id="history-batch"></select>
+            </div>
+          </section>
+          <div class="results-grid">
+            <section class="panel">
+              <div class="panel-heading">
+                <div><h2 data-copy="batchTasks">Batch tasks</h2><p id="history-summary"></p></div>
+                <button class="button subdued" type="button" id="history-output" data-copy="showFolder" hidden>Show folder</button>
+              </div>
+              <div id="history-table"></div>
+            </section>
+            <aside id="history-inspector" class="panel inspector" aria-label="Task details" data-label="details"></aside>
+          </div>
+        </section>
+
+        <section id="view-extract" class="view" hidden aria-labelledby="app-heading">
+          <section class="panel narrow-panel">
+            <div class="panel-heading"><div><h2 data-copy="localVideo">Local video</h2><p data-copy="extractHint">Save the original audio track or convert it to MP3 V0.</p></div></div>
+            <form id="extract-form" class="form-stack">
+              <div class="file-box">
+                <div class="file-mark" aria-hidden="true">♫</div>
+                <div class="file-content"><strong id="file-name"></strong><span class="muted small" id="file-path"></span></div>
+                <button class="button" id="pick-video" type="button" data-copy="chooseVideo">Choose a video</button>
+              </div>
+              <div class="field">
+                <label for="extract-format" data-copy="audioFormat">Audio format</label>
+                <select id="extract-format">
+                  <option value="source" data-copy="sourceAudio">Original audio</option><option value="mp3">MP3 V0</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="extract-folder" data-copy="outputFolder">Output folder</label>
+                <div class="field-row">
+                  <input id="extract-folder" type="text" spellcheck="false" autocomplete="off">
+                  <button class="button" type="button" data-pick-folder="extract-folder" data-copy="browse">Browse</button>
+                </div>
+              </div>
+              <p class="notice" id="extract-notice" role="status" hidden></p>
+              <div class="form-actions"><button id="extract-button" class="button primary" type="submit" data-copy="startExtract" disabled>Start extraction</button></div>
+            </form>
+          </section>
+        </section>
+
+        <section id="view-settings" class="view" hidden aria-labelledby="app-heading">
+          <p id="settings-notice" class="notice" role="status" hidden></p>
+          <section class="panel narrow-panel">
+            <div class="panel-heading"><div><h2 data-copy="preferences">Preferences</h2></div></div>
+            <div class="form-stack">
+              <div class="field">
+                <label for="language" data-copy="language">Language</label>
+                <select id="language" class="compact-select"><option value="en">English</option><option value="zh">简体中文</option></select>
+              </div>
+              <div class="field">
+                <label for="theme" data-copy="theme">Theme</label>
+                <select id="theme" class="compact-select"><option value="system" data-copy="system">System</option><option value="light" data-copy="light">Light</option><option value="dark" data-copy="dark">Dark</option></select>
+              </div>
+              <form id="folder-form" class="field">
+                <label for="default-folder" data-copy="defaultFolder">Default output folder</label>
+                <div class="field-row">
+                  <input id="default-folder" type="text" spellcheck="false" autocomplete="off">
+                  <button class="button" type="button" data-pick-folder="default-folder" data-copy="chooseFolder">Choose folder</button>
+                </div>
+                <div class="inline-actions">
+                  <button class="button" type="submit" data-copy="saveFolder">Save folder</button>
+                  <button class="button subdued" type="button" id="reset-folder" data-copy="resetFolder">Use default</button>
+                </div>
+              </form>
+            </div>
+          </section>
+          <section class="panel narrow-panel">
+            <div class="panel-heading"><div><h2 data-copy="cookies">Platform cookies</h2><p data-copy="cookiesHint">Import a Netscape cookies.txt file when a platform requires sign-in.</p></div></div>
+            <div id="cookie-list" class="cookie-list"></div>
+          </section>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="collection" aria-labelledby="collection-heading">
+    <div class="dialog-top">
+      <div><h2 id="collection-heading" data-copy="selectCollection">Select collection items</h2><p id="collection-title"></p></div>
+      <button class="button subdued close-button" id="close-collection" type="button" aria-label="Close" data-label="close">×</button>
+    </div>
+    <div class="dialog-toolbar">
+      <label class="check"><input type="checkbox" id="collection-select-all"><span data-copy="selectAll">Select all</span></label>
+      <span id="collection-count"></span>
+    </div>
+    <p id="collection-truncated" class="muted small" data-copy="truncated" hidden>The preview reached the 1,000-item display limit.</p>
+    <div id="collection-list" class="collection-list"></div>
+    <p id="collection-notice" class="notice" role="status" hidden></p>
+    <div class="form-actions dialog-actions">
+      <button id="submit-collection" class="button primary" type="button" data-copy="submitSelected">Add selected to queue</button>
+      <button id="back-collection" class="button subdued" type="button" data-copy="back">Back to editing</button>
+    </div>
+  </dialog>
+</body>
+</html>

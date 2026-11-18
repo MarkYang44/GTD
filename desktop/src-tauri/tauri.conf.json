@@ -1,0 +1,40 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "GTD",
+  "version": "0.1.0",
+  "identifier": "com.markyang44.gtd",
+  "build": { "frontendDist": "../ui" },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "create": false,
+        "title": "GTD",
+        "width": 1220,
+        "height": 805,
+        "minWidth": 680,
+        "minHeight": 550,
+        "center": true,
+        "dragDropEnabled": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src ipc: http://ipc.localhost; object-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'",
+      "capabilities": ["desktop"]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "resources": { "runtime/": "runtime/" },
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "category": "Video",
+    "shortDescription": "Generalized Transmedia Downloader",
+    "macOS": { "minimumSystemVersion": "13.5", "signingIdentity": "-" },
+    "windows": {
+      "webviewInstallMode": { "type": "downloadBootstrapper", "silent": true },
+      "nsis": { "installMode": "currentUser", "languages": ["English", "SimpChinese"], "displayLanguageSelector": true }
+    }
+  }
+}

@@ -113,7 +113,7 @@ def _preview_options(platform: str) -> dict[str, object]:
         options["http_headers"] = headers
     cookie_file = find_cookie_file(platform)
     if cookie_file:
-        options["cookiefile"] = str(cookie_file)
+        options["cookiefile"] = media_sources.cookie_input(cookie_file)
     if platform == YOUTUBE:
         options.update(media_sources.youtube_js_options(shutil.which("node")))
     return options

@@ -1,0 +1,9 @@
+# GTD desktop third-party components
+
+- [FFmpeg 8.1.3](https://ffmpeg.org/) runs as a separate tool under LGPL-2.1-or-later, with the [LAME 3.100](https://lame.sourceforge.io/) encoder under LGPL-2.0-or-later. The Windows binaries also use [zlib 1.4](https://zlib.net/) under the zlib license. FFmpeg uses the operating system's TLS stack. The build does not enable FFmpeg's GPL or nonfree flags.
+- [aria2 1.37.0](https://aria2.github.io/) runs separately under GPL-2.0-or-later for optional Bilibili multi-connection downloads. It uses the operating system's TLS stack.
+- [Node.js 24.22.3](https://nodejs.org/en/blog/release/v24.22.3/) runs as a separate tool for yt-dlp's YouTube JavaScript challenges. Its official license file contains notices for the engine and bundled libraries.
+- GTD's Python sidecar bundles CPython, yt-dlp, yt-dlp-ejs, Flask, Mutagen, and their dependencies. The distribution list and license texts are in the adjacent `licenses` directory. The [CPython license and notices](https://docs.python.org/3.14/license.html) include licenses for its incorporated components such as OpenSSL. PyInstaller's bootloader has a license exception permitting distribution of the packaged program.
+- The desktop shell uses [Tauri](https://github.com/tauri-apps/tauri) under MIT or Apache-2.0. The adjacent `licenses` directory contains the Rust dependency list and crate license texts. Windows uses Microsoft Edge WebView2 and macOS uses its built-in WebKit.
+
+The `*-media-sources.zip` asset alongside the installers contains the exact FFmpeg, LAME, aria2, and Windows zlib source archives and the script used to build the media tools. These tools can also be rebuilt with modified sources and replaced within the runtime directory. Modification of an application bundle invalidates its original signature.

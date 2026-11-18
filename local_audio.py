@@ -39,7 +39,11 @@ class UploadStore:
         try:
             if path.is_symlink() or meta.is_symlink() or not path.is_file():
                 raise OSError('Missing input')
-            name = json.loads(meta.read_text())['name']
+            try:
+                metadata = meta.read_text(encoding='utf-8')
+            except UnicodeDecodeError:
+                metadata = meta.read_text()  # Older Windows Web uploads used the system encoding.
+            name = json.loads(metadata)['name']
             if not isinstance(name, str):
                 raise ValueError('Invalid name')
             return path, name
@@ -84,7 +88,7 @@ class UploadStore:
                         target.write(chunk)
                 if size == 0:
                     raise failure('INVALID_UPLOAD', '视频文件为空')
-                (self.root / (key + '.json')).write_text(json.dumps({'name': name}, ensure_ascii=False))
+                (self.root / (key + '.json')).write_text(json.dumps({'name': name}, ensure_ascii=False), encoding='utf-8')
                 (self.root / (key + '.part')).rename(self.root / (key + '.bin'))
                 return key
             except BaseException:
@@ -95,7 +99,8 @@ class UploadStore:
 def run_process(command, token, progress=None, timeout=21600):
     """Drain both pipes with bounded buffers; terminate promptly on cancellation."""
     token.raise_if_cancelled()
-    process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
     buffers = [bytearray(), bytearray()]
     def drain(pipe, index):
         pending = b''

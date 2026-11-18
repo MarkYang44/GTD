@@ -14,3 +14,9 @@ logs/
 /tools/aria2/
 /tools/folder-picker-runtime/
 state/
+/desktop/src-tauri/target/
+/desktop/src-tauri/runtime/
+/desktop/src-tauri/gen/
+/desktop/node_modules/
+/desktop/artifacts/
+/desktop/build/

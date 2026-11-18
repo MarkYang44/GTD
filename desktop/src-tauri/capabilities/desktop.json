@@ -1,0 +1,7 @@
+{
+  "identifier": "desktop",
+  "description": "Local GTD window. Native commands own backend access and file selection.",
+  "local": true,
+  "windows": ["main"],
+  "permissions": []
+}

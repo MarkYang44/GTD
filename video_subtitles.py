@@ -99,7 +99,8 @@ def mux_tracks(source: Path, target: Path, tracks, cancel_token=None):
     command += ['-map', '0:v?', '-map', '0:a?', '-map', '0:s?', '-map', '0:t?']
     for i in range(len(tracks)):
         command += ['-map', f'{i+1}:s:0']
-    probe = subprocess.run([shutil.which('ffprobe') or 'ffprobe', '-v', 'error', '-select_streams', 's', '-show_entries', 'stream=index,codec_name:stream_disposition=default', '-of', 'json', str(source)], capture_output=True, check=True, timeout=30)
+    probe = subprocess.run([shutil.which('ffprobe') or 'ffprobe', '-v', 'error', '-select_streams', 's', '-show_entries', 'stream=index,codec_name:stream_disposition=default', '-of', 'json', str(source)], capture_output=True, check=True, timeout=30,
+                           creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
     streams = json.loads(probe.stdout).get('streams', [])
     existing = len(streams)
     command += ['-c', 'copy']
@@ -117,7 +118,8 @@ def mux_tracks(source: Path, target: Path, tracks, cancel_token=None):
     command += [str(target)]
     # A file-backed stderr prevents pipe deadlocks; cancellation kills FFmpeg.
     with tempfile.TemporaryFile() as errors:
-        process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=errors)
+        process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=errors,
+                                   creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
         try:
             deadline = time.monotonic() + 3600
             while True:
@@ -223,7 +225,8 @@ def package_subtitles(info, source: Path, options: dict, ydl_options: dict, canc
                 source.unlink()
             target = final
     try:
-        probe = subprocess.run([shutil.which('ffprobe') or 'ffprobe', '-v', 'error', '-select_streams', 's', '-show_entries', 'stream=index', '-of', 'json', str(target)], capture_output=True, check=True, timeout=30)
+        probe = subprocess.run([shutil.which('ffprobe') or 'ffprobe', '-v', 'error', '-select_streams', 's', '-show_entries', 'stream=index', '-of', 'json', str(target)], capture_output=True, check=True, timeout=30,
+                               creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
         embedded_count = len(json.loads(probe.stdout).get('streams', []))
     except Exception:
         embedded_count = len(tracks)

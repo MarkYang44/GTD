@@ -10,15 +10,31 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&amp;logoColor=white" alt="Python 3.10+">
-  <img src="https://img.shields.io/badge/Interface-Web%20%2B%20CLI-008C88" alt="Web and CLI">
+  <img src="https://img.shields.io/badge/Interface-Desktop%20%2B%20Web%20%2B%20CLI-008C88" alt="Desktop, Web, and CLI">
   <img src="https://img.shields.io/badge/Language-中文%20%7C%20English-59636E" alt="Chinese and English">
 </p>
 
-Built on [yt-dlp](https://github.com/yt-dlp/yt-dlp), Flask, and FFmpeg, GTD brings YouTube, Instagram, and Bilibili downloads into one workflow. Manage batches in your browser or download directly from the command line. Extract audio from local video files.
+Built on [yt-dlp](https://github.com/yt-dlp/yt-dlp), Flask, and FFmpeg, GTD brings YouTube, Instagram, and Bilibili downloads into one workflow. Manage batches and extract audio on the desktop or in your browser, or download directly from the command line.
 
-**Run the Web interface or CLI from source on macOS and Windows.** Install the Python dependencies and media tools to get started.
+[Desktop app](#desktop-app) · [Web and CLI setup](#quick-start) · [Full usage reference](docs/REFERENCE.en.md) · [Web user guide](docs/WEB_GUIDE.en.md) · [Report an issue](https://github.com/MarkYang44/GTD/issues)
 
-[Quick start](#quick-start) · [Command line](#command-line-usage) · [Full usage reference](docs/REFERENCE.en.md) · [Web user guide](docs/WEB_GUIDE.en.md) · [Report an issue](https://github.com/MarkYang44/GTD/issues)
+## Desktop app
+
+Get the package for your platform from [GitHub Releases](https://github.com/MarkYang44/GTD/releases) when a desktop release is available. Each package includes Python, FFmpeg, ffprobe, Node.js, and aria2. The desktop workspace includes Downloads, Queue, History, Extract, and Settings.
+
+| Platform | Install |
+| --- | --- |
+| Windows 10/11 x64 | Run the `windows-x64-setup.exe` installer. For portable use, extract the entire ZIP and keep `runtime` beside `gtd.exe`. The app uses Microsoft Edge WebView2. The installer can download it if needed. |
+| macOS 13.5+ on Apple Silicon | Open the `macos-arm64.dmg` and drag GTD to Applications. The app ZIP contains the same `GTD.app`. |
+
+Verify the download against `SHA256SUMS.txt`. Use `Get-FileHash -Algorithm SHA256 <file>` in Windows PowerShell or `shasum -a 256 <file>` in Terminal.
+
+- Windows packages are unsigned. If SmartScreen intervenes, use **More info → Run anyway** where allowed, after checking the source and checksum.
+- The macOS bundle is ad-hoc signed. If macOS blocks the first launch, attempt to open the app, then go to **System Settings → Privacy & Security → Open Anyway** after checking the source and checksum.
+
+The default output folder is `Downloads/GTD`. Set a different folder, choose a theme and language, or import per-platform Netscape cookies in **Settings**. GTD copies imported cookies into its private application data. Desktop configuration, history, logs, and temporary extraction inputs live in `%LOCALAPPDATA%\com.markyang44.gtd` on Windows and `~/Library/Application Support/com.markyang44.gtd` on macOS. The portable package uses the same per-user data folder. The Web app and CLI still run from source and use their existing project directories.
+
+[Build and release instructions](desktop/README.md) · [Third-party components](desktop/scripts/third-party.md)
 
 ## See it in action
 

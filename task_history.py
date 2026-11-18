@@ -28,7 +28,7 @@ _RESULT_FIELDS = (
     'output_version_actual', 'cover_embedded', 'cover_source', 'fallback_cover',
     'format', 'acodec', 'audio_format_requested', 'audio_format_used',
     'audio_format_fallback', 'output_ext', 'source_acodec', 'source_abr_kbps',
-    'resolution', 'fps', 'vcodec',
+    'resolution', 'fps', 'vcodec', 'local_extraction', 'audio_stream_index',
 )
 _ERROR_FIELDS = ('error_code', 'message', 'suggestion', 'retryable')
 _ATTEMPT_FIELDS = ('number', 'status', 'started_at', 'finished_at', 'output_version')

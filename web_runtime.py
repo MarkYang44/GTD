@@ -49,7 +49,8 @@ def _create_runtime(application) -> WebRuntime:
     if manager is None:
         manager = TaskManager(run_media_task, max_workers=3, max_bilibili=2,
             max_instagram=1, max_batches=application.config["GTD_MAX_STORED_BATCHES"],
-            capability_aware_runner=True, directory_preparer=_prepare_output_dir,
+            capability_aware_runner=True,
+            directory_preparer=application.config.get("GTD_DIRECTORY_PREPARER", _prepare_output_dir),
             history_store=TaskHistoryStore(application.config["GTD_HISTORY_PATH"]))
     try:
         manager.cleanup_inputs("local", uploads.cleanup)

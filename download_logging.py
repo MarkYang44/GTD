@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import threading
 from datetime import datetime, timezone
@@ -114,7 +115,7 @@ class JsonLineFormatter(logging.Formatter):
 
 def get_download_logger(log_dir: Path | None = None) -> logging.Logger | None:
     """Build one logger per directory without making logging mandatory."""
-    directory = Path(log_dir) if log_dir else PROJECT_DIR / "logs"
+    directory = Path(log_dir or os.environ.get("GTD_LOG_DIR") or PROJECT_DIR / "logs")
     try:
         directory.mkdir(parents=True, exist_ok=True)
         resolved = directory.resolve()

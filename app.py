@@ -158,8 +158,8 @@ def api_capabilities():
     return jsonify(
         {
             "aria2c_available": aria2c_path() is not None,
-            "default_download_dir": str(DOWNLOADS_DIR.resolve()),
-            "folder_picker_available": folder_picker_available(),
+            "default_download_dir": str(current_app.config.get("GTD_DOWNLOAD_DIR", DOWNLOADS_DIR).resolve()),
+            "folder_picker_available": not current_app.config.get("GTD_DESKTOP") and folder_picker_available(),
         }
     )
 
@@ -253,7 +253,8 @@ def api_download():
     try:
         submission = parse_download_request(
             request.get_json(silent=True), previews=preview_store,
-            prepare_directory=_prepare_output_dir, task_factory=make_task,
+            prepare_directory=current_app.config.get("GTD_DIRECTORY_PREPARER", _prepare_output_dir),
+            task_factory=make_task,
             normalizer=normalize_url,
         )
     except DownloadRequestError as error:

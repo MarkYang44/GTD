@@ -188,7 +188,7 @@ def build_ydl_options(
 
     cookie_file = hooks.find_cookie_file(platform)
     if cookie_file:
-        options["cookiefile"] = str(cookie_file)
+        options["cookiefile"] = media_sources.cookie_input(cookie_file)
 
     if platform == BILIBILI and speed_mode == TURBO and aria2_executable:
         hooks.configure_aria2(options, aria2_executable)
