@@ -45,7 +45,7 @@ def smoke(executable: Path, runtime: Path) -> None:
                 raise ValueError(f"Expected an x64 PE executable at {executable}")
         clean_path = os.pathsep.join((str(Path(os.environ["SystemRoot"]) / "System32"), os.environ["SystemRoot"]))
     else:
-        subprocess.run(["lipo", "-verify_arch", "arm64", str(executable)], check=True)
+        subprocess.run(["lipo", str(executable), "-verify_arch", "arm64"], check=True)
         clean_path = "/usr/bin:/bin:/usr/sbin:/sbin"
     clean_environment = dict(os.environ, PATH=clean_path)
     print(f"Smoke-testing {executable}", flush=True)
