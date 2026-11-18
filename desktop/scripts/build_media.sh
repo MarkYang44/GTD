@@ -39,6 +39,7 @@ case "$(uname -s)/$(uname -m)" in
     suffix=
     ffmpeg_tls=--enable-securetransport
     aria_tls=--with-appletls
+    aria_static=no
     export MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-13.5}
     tool_ldflags=
     ;;
@@ -47,6 +48,7 @@ case "$(uname -s)/$(uname -m)" in
     suffix=.exe
     ffmpeg_tls=--enable-schannel
     aria_tls=--with-wintls
+    aria_static=yes
     tool_ldflags='-static -static-libgcc -static-libstdc++'
     ;;
   *)
@@ -99,13 +101,16 @@ fi
 
 (
   cd "$work/$aria"
-  CPPFLAGS="-I$prefix/include" LDFLAGS="-L$prefix/lib $tool_ldflags" \
+  ARIA2_STATIC="$aria_static" CPPFLAGS="-I$prefix/include" LDFLAGS="-L$prefix/lib $tool_ldflags" \
     ./configure "$aria_tls" --without-openssl --without-gnutls --without-libnettle \
     --without-libgmp --without-libgcrypt --without-sqlite3 --without-libcares \
     --without-libxml2 --without-libexpat --without-libssh2 --disable-bittorrent \
     --disable-metalink --disable-websocket --disable-nls
   make -j"$jobs" -C src aria2c"$suffix"
   strip src/aria2c"$suffix"
+  if [[ $suffix == .exe ]]; then
+    objdump -p src/aria2c.exe | awk '/DLL Name:/ { print $NF }'
+  fi
   cp src/aria2c"$suffix" "$output/bin/"
   cp COPYING "$output/licenses/aria2.txt"
 )

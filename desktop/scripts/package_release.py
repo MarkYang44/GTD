@@ -66,8 +66,8 @@ def zip_directory(directory: Path, output: Path) -> None:
 def collect_windows(release: Path, dist: Path, prefix: str, *, test_installer: bool) -> None:
     installer = one_file(release / "bundle" / "nsis", "*.exe")
     shutil.copy2(installer, dist / f"{prefix}-windows-x64-setup.exe")
-    with TemporaryDirectory(prefix="GTD Package ") as temporary:
-        temp = Path(temporary)
+    with TemporaryDirectory(prefix="GTD Package ", dir=os.environ.get("RUNNER_TEMP")) as temporary:
+        temp = Path(temporary).resolve()
         portable = temp / "验证 with spaces" / "GTD"
         portable.mkdir(parents=True)
         shutil.copy2(release / "gtd.exe", portable / "gtd.exe")

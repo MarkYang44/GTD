@@ -129,12 +129,11 @@ class DesktopBackendTests(unittest.TestCase):
                               stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                               stderr=subprocess.PIPE) as child:
             try:
-                child.stdin.write(b"test-token\n")
-                child.stdin.flush()
                 # The token and EOF use the same pipe even during startup.
-                child.stdin.close()
-                self.assertEqual(child.wait(timeout=10), 0)
-                self.assertRegex(child.stdout.readline(), rb"^GTD_READY [0-9]+\r?\n$")
-            finally:
-                if child.poll() is None:
-                    child.kill()
+                stdout, stderr = child.communicate(b"test-token\n", timeout=10)
+            except subprocess.TimeoutExpired:
+                child.kill()
+                stdout, stderr = child.communicate()
+                self.fail(f"Sidecar did not exit after EOF. stdout={stdout!r} stderr={stderr!r}")
+            self.assertEqual(child.returncode, 0, stderr.decode("utf-8", errors="replace"))
+            self.assertRegex(stdout, rb"^GTD_READY [0-9]+\r?\n$")

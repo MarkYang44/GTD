@@ -50,8 +50,14 @@ jobs:
         env:
           TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
         run: python desktop/scripts/package_release.py --verify-version --tag "$TAG"
+      - name: Restore native media tools
+        id: media
+        uses: actions/cache/restore@v4
+        with:
+          path: desktop/build/media
+          key: gtd-media-${{ matrix.os }}-${{ matrix.target }}-${{ hashFiles('desktop/scripts/build_media.sh') }}
       - name: Install Windows media build tools
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && steps.media.outputs.cache-hit != 'true'
         uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
@@ -62,12 +68,29 @@ jobs:
             mingw-w64-ucrt-x86_64-nasm
             mingw-w64-ucrt-x86_64-pkgconf
       - name: Build media tools (Windows)
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && steps.media.outputs.cache-hit != 'true'
         shell: msys2 {0}
         run: bash desktop/scripts/build_media.sh
       - name: Build media tools (macOS)
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && steps.media.outputs.cache-hit != 'true'
         run: bash desktop/scripts/build_media.sh
+      - name: Verify Windows media tools with system PATH
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $toolsDir = Join-Path $PWD 'desktop/build/media/bin'
+          $env:Path = "$env:SystemRoot\System32;$env:SystemRoot"
+          foreach ($name in @('ffmpeg', 'ffprobe', 'aria2c')) {
+            $arg = if ($name -eq 'aria2c') { '--version' } else { '-version' }
+            & (Join-Path $toolsDir "$name.exe") $arg
+            if ($LASTEXITCODE -ne 0) { throw "$name could not start on a clean PATH ($LASTEXITCODE)" }
+          }
+      - name: Save verified media tools
+        if: steps.media.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: desktop/build/media
+          key: ${{ steps.media.outputs.cache-primary-key }}
       - name: Stage Python sidecar and Node.js
         run: |
           python -m pip install -r desktop/requirements-build.txt

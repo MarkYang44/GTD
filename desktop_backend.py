@@ -15,7 +15,7 @@ import re
 import signal
 import sys
 from tempfile import NamedTemporaryFile
-from threading import RLock, Thread
+from threading import Event, RLock, Thread
 
 from flask import jsonify, request
 from werkzeug.datastructures import FileStorage
@@ -277,15 +277,19 @@ def main():
     manager = get_runtime(application).task_manager
     logging.getLogger("werkzeug").setLevel(logging.ERROR)
     server = make_server("127.0.0.1", 0, application, threaded=True)
+    server.timeout = 0.2
+    parent_closed = Event()
 
     def watch_parent():
         sys.stdin.read()  # EOF when the shell exits or intentionally drops the pipe.
-        server.shutdown()
+        parent_closed.set()
 
     Thread(target=watch_parent, daemon=True, name="parent-watch").start()
     print(f"GTD_READY {server.server_port}", file=ready_output, flush=True)
     try:
-        server.serve_forever()
+        # EOF can arrive before serving the first request.
+        while not parent_closed.is_set():
+            server.handle_request()
     finally:
         try:
             server.server_close()
