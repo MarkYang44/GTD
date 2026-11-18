@@ -88,6 +88,18 @@ fn reveal_path(app: AppHandle, path: PathBuf) -> Result<(), String> {
     .map_err(|e| e.to_string())
 }
 
+/// Opens a task's source page in the default browser. Only web links are accepted.
+#[tauri::command]
+fn open_link(app: AppHandle, url: String) -> Result<(), String> {
+    let link = tauri::Url::parse(&url).map_err(|_| "Expected a web link.".to_string())?;
+    if !matches!(link.scheme(), "http" | "https") || link.host_str().is_none() {
+        return Err("Only http and https links can be opened.".into());
+    }
+    app.opener()
+        .open_url(link.as_str(), None::<&str>)
+        .map_err(|e| e.to_string())
+}
+
 fn stop_backend(app: &AppHandle) {
     if let Some(state) = app.try_state::<Service>() {
         if let Ok(mut guard) = state.lock() {
@@ -196,6 +208,7 @@ fn main() {
             api,
             pick_path,
             reveal_path,
+            open_link,
             renderer_ready
         ])
         .setup(move |app| {

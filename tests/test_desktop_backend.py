@@ -43,6 +43,7 @@ class DesktopBackendTests(unittest.TestCase):
         path = "/api/desktop/settings"
         response = self.client.get(path, headers=self.auth)
         self.assertEqual(response.json["default_download_dir"], str(self.downloads))
+        self.assertEqual(response.json["data_dir"], str(self.data))
         invalid = self.root / "file"
         invalid.touch()
         response = self.client.post(path, headers=self.auth, json={

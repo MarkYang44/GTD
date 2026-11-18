@@ -115,6 +115,8 @@ class DesktopSettings:
             return {
                 **self.values,
                 "default_download_dir": str(self.default_dir),
+                # Lets Settings open the folder holding history, logs and private cookies.
+                "data_dir": str(self.file.parent),
                 "cookies": {name: self.cookie_path(name).is_file() for name in PLATFORM_NAMES},
             }
 
