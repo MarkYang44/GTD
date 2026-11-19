@@ -1,14 +1,21 @@
+// Task rows shared by Downloads and Batches: a keyed list that reuses rows across polls (so hover, focus
+// and progress transitions survive), inline details, row menus and the floating selection bar.
 import { errorParts, localValue, progressStage } from "./strings.js";
 import {
-  button, callout, element, fadeIn, flip, formatDateTime, formatDuration, icon, iconButton,
-  reconcile, reducedMotion, setHidden, setIcon, setText,
+  EASE_OUT, button, callout, element, fadeIn, flip, formatClock, formatDateTime, formatDuration, icon,
+  iconButton, isMac, reconcile, reducedMotion, setHidden, setIcon, setText,
 } from "./ui.js";
+import { openMenu, toggleMenu } from "./menu.js";
 
 export const isActive = task => task.status === "running" || task.status === "running_uninterruptible";
+export const isPending = task => isActive(task) || task.status === "queued";
 export const taskKey = task => `${task.batch_id}/${task.id}`;
-const startedAt = task => task.attempts?.at(-1)?.started_at || 0;
-const finishedAt = task => task.attempts?.at(-1)?.finished_at || startedAt(task);
-const FILTERS = ["all", "active", "queued", "failed", "cancelled", "completed"];
+export const startedAt = task => task.attempts?.at(-1)?.started_at || 0;
+export const finishedAt = task => task.attempts?.at(-1)?.finished_at || startedAt(task) || task.batch_created || 0;
+export const byStart = (a, b) => startedAt(a) - startedAt(b);
+export const byQueue = (a, b) => (a.batch_created || 0) - (b.batch_created || 0) || (a.position || 0) - (b.position || 0);
+export const byFinish = (a, b) => finishedAt(b) - finishedAt(a);
+const PLATFORMS = ["youtube", "instagram", "bilibili"];
 const ERROR_FIXES = {
   AUTH_REQUIRED: "cookies", MEMBERSHIP_REQUIRED: "cookies", COLLECTION_EXTRACT_FAILED: "cookies",
   METADATA_FAILED: "cookies", INVALID_DOWNLOAD_DIR: "folder", STORAGE_ERROR: "folder",
@@ -44,22 +51,11 @@ export function statusInfo(task, t) {
   return { tone: known?.[0] || "queued", icon: known?.[1] || "clock", text: t(task.status || "unknown") };
 }
 
-export function statusText(task, t) {
-  return statusInfo(task, t).text;
-}
-
-function matches(task, filter) {
-  return filter === "all" || (filter === "active" ? isActive(task) : task.status === filter);
-}
-
-export function countTasks(tasks) {
-  const counts = Object.fromEntries(FILTERS.map(filter => [filter, 0]));
-  for (const task of tasks) {
-    counts.all += 1;
-    if (isActive(task)) counts.active += 1;
-    else if (task.status in counts) counts[task.status] += 1;
-  }
-  return counts;
+// Errors with a known remedy link straight to the setting that fixes them.
+export function fixFor(task) {
+  if (task.status !== "failed" || !task.error) return null;
+  const fix = ERROR_FIXES[errorParts(task.error, "en").code];
+  return fix === "folder" || (fix === "cookies" && PLATFORMS.includes(task.platform)) ? fix : null;
 }
 
 function telemetry(task, ctx) {
@@ -90,22 +86,38 @@ function quickAction(task, ctx) {
   return null;
 }
 
-function sortGroups(tasks, grouped) {
-  if (!grouped) return [{ id: "all", tasks }];
-  const byStart = (a, b) => startedAt(a) - startedAt(b);
-  const byQueue = (a, b) => (a.batch_created || 0) - (b.batch_created || 0) || (a.position || 0) - (b.position || 0);
-  const byFinish = (a, b) => finishedAt(b) - finishedAt(a);
-  return [
-    { id: "active", tasks: tasks.filter(isActive).sort(byStart) },
-    { id: "queued", tasks: tasks.filter(task => task.status === "queued").sort(byQueue) },
-    { id: "failed", tasks: tasks.filter(task => task.status === "failed").sort(byFinish) },
-    { id: "done", tasks: tasks.filter(task => task.status === "completed" || task.status === "cancelled").sort(byFinish) },
-  ].filter(group => group.tasks.length);
-}
-
-// Running first, then waiting tasks in the order the scheduler will start them.
-export function queueOrder(tasks) {
-  return sortGroups(tasks, true).flatMap(group => group.tasks);
+// The same actions back the ⋯ button, right-clicks and the keyboard menu key.
+export function taskMenu(task, ctx, handlers, { expanded = false, busy = false } = {}) {
+  const { t } = ctx;
+  const result = task.result || {};
+  const items = [];
+  if (result.filepath) {
+    items.push(
+      { label: t("showOutput"), icon: "folder", run: () => handlers.onReveal(result.filepath) },
+      { label: t("copyPath"), icon: "copy", run: () => handlers.onCopy(result.filepath, "path") },
+    );
+  }
+  if (task.platform !== "local" && task.url) {
+    items.push(
+      { type: "separator" },
+      { label: t("openLink"), icon: "external", run: () => handlers.onOpenLink(task.url) },
+      { label: t("copyLink"), icon: "link", run: () => handlers.onCopy(task.url, "link") },
+    );
+  }
+  items.push({ type: "separator" });
+  if (task.can_retry) items.push({ label: t("retry"), icon: "retry", disabled: busy, run: () => handlers.onAction("retry", [task]) });
+  if (task.can_redownload) {
+    items.push({ label: t(task.platform === "local" ? "reextract" : "redownload"), icon: "retry", disabled: busy, run: () => handlers.onAction("redownload", [task]) });
+  }
+  if (task.can_cancel) items.push({ label: t("cancelDownload"), icon: "close", danger: true, disabled: busy, run: () => handlers.onAction("cancel", [task]) });
+  if (task.status === "failed" && handlers.onDismiss) {
+    const dismissed = handlers.isDismissed(taskKey(task));
+    items.push({ label: t(dismissed ? "restoreTask" : "dismissTask"), icon: dismissed ? "undo" : "eye-off", run: () => handlers.onDismiss([task], !dismissed) });
+  }
+  items.push({ type: "separator" });
+  if (handlers.onGoToBatch) items.push({ label: t("goToBatch"), icon: "layers", run: () => handlers.onGoToBatch(task.batch_id) });
+  items.push({ label: t(expanded ? "hideDetails" : "showDetails"), icon: "info", run: () => handlers.onExpand(taskKey(task)) });
+  return items;
 }
 
 function factList(pairs, t) {
@@ -141,10 +153,15 @@ class Row {
     const line = element("div", "task-line");
     this.check = element("input", "task-check");
     this.check.type = "checkbox";
-    this.check.addEventListener("click", event => owner.toggle(this, event.shiftKey));
+    this.check.addEventListener("click", event => owner.toggle(this, event.shiftKey, this.check.checked));
     this.main = element("button", "task-main");
     this.main.type = "button";
-    this.main.addEventListener("click", () => owner.handlers.onExpand(this.key));
+    this.main.addEventListener("click", event => {
+      // Desktop list conventions: ⌘/Ctrl-click adds to the selection, Shift-click selects a range.
+      if (isMac ? event.metaKey : event.ctrlKey) owner.toggle(this, false, !this.selected);
+      else if (event.shiftKey && owner.lastToggled) owner.toggle(this, true, true);
+      else owner.handlers.onExpand(this.key);
+    });
     this.mark = icon("clock", "icon task-mark");
     const copy = element("span", "task-copy");
     this.title = element("span", "task-title");
@@ -152,14 +169,23 @@ class Row {
     this.metaStatus = element("span", "meta-status");
     this.metaDetail = element("span", "meta-detail");
     this.metaOrigin = element("span", "meta-origin");
-    this.meta.append(this.metaStatus, this.metaDetail, this.metaOrigin);
+    this.metaTime = element("span", "meta-time");
+    this.meta.append(this.metaStatus, this.metaDetail, this.metaOrigin, this.metaTime);
     this.meter = element("span", "meter");
     this.meterFill = element("span", "meter-fill");
     this.meter.append(this.meterFill);
     copy.append(this.title, this.meta, this.meter);
     this.main.append(this.mark, copy);
     this.quick = iconButton("close", "", () => this.runQuick(), "task-quick");
-    line.append(this.check, this.main, this.quick);
+    this.more = iconButton("more", "", () => this.openMenu(), "task-more");
+    this.more.setAttribute("aria-haspopup", "menu");
+    this.more.setAttribute("aria-expanded", "false");
+    line.append(this.check, this.main, this.quick, this.more);
+    line.addEventListener("contextmenu", event => {
+      if (event.target === this.check) return;
+      event.preventDefault();
+      this.openMenu({ x: event.clientX, y: event.clientY });
+    });
     this.details = element("div", "task-details");
     this.details.id = `details-${key.replace(/[^\w-]/g, "-")}`;
     this.details.hidden = true;
@@ -167,6 +193,7 @@ class Row {
     this.node.append(line, this.details);
     this.percent = null;
     this.detailKey = "";
+    this.selected = false;
   }
 
   runQuick() {
@@ -176,21 +203,36 @@ class Row {
     else this.owner.handlers.onAction(action, [task]);
   }
 
-  update(task, state) {
-    const { ctx, selected, expanded, busy } = state;
+  // Right-clicks open at the pointer; the menu key opens beside the row; both hand focus back to the
+  // row itself. The ⋯ button toggles its own menu and keeps focus on the button.
+  openMenu(point, fromKeyboard = false) {
+    const { ctx, expanded, busy } = this.owner.input;
+    const build = () => ({
+      items: taskMenu(this.task, ctx, this.owner.handlers, { expanded: expanded === this.key, busy }),
+      label: ctx.t("moreFor", { name: taskName(this.task, ctx) }),
+      align: "end",
+    });
+    if (point) openMenu({ point, returnFocus: this.main, ...build() });
+    else if (fromKeyboard) openMenu({ anchor: this.more, returnFocus: this.main, ...build() });
+    else toggleMenu(this.more, build);
+  }
+
+  update(task, input) {
+    const { ctx, selected, expanded, busy } = input;
     const { t } = ctx;
     this.task = task;
+    this.selected = selected.has(this.key);
     // Most rows are idle between polls; skip their DOM work entirely.
-    const signature = JSON.stringify([ctx.language, selected.has(this.key), expanded === this.key, busy, task]);
+    const signature = JSON.stringify([ctx.language, this.selected, expanded === this.key, busy, task]);
     if (signature === this.signature) return;
     this.signature = signature;
     const name = taskName(task, ctx);
     const status = statusInfo(task, t);
     const percent = isActive(task) && !task.postprocessing ? percentOf(task) : null;
     this.node.dataset.tone = status.tone;
-    this.node.dataset.selected = String(selected.has(this.key));
+    this.node.dataset.selected = String(this.selected);
     this.node.dataset.expanded = String(expanded === this.key);
-    this.check.checked = selected.has(this.key);
+    this.check.checked = this.selected;
     this.check.setAttribute("aria-label", t("selectTask", { name }));
     setIcon(this.mark, status.icon);
     this.mark.classList.toggle("spinning", status.icon === "spinner");
@@ -201,6 +243,9 @@ class Row {
     setText(this.metaDetail, detail);
     setHidden(this.metaDetail, !detail);
     setText(this.metaOrigin, [platformName(task.platform, t), t(task.media_type)].filter(Boolean).join(" · "));
+    const time = isPending(task) ? "" : formatClock(finishedAt(task), ctx.language);
+    setText(this.metaTime, time);
+    setHidden(this.metaTime, !time);
     setHidden(this.meter, percent == null);
     if (percent != null) {
       // Retries restart at zero; jump back instead of animating backwards.
@@ -210,6 +255,9 @@ class Row {
     this.percent = percent;
     this.main.setAttribute("aria-expanded", String(expanded === this.key));
     this.main.setAttribute("aria-label", [name, status.text, detail].filter(Boolean).join(", "));
+    const moreLabel = t("moreFor", { name });
+    this.more.setAttribute("aria-label", moreLabel);
+    this.more.title = t("moreActions");
 
     const quick = quickAction(task, ctx);
     this.quickState = quick && { ...quick, task };
@@ -221,25 +269,26 @@ class Row {
       this.quick.disabled = busy && quick.action !== "reveal";
       this.quick.dataset.action = quick.action;
     }
-    this.renderDetails(task, state, expanded === this.key);
+    this.renderDetails(task, input, expanded === this.key);
   }
 
-  renderDetails(task, state, open) {
+  renderDetails(task, input, open) {
     if (!open) {
       if (!this.details.hidden) {
         this.details.hidden = true;
         this.details.replaceChildren();
         this.detailKey = "";
+        this.live = null;
       }
       return;
     }
-    const { ctx, busy } = state;
+    const { ctx, busy } = input;
     // The manager mirrors live progress at the top level too; leave all of it to updateLive().
     const {
       progress, postprocessing, percent_text, speed_mbps, speed_text, eta_text,
       total_size_bytes, total_size_text, total_size_is_estimate, ...stable
     } = task;
-    const key = JSON.stringify([ctx.language, busy, stable, Boolean(postprocessing)]);
+    const key = JSON.stringify([ctx.language, busy, stable, Boolean(postprocessing), this.owner.handlers.batchLabel?.(task) || ""]);
     const opening = this.details.hidden;
     if (key !== this.detailKey) {
       const focused = this.details.contains(document.activeElement) ? document.activeElement.dataset.focusKey : null;
@@ -265,9 +314,7 @@ class Row {
       progress: progress.percent_text?.trim(), speed: localValue(progress.speed_text, language),
       eta: localValue(progress.eta_text, language), size: localValue(progress.total_size_text, language),
     };
-    for (const [name, node] of Object.entries(this.live.facts)) {
-      setText(node.lastElementChild, values[name] || "—");
-    }
+    for (const [name, node] of Object.entries(this.live.facts)) setText(node.lastElementChild, values[name] || "—");
   }
 
   buildDetails(task, ctx, busy) {
@@ -294,7 +341,7 @@ class Row {
     }
     if (actions.childElementCount) fragment.append(actions);
 
-    if (isActive(task) || task.status === "queued") {
+    if (isPending(task)) {
       const live = element("div", "detail-live");
       const stage = element("p", "detail-stage");
       const facts = element("dl", "facts live-facts");
@@ -315,8 +362,7 @@ class Row {
 
     if (task.error && task.status === "failed") {
       const parts = errorParts(task.error, language);
-      const fix = ["youtube", "instagram", "bilibili"].includes(task.platform) || ERROR_FIXES[parts.code] === "folder"
-        ? ERROR_FIXES[parts.code] : null;
+      const fix = fixFor(task);
       const fixButton = fix && button(t(fix === "cookies" ? "fixCookies" : "fixFolder", { platform: platformName(task.platform, t) }),
         () => handlers.onFix(fix, task), "secondary compact", fix === "cookies" ? "key" : "folder");
       if (fixButton) fixButton.dataset.focusKey = "fix";
@@ -365,7 +411,19 @@ class Row {
     ], t);
     if (media) fragment.append(media);
 
-    if (task.attempts?.length > 1 || (task.attempts?.length && isActive(task) === false && task.status !== "completed")) {
+    const batch = handlers.batchLabel?.(task);
+    if (batch && handlers.onGoToBatch) {
+      const row = element("div", "detail-batch");
+      row.append(icon("layers"), element("span", "detail-batch-label", t("partOfBatch")));
+      const link = element("button", "link-button", batch);
+      link.type = "button";
+      link.dataset.focusKey = "go-to-batch";
+      link.addEventListener("click", () => handlers.onGoToBatch(task.batch_id));
+      row.append(link);
+      fragment.append(row);
+    }
+
+    if (task.attempts?.length > 1 || (task.attempts?.length && !isActive(task) && task.status !== "completed")) {
       const section = element("div", "detail-attempts");
       section.append(element("h4", "", t("attempts")));
       const list = element("ol", "attempt-list");
@@ -392,26 +450,30 @@ class Row {
   }
 }
 
-// A keyed, in-place task list: rows are reused across polls so hover, focus and progress transitions survive.
 export class TaskList {
   constructor(root, handlers) {
     this.root = root;
     this.handlers = handlers;
-    this.toolbar = element("div", "list-toolbar");
     this.body = element("div", "list-body");
-    root.replaceChildren(this.toolbar, this.body);
+    this.moreButton = button("", () => handlers.onMore?.(), "secondary compact show-more");
+    this.moreButton.dataset.focusKey = "show-more";
+    root.replaceChildren(this.body);
     this.rows = new Map();
     this.groups = new Map();
     this.order = "";
-    this.toolbarKey = "";
     this.lastToggled = "";
     this.visible = [];
     this.expanded = "";
-    this.body.addEventListener("keydown", event => this.navigate(event));
+    this.input = null;
+    this.rendered = false;
+    this.body.addEventListener("keydown", event => this.onKeydown(event));
+    // Space selects instead of expanding; buttons fire their click on keyup, so stop that too.
+    this.body.addEventListener("keyup", event => {
+      if (event.key === " " && event.target.classList?.contains("task-main")) event.preventDefault();
+    });
   }
 
-  toggle(row, range) {
-    const checked = row.check.checked;
+  toggle(row, range, checked) {
     if (range && this.lastToggled) {
       const keys = this.visible.map(taskKey);
       const from = keys.indexOf(this.lastToggled);
@@ -427,8 +489,36 @@ export class TaskList {
     this.handlers.onSelect([row.task], checked);
   }
 
-  navigate(event) {
-    if (!event.target.classList?.contains("task-main") || event.altKey || event.ctrlKey || event.metaKey) return;
+  onKeydown(event) {
+    if (!event.target.classList?.contains("task-main")) return;
+    const row = this.rows.get(event.target.closest(".task-row")?.dataset.key);
+    const modifier = isMac ? event.metaKey : event.ctrlKey;
+    if (modifier && event.key.toLowerCase() === "a") {
+      event.preventDefault();
+      this.handlers.onSelect(this.visible, true);
+      return;
+    }
+    if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
+      event.preventDefault();
+      row?.openMenu(null, true);
+      return;
+    }
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
+    if (event.key === " " && row) {
+      event.preventDefault();
+      this.toggle(row, event.shiftKey, !row.selected);
+      return;
+    }
+    if (event.key === "Escape") {
+      if (this.expanded) {
+        event.preventDefault();
+        this.handlers.onExpand(this.expanded);
+      } else if (this.input?.selected.size) {
+        event.preventDefault();
+        this.handlers.onClearSelection?.();
+      }
+      return;
+    }
     const mains = [...this.body.querySelectorAll(".task-main")];
     const index = mains.indexOf(event.target);
     const next = { ArrowDown: index + 1, ArrowUp: index - 1, Home: 0, End: mains.length - 1 }[event.key];
@@ -438,158 +528,224 @@ export class TaskList {
     mains[next].scrollIntoView({ block: "nearest" });
   }
 
-  group(id, t) {
-    let group = this.groups.get(id);
+  group(spec, t) {
+    let group = this.groups.get(spec.id);
     if (!group) {
       const section = element("section", "task-group");
-      section.dataset.group = id;
-      const heading = element("h3", "group-heading");
-      const label = element("span", "group-label");
+      section.dataset.group = spec.id;
+      const heading = element("div", "group-heading");
+      const check = element("input", "task-check group-check");
+      check.type = "checkbox";
+      check.addEventListener("change", () => this.handlers.onSelect(group.tasks, check.checked));
+      const label = element("h3", "group-label");
       const count = element("span", "group-count");
-      heading.append(label, count);
+      const actions = element("div", "group-actions");
+      heading.append(check, label, count, actions);
       const list = element("ul", "task-list");
       section.append(heading, list);
-      group = { section, heading, label, count, list };
-      this.groups.set(id, group);
+      group = { section, heading, check, label, count, actions, list, actionKey: "", tasks: [] };
+      this.groups.set(spec.id, group);
     }
-    setText(group.label, id === "all" ? "" : t(`section_${id}`));
-    group.heading.hidden = id === "all";
-    group.list.setAttribute("aria-label", id === "all" ? t("taskList") : t(`section_${id}`));
+    setText(group.label, spec.label || "");
+    group.heading.hidden = !spec.label;
+    group.list.setAttribute("aria-label", spec.label || t("taskList"));
+    group.check.setAttribute("aria-label", t("selectGroup", { group: spec.label || t("taskList") }));
+    const actionKey = JSON.stringify([(spec.actions || []).map(action => [action.label, action.disabled])]);
+    if (actionKey !== group.actionKey) {
+      group.actionKey = actionKey;
+      const focused = group.actions.contains(document.activeElement) ? document.activeElement.dataset.focusKey : null;
+      group.actions.replaceChildren(...(spec.actions || []).map((action, index) => {
+        const control = button(action.label, action.run, "ghost compact", action.icon);
+        control.disabled = Boolean(action.disabled);
+        control.dataset.focusKey = `group-action-${index}`;
+        return control;
+      }));
+      if (focused) group.actions.querySelector(`[data-focus-key="${focused}"]`)?.focus({ preventScroll: true });
+    }
     return group;
   }
 
-  renderToolbar(state, counts, visible) {
-    const { ctx, selected, filter, busy, clearable } = state;
-    const { t } = ctx;
-    const chosen = visible.filter(task => selected.has(taskKey(task)));
-    const key = JSON.stringify([ctx.language, counts, filter, busy, clearable, chosen.map(taskKey),
-      chosen.map(task => [task.can_cancel, task.can_retry, task.can_redownload]), visible.length]);
-    if (key === this.toolbarKey) return;
-    this.toolbarKey = key;
-    const focused = this.toolbar.contains(document.activeElement) ? document.activeElement.dataset.focusKey : null;
-    const nodes = [];
-    const all = element("input", "task-check");
-    all.type = "checkbox";
-    all.dataset.focusKey = "select-all";
-    all.setAttribute("aria-label", t("selectAllTasks"));
-    all.checked = visible.length > 0 && chosen.length === visible.length;
-    all.indeterminate = chosen.length > 0 && chosen.length < visible.length;
-    all.disabled = !visible.length;
-    all.addEventListener("change", () => this.handlers.onSelect(visible, all.checked));
-    nodes.push(all);
-    this.toolbar.dataset.mode = chosen.length ? "selection" : "filter";
-    if (chosen.length) {
-      nodes.push(element("span", "selection-count", t("selectedTasks", { count: chosen.length })));
-      for (const [action, label, tone] of [["cancel", "cancelSelected", "secondary"], ["retry", "retrySelected", "primary"], ["redownload", "redownloadSelected", "secondary"]]) {
-        const eligible = chosen.filter(task => task[`can_${action}`]);
-        if (!eligible.length) continue;
-        const control = button(`${t(label)} (${eligible.length})`, () => this.handlers.onAction(action, eligible), `${tone} compact`);
-        control.disabled = busy;
-        control.dataset.focusKey = action;
-        nodes.push(control);
-      }
-      const clear = button(t("clearSelection"), () => this.handlers.onSelect(chosen, false), "ghost compact toolbar-end");
-      clear.dataset.focusKey = "clear-selection";
-      nodes.push(clear);
-    } else {
-      const chips = element("div", "chips");
-      chips.setAttribute("role", "group");
-      chips.setAttribute("aria-label", t("filterTasks"));
-      for (const name of FILTERS) {
-        if (name !== "all" && name !== filter && !counts[name]) continue;
-        const chip = element("button", "chip");
-        chip.type = "button";
-        chip.dataset.focusKey = `filter-${name}`;
-        chip.dataset.filter = name;
-        chip.setAttribute("aria-pressed", String(filter === name));
-        // The text node keeps the accessible name readable ("Failed 1"); flex gap handles spacing.
-        chip.append(element("span", "", t(`filter_${name}`)), " ", element("span", "chip-count", String(counts[name])));
-        chip.addEventListener("click", () => this.handlers.onFilter(name));
-        chips.append(chip);
-      }
-      nodes.push(chips);
-      if (clearable) {
-        const clear = button(t("clearFinished"), () => this.handlers.onClearFinished(), "ghost compact toolbar-end");
-        clear.title = t("clearFinishedHint");
-        clear.dataset.focusKey = "clear-finished";
-        nodes.push(clear);
-      }
+  // groups: [{id, label, tasks, total, actions}]; rows past `limit` are left for "Show more".
+  render(input) {
+    this.input = input;
+    const { groups, ctx, selected, expanded, limit = Infinity, empty } = input;
+    const total = groups.reduce((sum, group) => sum + group.tasks.length, 0);
+    let budget = limit;
+    const shown = [];
+    for (const spec of groups) {
+      if (budget <= 0) break;
+      const tasks = spec.tasks.slice(0, budget);
+      budget -= tasks.length;
+      if (tasks.length) shown.push({ ...spec, visibleTasks: tasks });
     }
-    this.toolbar.replaceChildren(...nodes);
-    if (focused) this.toolbar.querySelector(`[data-focus-key="${focused}"]`)?.focus({ preventScroll: true });
-  }
+    this.visible = shown.flatMap(group => group.visibleTasks);
+    this.root.dataset.selecting = String(selected.size > 0);
 
-  render(state) {
-    const { tasks, ctx, filter, grouped, expanded, empty } = state;
-    const counts = countTasks(tasks);
-    const visibleTasks = tasks.filter(task => matches(task, filter));
-    const groups = sortGroups(visibleTasks, grouped && filter === "all");
-    this.visible = groups.flatMap(group => group.tasks);
-    this.toolbar.hidden = !tasks.length;
-    if (tasks.length) this.renderToolbar(state, counts, this.visible);
-
-    if (!tasks.length || !this.visible.length) {
+    if (!this.visible.length) {
       this.order = "";
-      const node = !tasks.length ? empty() : this.filteredEmpty(ctx);
-      reconcile(this.body, [node]);
+      reconcile(this.body, [empty()]);
       for (const row of this.rows.values()) row.node.remove();
       this.rows.clear();
+      this.groups.clear();
+      this.rendered = true;
       return;
     }
 
     const live = new Set(this.visible.map(taskKey));
-    for (const [key, row] of this.rows) if (!live.has(key)) this.rows.delete(key);
+    for (const key of [...this.rows.keys()]) if (!live.has(key)) this.rows.delete(key);
     const sections = [];
     const placements = [];
-    for (const { id, tasks: members } of groups) {
-      const group = this.group(id, ctx.t);
-      setText(group.count, String(members.length));
+    const created = [];
+    for (const spec of shown) {
+      const group = this.group(spec, ctx.t);
+      group.tasks = spec.visibleTasks;
+      setText(group.count, String(spec.total ?? spec.tasks.length));
+      const chosen = spec.visibleTasks.filter(task => selected.has(taskKey(task))).length;
+      group.check.checked = chosen > 0 && chosen === spec.visibleTasks.length;
+      group.check.indeterminate = chosen > 0 && chosen < spec.visibleTasks.length;
       sections.push(group.section);
-      const nodes = members.map(task => {
+      const nodes = spec.visibleTasks.map(task => {
         const key = taskKey(task);
         let row = this.rows.get(key);
         if (!row) {
           row = new Row(key, this);
           this.rows.set(key, row);
+          if (this.rendered && input.fresh && task.batch_id === input.fresh) created.push(row);
         }
-        row.update(task, state);
+        row.update(task, input);
         return row.node;
       });
       placements.push([group.list, nodes]);
     }
-    const order = JSON.stringify([filter, groups.map(group => [group.id, group.tasks.map(taskKey)])]);
-    const moved = this.order && order !== this.order && state.animate !== false;
+    const remaining = total - this.visible.length;
+    if (remaining > 0) {
+      setText(this.moreButton.lastElementChild, ctx.t("showMore", { count: Math.min(remaining, input.pageSize || remaining), total: remaining }));
+      sections.push(this.moreButton);
+    }
+    const order = JSON.stringify(shown.map(group => [group.id, group.visibleTasks.map(taskKey)]));
+    const moved = this.order && order !== this.order && input.animate !== false;
     const apply = () => {
       reconcile(this.body, sections);
       for (const [list, nodes] of placements) reconcile(list, nodes);
     };
     if (moved) flip([...this.body.querySelectorAll(".task-row")], apply);
     else apply();
-    for (const id of [...this.groups.keys()]) if (!sections.includes(this.groups.get(id).section)) this.groups.delete(id);
+    for (const [id, group] of [...this.groups]) if (!sections.includes(group.section)) this.groups.delete(id);
     this.order = order;
+    for (const row of created) fadeIn(row.node, { y: -6, duration: 260 });
 
     if (expanded && expanded !== this.expanded) {
-      const row = this.rows.get(expanded);
-      row?.node.scrollIntoView({ block: "nearest", behavior: reducedMotion() ? "auto" : "smooth" });
+      this.rows.get(expanded)?.node.scrollIntoView({ block: "nearest", behavior: reducedMotion() ? "auto" : "smooth" });
     }
     this.expanded = expanded;
+    this.rendered = true;
   }
 
-  filteredEmpty(ctx) {
-    if (!this.filterEmpty) {
-      this.filterEmpty = element("div", "empty-state compact");
-      this.filterEmptyText = element("p", "");
-      this.filterEmptyAction = button("", () => this.handlers.onFilter("all"), "ghost compact");
-      this.filterEmpty.append(this.filterEmptyText, this.filterEmptyAction);
-    }
-    setText(this.filterEmptyText, ctx.t("noMatches"));
-    setText(this.filterEmptyAction.lastElementChild, ctx.t("showAll"));
-    return this.filterEmpty;
+  focusFirst() {
+    this.body.querySelector(".task-main")?.focus();
   }
 }
 
-export function emptyState({ iconName, title, hint, actions = [] }) {
-  const node = element("div", "empty-state");
+// Bulk actions float over the list while anything is selected, so the list itself never shifts.
+export class SelectionBar {
+  constructor(root, handlers) {
+    this.root = root;
+    this.handlers = handlers;
+    this.key = "";
+    root.setAttribute("role", "toolbar");
+    root.hidden = true;
+  }
+
+  render({ ctx, chosen, visible, busy, dismissable = false, isDismissed = () => false }) {
+    const { t } = ctx;
+    const show = chosen.length > 0;
+    if (!show) {
+      this.hide();
+      return;
+    }
+    const groups = [
+      ["cancel", "cancelSelected", "secondary", chosen.filter(task => task.can_cancel)],
+      ["retry", "retrySelected", "primary", chosen.filter(task => task.can_retry)],
+      ["redownload", "redownloadSelected", "secondary", chosen.filter(task => task.can_redownload)],
+    ];
+    const dismiss = dismissable ? chosen.filter(task => task.status === "failed" && !isDismissed(taskKey(task))) : [];
+    const key = JSON.stringify([ctx.language, chosen.map(taskKey), groups.map(group => group[3].length), dismiss.length, visible.length, busy]);
+    this.root.setAttribute("aria-label", t("selectionActions"));
+    if (key !== this.key) {
+      this.key = key;
+      const focused = this.root.contains(document.activeElement) ? document.activeElement.dataset.focusKey : null;
+      const nodes = [element("span", "selection-count", t("selectedTasks", { count: chosen.length }))];
+      const actions = element("div", "selection-actions");
+      for (const [action, label, tone, eligible] of groups) {
+        if (!eligible.length) continue;
+        const control = button(t(label, { count: eligible.length }), () => this.handlers.onAction(action, eligible), `${tone} compact`);
+        control.disabled = busy;
+        control.dataset.focusKey = action;
+        actions.append(control);
+      }
+      if (dismiss.length) {
+        const control = button(t("dismissSelected", { count: dismiss.length }), () => this.handlers.onDismiss(dismiss, true), "secondary compact", "eye-off");
+        control.dataset.focusKey = "dismiss";
+        actions.append(control);
+      }
+      nodes.push(actions);
+      if (chosen.length < visible.length) {
+        const all = element("button", "link-button", t("selectAllCount", { count: visible.length }));
+        all.type = "button";
+        all.dataset.focusKey = "select-all";
+        all.addEventListener("click", () => this.handlers.onSelect(visible, true));
+        nodes.push(all);
+      }
+      const clear = iconButton("close", t("clearSelection"), () => this.handlers.onClearSelection(), "selection-clear");
+      clear.dataset.focusKey = "clear";
+      nodes.push(clear);
+      this.root.replaceChildren(...nodes);
+      if (focused) this.root.querySelector(`[data-focus-key="${focused}"]`)?.focus({ preventScroll: true });
+    }
+    this.showBar();
+  }
+
+  showBar() {
+    clearTimeout(this.timer);
+    this.animation?.cancel();
+    if (!this.root.hidden && !this.root.dataset.leaving) return;
+    delete this.root.dataset.leaving;
+    this.root.hidden = false;
+    document.body.dataset.selecting = "true";
+    if (this.root.animate && document.visibilityState === "visible") {
+      this.root.animate(reducedMotion()
+        ? [{ opacity: 0 }, { opacity: 1 }]
+        : [{ opacity: 0, transform: "translate(-50%, 10px)" }, { opacity: 1, transform: "translate(-50%, 0)" }],
+      { duration: 220, easing: EASE_OUT });
+    }
+  }
+
+  hide() {
+    if (this.root.hidden || this.root.dataset.leaving) return;
+    this.key = "";
+    delete document.body.dataset.selecting;
+    const done = () => {
+      if (!this.root.dataset.leaving) return;
+      delete this.root.dataset.leaving;
+      this.root.hidden = true;
+      this.root.replaceChildren();
+    };
+    this.root.dataset.leaving = "true";
+    if (!this.root.animate || reducedMotion() || document.visibilityState !== "visible") {
+      done();
+      return;
+    }
+    this.animation = this.root.animate(
+      [{ opacity: 1, transform: "translate(-50%, 0)" }, { opacity: 0, transform: "translate(-50%, 6px)" }],
+      { duration: 140, easing: EASE_OUT, fill: "forwards" },
+    );
+    this.animation.onfinish = done;
+    this.timer = setTimeout(done, 400);
+  }
+}
+
+export function emptyState({ iconName, title, hint, actions = [], className = "" }) {
+  const node = element("div", `empty-state ${className}`.trim());
   const mark = element("span", "empty-mark");
   mark.append(icon(iconName));
   node.append(mark, element("p", "empty-title", title));

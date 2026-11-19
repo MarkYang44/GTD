@@ -44,6 +44,11 @@ BRIDGE = r"""
       case '/api/capabilities':
         return {aria2c_available: true, default_download_dir: '/media/GTD'};
       case '/api/preview':
+        if (!args.body.inputs[0].includes('list=')) {
+          return {preview_id: 'single', requires_selection: false, entries: [
+            {id: 'solo', title: 'Solo clip', platform: 'youtube', position: 1, selectable: true},
+          ]};
+        }
         return {preview_id: 'preview', requires_selection: true, entries: [
           {id: 'one', title: '<img src="evil"> First item', platform: 'youtube', position: 1, selectable: true},
           {id: 'two', title: 'Second item', platform: 'bilibili', position: 2, selectable: true},
@@ -82,14 +87,14 @@ BRIDGE = r"""
 })();
 """
 
-# A running batch with every task state plus an older finished batch, for queue and history views.
+# A running batch with every task state plus an older finished batch, for list and batch views.
 RICH_BRIDGE = r"""
 (() => {
   const now = Math.floor(Date.now() / 1000);
   const auth = {error_code: 'AUTH_REQUIRED', message: '需要登录', suggestion: '请导入 Cookie', retryable: true};
   const live = {id: 'live', created_at: now - 600, media_type: 'video', download_dir: '/media/GTD', tasks: [
     {id: 'run', title: 'Running clip', platform: 'youtube', url: 'https://youtube.test/run', media_type: 'video', position: 1,
-     status: 'running', can_cancel: true, progress: {percent_text: '42.0%', speed_text: '5.00 MB/s', eta_text: '00:20'},
+     status: 'running', can_cancel: true, progress: {percent_text: '42.0%', speed_text: '5.00 MB/s', eta_text: '00:20', speed_mbps: 5},
      attempts: [{number: 1, status: 'running', started_at: now - 60}]},
     {id: 'wait', title: 'Waiting clip', platform: 'bilibili', url: 'https://bilibili.test/wait', media_type: 'video', position: 2,
      status: 'queued', can_cancel: true, attempts: []},
@@ -178,17 +183,20 @@ class DesktopWorkspaceTest(unittest.TestCase):
     def test_collection_submission_and_bulk_cancellation(self):
         page = self.page
         page.get_by_role("textbox", name="Links or share text").fill("https://youtube.com/playlist?list=demo")
-        page.get_by_role("checkbox", name="Download subtitles").check()
-        page.get_by_role("checkbox", name="Automatic captions").check()
-        page.get_by_role("button", name="Preview links").click()
+        page.locator("#composer-tracks").click()
+        page.get_by_role("menuitemcheckbox", name="Download subtitles").click()
+        page.get_by_role("menuitemcheckbox", name=re.compile("^Automatic captions")).click()
+        page.keyboard.press("Escape")
+        expect(page.locator("#composer-tracks")).to_have_attribute("aria-label", "Text tracks: Subtitles + auto")
+        page.get_by_role("button", name="Download", exact=True).click()
         dialog = page.get_by_role("dialog", name="Select collection items")
         expect(dialog.get_by_text('<img src="evil"> First item', exact=True)).to_be_visible()
         expect(dialog.get_by_role("checkbox", name="Private item")).to_be_disabled()
         expect(dialog.get_by_text("Video · Automatic captions · /media/GTD")).to_be_visible()
         dialog.get_by_role("checkbox", name="Second item").uncheck()
-        dialog.get_by_role("button", name="Add 1 item to queue").click()
-        expect(page.get_by_text("Sample video")).to_be_visible()
-        expect(page.get_by_text("Added 1 task to the queue.")).to_be_visible()
+        dialog.get_by_role("button", name="Add 1 item").click()
+        expect(page.locator("#downloads-list").get_by_text("Sample video")).to_be_visible()
+        expect(page.get_by_text("Added 1 task.")).to_be_visible()
         body = self.call_body("/api/download")
         self.assertEqual(body["selected_entry_ids"], ["one"])
         self.assertEqual(body["subtitle_options"], {"subtitles": True, "automatic": True, "danmaku": False})
@@ -198,15 +206,16 @@ class DesktopWorkspaceTest(unittest.TestCase):
         self.assertEqual(page.evaluate("window.calls.findLast(call => call.command === 'open_link').args"),
                          {"url": "https://example.test/testing"})
         page.get_by_role("checkbox", name="Select Sample video").check()
-        page.get_by_role("button", name="Cancel selected (1)").click()
-        expect(page.get_by_role("list", name="Finished").get_by_text("Cancelled", exact=True)).to_be_visible()
+        page.get_by_role("toolbar", name="Selection actions").get_by_role("button", name="Cancel (1)").click()
+        expect(page.get_by_role("list", name=re.compile("^Finished")).get_by_text("Cancelled", exact=True)).to_be_visible()
+        expect(page.get_by_text("Cancelled 1 task.")).to_be_visible()
         self.assertEqual(self.call_body("/api/desktop/batch-action"), {
             "action": "cancel", "tasks": [{"batch_id": "downloads", "task_id": "task1"}],
         })
-        page.get_by_role("button", name="History", exact=True).click()
-        page.get_by_role("checkbox", name="Select Sample video").check()
-        page.get_by_role("button", name="Retry selected (1)").click()
-        expect(page.locator("#history-list .task-row")).to_have_attribute("data-tone", "active")
+        page.get_by_role("button", name="Batches", exact=True).click()
+        page.locator("#batch-tasks").get_by_role("checkbox", name="Select Sample video").check()
+        page.get_by_role("button", name="Retry (1)").click()
+        expect(page.locator("#batch-tasks .task-row")).to_have_attribute("data-tone", "active")
         self.assertEqual(self.call_body("/api/desktop/batch-action")["action"], "retry")
 
     def test_native_paths_settings_extraction_and_result_details(self):
@@ -219,8 +228,9 @@ class DesktopWorkspaceTest(unittest.TestCase):
         expect(page.get_by_role("button", name="Use default")).to_be_visible()
         expect(page.get_by_text("Version 9.8.7")).to_be_visible()
         expect(page.get_by_text("/data/GTD", exact=True)).to_be_visible()
-        page.get_by_role("button", name="Download", exact=True).click()
-        expect(page.get_by_role("textbox", name="Output folder", exact=True)).to_have_value("/media/新的目录")
+        expect(page.locator("#status-version")).to_have_text("v9.8.7")
+        page.locator(".sidebar [data-scope=all]").click()
+        expect(page.locator("#composer-folder")).to_have_attribute("aria-label", "Output folder: /media/新的目录")
         page.get_by_role("button", name="Settings", exact=True).click()
         page.get_by_role("button", name="Import YouTube cookies").click()
         expect(page.get_by_role("button", name="Remove YouTube cookies")).to_be_visible()
@@ -230,13 +240,14 @@ class DesktopWorkspaceTest(unittest.TestCase):
         expect(page.get_by_role("heading", name="设置", exact=True)).to_be_visible()
         page.get_by_role("radio", name="English").check(force=True)
         expect(page.get_by_role("heading", name="Settings", exact=True)).to_be_visible()
-        page.get_by_role("button", name="Extract audio", exact=True).first.click()
-        page.get_by_role("button", name="Choose a video").click()
+        page.keyboard.press("ControlOrMeta+n")
+        page.get_by_role("button", name="From file").click()
         expect(page.get_by_text("input 片.mp4", exact=True)).to_be_visible()
-        expect(page.get_by_role("button", name="Change")).to_be_visible()
-        page.get_by_role("radio", name="MP3 V0").check(force=True)
-        expect(page.get_by_text("Converts the audio track to MP3 V0.", exact=False)).to_be_visible()
-        page.locator("#extract-button").click()
+        expect(page.get_by_role("button", name="Extract audio", exact=True)).to_be_focused()
+        page.locator("#composer-format").click()
+        page.get_by_role("menuitemradio", name=re.compile("^MP3 V0")).click()
+        expect(page.locator("#composer-hint")).to_contain_text("Converts the audio track to MP3 V0.")
+        page.get_by_role("button", name="Extract audio", exact=True).click()
         page.get_by_role("button", name=re.compile("^Local sample")).click()
         expect(page.get_by_text("/media/GTD/extracted.mp3", exact=True)).to_be_visible()
         page.get_by_role("button", name="Show in folder", exact=True).click()
@@ -245,7 +256,7 @@ class DesktopWorkspaceTest(unittest.TestCase):
         })
         self.assertTrue(page.evaluate("window.calls.some(call => call.command === 'reveal_path')"))
         page.get_by_role("button", name="Extract again").click()
-        expect(page.get_by_text("Updated 1 task.", exact=True)).to_be_visible()
+        expect(page.get_by_text("Running 1 task again.", exact=True)).to_be_visible()
         self.assertEqual(self.call_body("/api/desktop/batch-action")["action"], "redownload")
 
     def test_cookie_removal_confirms_and_errors_stay_in_their_row(self):
@@ -264,15 +275,17 @@ class DesktopWorkspaceTest(unittest.TestCase):
         expect(row.get_by_text("This is not a valid Netscape cookies.txt file.")).to_be_visible()
         expect(page.locator("#settings-notice")).to_be_hidden()
 
-    def test_queue_groups_by_state_and_links_errors_to_fixes(self):
+    def test_downloads_group_every_batch_by_state_and_link_errors_to_fixes(self):
         page = self.open(RICH_BRIDGE)
-        page.get_by_role("button", name="Queue", exact=True).click()
-        expect(page.locator("#queue-list .task-title")).to_have_text(["Running clip", "Waiting clip", "Locked clip", "Finished clip"])
-        expect(page.locator("#queue-list .group-label")).to_have_text(["In progress", "Queued", "Needs attention", "Finished"])
-        expect(page.get_by_role("button", name="Failed 1")).to_be_visible()
-        page.locator("#queue-list .task-main").first.focus()
+        titles = page.locator("#downloads-list .task-title")
+        expect(titles).to_have_text(["Running clip", "Waiting clip", "Locked clip", "Rate limited song", "Finished clip", "Kyoto walk"])
+        expect(page.locator("#downloads-list .group-label").nth(3)).to_have_text("Finished today")
+        expect(page.locator("#downloads-list .group-label").first).to_have_text("In progress")
+        expect(page.locator("#downloads-summary")).to_have_text("1 downloading · 1 queued · 5.0 MB/s")
+        expect(page.locator(".sidebar [data-scope=attention]")).to_have_attribute("aria-label", "Needs attention, 2")
+        page.locator("#downloads-list .task-main").first.focus()
         page.keyboard.press("ArrowDown")
-        expect(page.locator("#queue-list .task-main").nth(1)).to_be_focused()
+        expect(page.locator("#downloads-list .task-main").nth(1)).to_be_focused()
         page.get_by_role("button", name=re.compile("^Finished clip")).click()
         expect(page.get_by_text("Unknown", exact=True)).to_be_visible()
         expect(page.get_by_text("30 fps", exact=True)).to_be_visible()
@@ -281,16 +294,54 @@ class DesktopWorkspaceTest(unittest.TestCase):
         page.get_by_role("button", name="Update YouTube cookies").click()
         expect(page.get_by_role("heading", name="Settings", exact=True)).to_be_visible()
         expect(page.locator('.cookie-row[data-platform="youtube"] button').first).to_be_focused()
-        page.get_by_role("button", name="Queue", exact=True).click()
-        page.get_by_role("button", name="Clear finished").click()
-        expect(page.get_by_text("Cleared 1 finished task.")).to_be_visible()
-        expect(page.locator("#queue-list .task-title")).to_have_text(["Running clip", "Waiting clip", "Locked clip"])
+        page.locator(".sidebar [data-scope=completed]").click()
+        expect(titles).to_have_text(["Finished clip", "Kyoto walk"])
+        page.locator(".sidebar [data-scope=attention]").click()
+        expect(titles).to_have_text(["Locked clip", "Rate limited song"])
+        page.locator("#downloads-list .task-row").first.hover()
+        page.get_by_role("button", name="More actions for Locked clip").click()
+        page.get_by_role("menuitem", name="Dismiss").click()
+        expect(titles).to_have_text(["Rate limited song"])
+        expect(page.locator("#count-attention")).to_have_text("1")
+        page.get_by_role("button", name="Undo").click()
+        expect(page.locator("#count-attention")).to_have_text("2")
+        page.locator("#downloads-search").fill("kyoto")
+        expect(page.get_by_text("No tasks match “kyoto”.")).to_be_visible()
+        page.get_by_role("button", name="1 more match in All downloads").click()
+        expect(titles).to_have_text(["Kyoto walk"])
 
-    def test_history_lists_batches_searches_titles_and_retries_failures(self):
+    def test_row_menus_follow_the_pointer_and_the_keyboard(self):
         page = self.open(RICH_BRIDGE)
-        page.get_by_role("button", name="History", exact=True).click()
+        row = page.locator("#downloads-list .task-row", has_text="Finished clip")
+        row.locator(".task-line").click(button="right")
+        menu = page.get_by_role("menu")
+        expect(menu.get_by_role("menuitem")).to_have_text([
+            "Show in folder", "Copy path", "Open in browser", "Copy link", "Redownload", "Go to batch", "Show details",
+        ])
+        menu.get_by_role("menuitem", name="Show in folder").click()
+        self.assertEqual(page.evaluate("window.calls.findLast(call => call.command === 'reveal_path').args"),
+                         {"path": "/media/GTD/Finished clip.mp4"})
+        main = row.locator(".task-main")
+        main.focus()
+        page.keyboard.press("Shift+F10")
+        expect(page.get_by_role("menu")).to_be_visible()
+        page.keyboard.press("Escape")
+        expect(page.get_by_role("menu")).to_have_count(0)
+        expect(main).to_be_focused()
+        page.keyboard.press("Space")
+        expect(page.get_by_role("toolbar", name="Selection actions")).to_contain_text("1 selected")
+        page.keyboard.press("Escape")
+        expect(page.get_by_role("toolbar", name="Selection actions")).to_be_hidden()
+        row.hover()
+        row.locator(".task-more").click()
+        page.get_by_role("menuitem", name="Go to batch").click()
+        expect(page.get_by_role("heading", name="Running clip and 3 more")).to_be_visible()
+
+    def test_batches_list_searches_titles_and_retries_failures(self):
+        page = self.open(RICH_BRIDGE)
+        page.get_by_role("button", name="Batches", exact=True).click()
         expect(page.locator(".batch-name")).to_have_text(["Running clip and 3 more", "Kyoto walk and 1 more"])
-        page.get_by_role("searchbox", name="Search history").fill("rate limited")
+        page.get_by_role("searchbox", name="Search batches").fill("rate limited")
         expect(page.locator(".batch-name")).to_have_text(["Kyoto walk and 1 more"])
         page.locator(".batch-item").first.click()
         expect(page.get_by_role("heading", name="Kyoto walk and 1 more")).to_be_visible()
@@ -299,37 +350,72 @@ class DesktopWorkspaceTest(unittest.TestCase):
         self.assertEqual(self.call_body("/api/desktop/batch-action", page), {
             "action": "retry", "tasks": [{"batch_id": "old", "task_id": "busy"}],
         })
-        expect(page.get_by_text("Updated 1 task.")).to_be_visible()
-        page.get_by_role("searchbox", name="Search history").fill("nothing like this")
+        expect(page.get_by_text("Retrying 1 task.")).to_be_visible()
+        page.get_by_role("searchbox", name="Search batches").fill("nothing like this")
         expect(page.get_by_text("No batches match “nothing like this”.")).to_be_visible()
+
+    def test_composer_adds_single_links_directly_and_takes_paste_and_drops(self):
+        page = self.page
+        page.context.grant_permissions(["clipboard-read", "clipboard-write"], origin="https://gtd.test")
+        links = page.get_by_role("textbox", name="Links or share text")
+        links.fill("https://youtu.be/solo")
+        links.press("Enter")
+        expect(page.get_by_text("Added 1 task.")).to_be_visible()
+        self.assertEqual(self.call_body("/api/download")["selected_entry_ids"], ["solo"])
+        expect(links).to_have_value("")
+        page.evaluate("navigator.clipboard.writeText('https://youtu.be/one\\nhttps://youtu.be/two')")
+        page.locator("#downloads-title").focus()
+        page.keyboard.press("ControlOrMeta+v")
+        expect(links).to_have_value("https://youtu.be/one\nhttps://youtu.be/two")
+        expect(page.locator("#composer-count")).to_have_text("2 links")
+        links.fill("")
+        page.evaluate("""() => {
+          const data = new DataTransfer();
+          data.setData('text/uri-list', '# from a browser\\nhttps://youtu.be/dropped');
+          const target = document.querySelector('#downloads-list');
+          for (const type of ['dragenter', 'dragover', 'drop']) {
+            target.dispatchEvent(new DragEvent(type, {bubbles: true, cancelable: true, dataTransfer: data}));
+          }
+        }""")
+        expect(links).to_have_value("https://youtu.be/dropped")
+        expect(page.locator("#drop-overlay")).to_be_hidden()
+        links.fill("\n".join(f"https://youtu.be/{index}" for index in range(21)))
+        expect(page.locator("#composer-count")).to_have_text("21 / 20 links")
+        expect(page.get_by_text("Add up to 20 links at a time.")).to_be_visible()
+        expect(page.get_by_role("button", name="Download", exact=True)).to_be_disabled()
+        page.get_by_role("radio", name="Audio").check(force=True)
+        page.locator("#composer-format").click()
+        page.get_by_role("menuitemradio", name=re.compile("^Source FLAC")).click()
+        page.reload()
+        expect(page.locator("#composer-format .property-value")).to_have_text("Source FLAC")
 
     def test_collection_caps_selection_supports_ranges_and_filter_escape(self):
         page = self.open(BRIDGE.replace("""return {preview_id: 'preview', requires_selection: true, entries: [""", """return {preview_id: 'preview', requires_selection: true, truncated: true, entries: [
           ...Array.from({length: 120}, (_, index) => ({id: `e${index + 1}`, title: `Track ${index + 1}`, platform: 'youtube', position: index + 1, selectable: index !== 4})),"""))
         page.get_by_role("textbox", name="Links or share text").fill("https://youtube.com/playlist?list=long")
-        page.get_by_role("button", name="Preview links").click()
+        page.get_by_role("button", name="Download", exact=True).click()
         dialog = page.get_by_role("dialog", name="Select collection items")
         search = dialog.get_by_role("searchbox", name="Filter by title")
         expect(search).to_be_focused()
         search.press("Escape")
         expect(dialog).to_be_hidden()
         expect(page.get_by_role("textbox", name="Links or share text")).to_be_focused()
-        page.get_by_role("button", name="Preview links").click()
+        page.get_by_role("button", name="Download", exact=True).click()
         expect(dialog.get_by_text("YouTube + Bilibili · 123 items · 2 unavailable")).to_be_visible()
         expect(dialog.get_by_text("The preview reached the 1,000-item display limit.")).to_be_visible()
-        expect(dialog.get_by_role("button", name="Add 100 items to queue")).to_be_enabled()
+        expect(dialog.get_by_role("button", name="Add 100 items")).to_be_enabled()
         select_all = dialog.get_by_role("checkbox", name="Select first 100")
         select_all.uncheck()
-        expect(dialog.get_by_role("button", name="Add to queue")).to_be_disabled()
+        expect(dialog.get_by_role("button", name="Add items")).to_be_disabled()
         dialog.get_by_role("checkbox", name="Track 3", exact=True).check()
         dialog.get_by_role("checkbox", name="Track 8", exact=True).click(modifiers=["Shift"])
-        expect(dialog.get_by_role("button", name="Add 5 items to queue")).to_be_visible()
+        expect(dialog.get_by_role("button", name="Add 5 items")).to_be_visible()
         search.fill("Track 11")
         expect(dialog.locator(".collection-entry")).to_have_count(11)
         search.press("Escape")
         expect(search).to_have_value("")
         expect(dialog).to_be_visible()
-        dialog.get_by_role("button", name="Add 5 items to queue").click()
+        dialog.get_by_role("button", name="Add 5 items").click()
         self.assertEqual(self.call_body("/api/download", page)["selected_entry_ids"], ["e3", "e4", "e6", "e7", "e8"])
 
     def test_unavailable_service_offers_reconnect(self):
@@ -346,22 +432,28 @@ class DesktopWorkspaceTest(unittest.TestCase):
         """)
         banner = page.get_by_role("alert")
         expect(banner.get_by_text("GTD can't reach its download service")).to_be_visible()
-        expect(page.get_by_text("Available once the service is running")).to_be_visible()
-        expect(page.get_by_role("button", name="Preview links")).to_be_disabled()
+        expect(page.locator("#composer-hint")).to_have_text("Available once the service is running")
+        expect(page.get_by_role("button", name="Download", exact=True)).to_be_disabled()
         page.evaluate("window.allowConnect = true")
         banner.get_by_role("button", name="Reconnect").click()
         expect(banner).to_be_hidden()
-        expect(page.get_by_text("Service ready")).to_be_visible()
+        expect(page.locator("#status-text")).to_have_text("Service ready")
+        expect(page.get_by_text("Capture. Convert. Keep.")).to_be_visible()
 
     def test_compact_window_does_not_overflow(self):
+        page = self.open(RICH_BRIDGE)
         for width, height in ((680, 550), (610, 520)):
-            self.page.set_viewport_size({"width": width, "height": height})
-            for name in ("Download", "Queue", "History", "Extract audio", "Settings"):
-                self.page.get_by_role("button", name=name, exact=True).first.click()
-                self.assertEqual(self.page.evaluate("document.documentElement.scrollWidth"), width, name)
-        self.page.get_by_role("button", name="Download", exact=True).click()
-        expect(self.page.get_by_role("button", name="Preview links")).to_be_enabled()
-        self.assertTrue(self.page.evaluate("window.calls.some(call => call.command === 'renderer_ready')"))
+            page.set_viewport_size({"width": width, "height": height})
+            for target in ("[data-scope=all]", "[data-scope=attention]", "[data-view=batches]", "[data-view=settings]"):
+                page.locator(f".sidebar {target}").click()
+                self.assertEqual(page.evaluate("document.documentElement.scrollWidth"), width, target)
+            page.locator(".sidebar [data-scope=all]").click()
+            page.locator("#composer-tracks").click()
+            self.assertEqual(page.evaluate("document.documentElement.scrollWidth"), width, "tracks menu")
+            box = page.get_by_role("menu").bounding_box()
+            self.assertLessEqual(box["x"] + box["width"], width)
+            page.keyboard.press("Escape")
+        self.assertTrue(page.evaluate("window.calls.some(call => call.command === 'renderer_ready')"))
 
 
 if __name__ == "__main__":

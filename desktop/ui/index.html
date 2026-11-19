@@ -6,15 +6,13 @@
   <meta name="description" content="GTD Desktop — Generalized Transmedia Downloader">
   <link rel="icon" href="./brand.png">
   <link rel="stylesheet" href="./styles.css">
-  <script type="module" src="./workspace.js"></script>
+  <script type="module" src="./app.js"></script>
   <title>GTD Desktop</title>
 </head>
 <body>
   <svg class="sprite" width="0" height="0" aria-hidden="true" focusable="false">
     <defs>
       <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 19.5h14"/></symbol>
-      <symbol id="i-queue" viewBox="0 0 24 24"><path d="M9 6.5h11M9 12h11M9 17.5h11"/><path d="M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01"/></symbol>
-      <symbol id="i-history" viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3.5 4.5V9H8"/><path d="M12 7.5V12l3 2"/></symbol>
       <symbol id="i-extract" viewBox="0 0 24 24"><path d="M9 17.5V6l10-2v11.5"/><circle cx="6.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="15.5" r="2.5"/></symbol>
       <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
       <symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2.5"/><path d="m16 10.5 5-3v9l-5-3"/></symbol>
@@ -42,174 +40,140 @@
       <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15.5" r="3.8"/><path d="m10.8 12.7 8.7-8.7"/><path d="m16.5 7 2.5 2.5"/><path d="m14 9.5 1.8 1.8"/></symbol>
       <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 4 8.5 4.5L12 13 3.5 8.5z"/><path d="m3.5 12.5 8.5 4.5 8.5-4.5"/><path d="m3.5 16.5 8.5 4.5 8.5-4.5"/></symbol>
       <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5.5v13M5.5 12h13"/></symbol>
+      <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5.5" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="18.5" cy="12" r="1.5" fill="currentColor" stroke="none"/></symbol>
+      <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1.2 1.2"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1.2-1.2"/></symbol>
+      <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4.5 9.5 9 5"/><path d="M4.5 9.5H14a5.5 5.5 0 0 1 0 11h-3"/></symbol>
+      <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="m3.5 3.5 17 17"/><path d="M10.6 5.6a9.7 9.7 0 0 1 1.4-.1c5 0 8.5 4.5 9.5 6.5a14.2 14.2 0 0 1-2.6 3.4"/><path d="M6.4 6.9C4.4 8.3 3 10.3 2.5 12c1 2 4.5 6.5 9.5 6.5a9.4 9.4 0 0 0 4.4-1.1"/><path d="M9.9 10a3 3 0 0 0 4.2 4.2"/></symbol>
+      <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3.5 5.5 13.5H12l-1 7 7.5-10H12z"/></symbol>
+      <symbol id="i-captions" viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M10.5 10.2a2.2 2.2 0 1 0 0 3.6M17 10.2a2.2 2.2 0 1 0 0 3.6"/></symbol>
     </defs>
   </svg>
 
   <div class="shell">
-    <aside class="rail">
+    <aside class="sidebar">
       <div class="brand">
-        <img src="./brand.png" alt="" width="36" height="36">
+        <img src="./brand.png" alt="" width="34" height="34">
         <div class="brand-copy"><strong>GTD</strong><span>Desktop</span></div>
       </div>
-      <nav aria-label="Workspace" data-label="workspace">
-        <button type="button" data-page="download" aria-current="page"><svg class="icon nav-icon" aria-hidden="true"><use href="#i-download"/></svg><span class="nav-label" data-copy="download">Download</span></button>
-        <button type="button" data-page="queue"><svg class="icon nav-icon" aria-hidden="true"><use href="#i-queue"/></svg><span class="nav-label" data-copy="queue">Queue</span><span class="nav-count" id="nav-count" aria-hidden="true" hidden></span></button>
-        <button type="button" data-page="history"><svg class="icon nav-icon" aria-hidden="true"><use href="#i-history"/></svg><span class="nav-label" data-copy="history">History</span></button>
-        <button type="button" data-page="extract"><svg class="icon nav-icon" aria-hidden="true"><use href="#i-extract"/></svg><span class="nav-label" data-copy="extract">Extract audio</span></button>
-        <button type="button" data-page="settings"><svg class="icon nav-icon" aria-hidden="true"><use href="#i-settings"/></svg><span class="nav-label" data-copy="settings">Settings</span></button>
+      <button class="new-download" id="new-download" type="button" data-keys="N" data-tip="newDownloadTip">
+        <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg><span class="nav-label" data-copy="newDownload">New download</span><kbd class="button-keys" aria-hidden="true"></kbd>
+      </button>
+      <nav class="nav" aria-label="Library" data-label="navigation">
+        <p class="nav-heading" data-copy="navDownloads">Downloads</p>
+        <button type="button" data-scope="all" data-keys="1"><svg class="icon nav-icon" aria-hidden="true"><use href="#i-download"/></svg><span class="nav-label" data-copy="scope_all">All downloads</span><span class="nav-count" id="count-all" hidden></span></button>
+        <button type="button" data-scope="active" data-keys="2"><svg class="icon nav-icon" aria-hidden="true"><use href="#i-arrow-down-circle"/></svg><span class="nav-label" data-copy="scope_active">In progress</span><span class="nav-count" id="count-active" hidden></span></button>
+        <button type="button" data-scope="queued" data-keys="3"><svg class="icon nav-icon" aria-hidden="true"><use href="#i-clock"/></svg><span class="nav-label" data-copy="scope_queued">Queued</span><span class="nav-count" id="count-queued" hidden></span></button>
+        <button type="button" data-scope="attention" data-keys="4" id="nav-attention"><svg class="icon nav-icon" aria-hidden="true"><use href="#i-alert"/></svg><span class="nav-label" data-copy="scope_attention">Needs attention</span><span class="nav-count" id="count-attention" hidden></span></button>
+        <button type="button" data-scope="completed" data-keys="5"><svg class="icon nav-icon" aria-hidden="true"><use href="#i-check-circle"/></svg><span class="nav-label" data-copy="scope_completed">Completed</span><span class="nav-count" id="count-completed" hidden></span></button>
+        <button type="button" data-scope="cancelled" id="nav-cancelled" hidden><svg class="icon nav-icon" aria-hidden="true"><use href="#i-slash"/></svg><span class="nav-label" data-copy="scope_cancelled">Cancelled</span><span class="nav-count" id="count-cancelled" hidden></span></button>
+        <div class="nav-separator" role="presentation"></div>
+        <button type="button" data-view="batches" data-keys="6"><svg class="icon nav-icon" aria-hidden="true"><use href="#i-layers"/></svg><span class="nav-label" data-copy="batches">Batches</span><span class="nav-count quiet" id="count-batches" hidden></span></button>
       </nav>
-      <div class="rail-footer"><span>Generalized Transmedia</span><span>Downloader</span></div>
+      <div class="sidebar-foot">
+        <button type="button" class="nav-button" data-view="settings" data-keys=","><svg class="icon nav-icon" aria-hidden="true"><use href="#i-settings"/></svg><span class="nav-label" data-copy="settings">Settings</span></button>
+        <p class="status-line"><span class="status-dot" id="status-dot"></span><span class="status-text" id="status-text" role="status">Starting desktop service…</span><span class="status-version" id="status-version"></span></p>
+      </div>
     </aside>
 
-    <main id="workspace">
-      <header class="top">
-        <h1 id="app-heading" tabindex="-1">Download</h1>
-        <div class="connection" id="connection"><span class="connection-dot" id="connection-dot"></span><span id="connection-text" role="status">Starting desktop service…</span></div>
-      </header>
-      <div class="surface">
-        <section id="service-banner" class="banner" role="alert" hidden>
-          <svg class="icon banner-icon" aria-hidden="true"><use href="#i-alert"/></svg>
-          <div class="banner-copy">
-            <p class="banner-title" data-copy="serviceDown">GTD can't reach its download service</p>
-            <p class="banner-text" data-copy="serviceDownHint">Downloads, history and settings are unavailable until the service starts.</p>
-            <details class="banner-details"><summary data-copy="technicalDetails">Technical details</summary><code id="service-error"></code></details>
-          </div>
-          <button class="button primary compact" id="reconnect" type="button" data-copy="reconnect">Reconnect</button>
-        </section>
-        <div class="callout" id="workspace-notice" role="status" hidden></div>
+    <main id="main">
+      <section id="service-banner" class="banner" role="alert" hidden>
+        <svg class="icon banner-icon" aria-hidden="true"><use href="#i-alert"/></svg>
+        <div class="banner-copy">
+          <p class="banner-title" data-copy="serviceDown">GTD can't reach its download service</p>
+          <p class="banner-text" data-copy="serviceDownHint">Downloads, history and settings are unavailable until the service starts.</p>
+          <details class="banner-details"><summary data-copy="technicalDetails">Technical details</summary><code id="service-error"></code></details>
+        </div>
+        <button class="button primary compact" id="reconnect" type="button" data-copy="reconnect">Reconnect</button>
+      </section>
+      <div class="callout global-notice" id="workspace-notice" role="status" hidden></div>
 
-        <section id="view-download" class="view">
-          <div class="feature">
-            <div>
-              <p class="feature-platforms">YouTube <span>·</span> Instagram <span>·</span> Bilibili</p>
-              <h2>Capture. Convert. Keep.</h2>
-              <p data-copy="featureIntro">Download the best available video or save the audio track.</p>
-            </div>
-            <img src="./brand.png" alt="" width="100" height="100">
+      <section id="view-downloads" class="view" aria-labelledby="downloads-title">
+        <header class="view-header">
+          <div class="view-titles">
+            <h1 id="downloads-title" tabindex="-1">All downloads</h1>
+            <p class="view-summary" id="downloads-summary" aria-live="polite"></p>
           </div>
-          <div class="compose-grid">
-            <section class="panel">
-              <div class="panel-heading">
-                <div><h2 data-copy="newDownload">New download</h2><p data-copy="newDownloadHint">Paste links to individual videos, playlists, or collections.</p></div>
+          <label class="search-field header-search">
+            <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+            <input id="downloads-search" type="search" spellcheck="false" autocomplete="off" data-placeholder="searchDownloads" data-label="searchDownloads" placeholder="Search downloads">
+            <kbd class="search-keys" id="search-keys" aria-hidden="true"></kbd>
+          </label>
+        </header>
+        <div class="view-body">
+          <form id="composer" class="composer" data-mode="links" novalidate aria-labelledby="composer-label">
+            <h2 class="sr-only" id="composer-label" data-copy="newDownload">New download</h2>
+            <div class="composer-card">
+              <div class="composer-input">
+                <svg class="icon composer-glyph" aria-hidden="true"><use href="#i-link"/></svg>
+                <textarea id="composer-links" rows="1" spellcheck="false" data-label="links" aria-label="Links or share text"
+                  data-placeholder="composerPlaceholder" placeholder="Paste links or share text, one per line" aria-describedby="composer-hint"></textarea>
+                <span class="composer-count" id="composer-count" hidden></span>
+                <div class="file-chip" id="composer-file" hidden>
+                  <span class="file-mark"><svg class="icon" aria-hidden="true"><use href="#i-file-video"/></svg></span>
+                  <span class="file-chip-copy"><strong id="composer-file-name"></strong><code class="path" id="composer-file-path"></code></span>
+                  <button class="icon-button" id="composer-file-clear" type="button" data-label="removeVideo" aria-label="Remove video"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+                </div>
               </div>
-              <form id="download-form" class="form-stack">
-                <fieldset class="segmented mode-switch">
+              <div class="composer-bar">
+                <fieldset class="segmented compact" id="composer-media">
                   <legend class="sr-only" data-copy="downloadMode">Download type</legend>
-                  <label><input type="radio" name="media" value="video" checked><span><svg class="icon" aria-hidden="true"><use href="#i-video"/></svg><span data-copy="video">Video</span></span></label>
-                  <label><input type="radio" name="media" value="audio"><span><svg class="icon" aria-hidden="true"><use href="#i-audio"/></svg><span data-copy="audio">Audio</span></span></label>
+                  <label><input type="radio" name="composer-media" value="video" checked><span><svg class="icon" aria-hidden="true"><use href="#i-video"/></svg><span data-copy="video">Video</span></span></label>
+                  <label><input type="radio" name="composer-media" value="audio"><span><svg class="icon" aria-hidden="true"><use href="#i-audio"/></svg><span data-copy="audio">Audio</span></span></label>
                 </fieldset>
-                <div class="field">
-                  <div class="field-top"><label for="download-links" data-copy="links">Links or share text</label><span class="counter" id="link-count">0 / 20</span></div>
-                  <textarea id="download-links" name="links" rows="4" spellcheck="false" required
-                    aria-describedby="link-count" aria-keyshortcuts="Control+Enter Meta+Enter"
-                    data-placeholder="linksPlaceholder" placeholder="Paste one link or share message per line"></textarea>
-                </div>
-                <div id="video-options" class="field">
-                  <div class="check-grid">
-                    <label class="check"><input id="subtitles" type="checkbox"><span data-copy="subtitles">Download subtitles</span></label>
-                    <label class="check"><input id="automatic" type="checkbox" disabled><span data-copy="automatic">Automatic captions</span></label>
-                    <label class="check"><input id="danmaku" type="checkbox"><span data-copy="danmaku">Bilibili danmaku</span></label>
-                  </div>
-                  <p class="hint" data-copy="subtitlesHint">Video saves as MP4 by default. Text track options use MKV with switchable tracks.</p>
-                </div>
-                <fieldset id="audio-options" class="field" hidden>
-                  <legend class="field-label" data-copy="audioFormat">Audio format</legend>
-                  <div class="segmented fill">
-                    <label><input type="radio" name="download-format" value="mp3" checked><span>MP3 V0</span></label>
-                    <label><input type="radio" name="download-format" value="flac"><span data-copy="flac">Source FLAC</span></label>
-                    <label><input type="radio" name="download-format" value="source"><span data-copy="sourceAudio">Original audio</span></label>
-                    <label><input type="radio" name="download-format" value="wav"><span>WAV PCM</span></label>
-                  </div>
-                  <p class="hint" id="download-format-hint"></p>
-                </fieldset>
-                <div class="field">
-                  <label for="download-folder" data-copy="outputFolder">Output folder</label>
-                  <div class="field-row">
-                    <input id="download-folder" class="path-input" type="text" spellcheck="false" autocomplete="off">
-                    <button class="button secondary" type="button" data-pick-folder="download-folder"><svg class="icon" aria-hidden="true"><use href="#i-folder"/></svg><span data-copy="browse">Browse</span></button>
-                  </div>
-                </div>
-                <label class="check turbo"><input id="turbo" type="checkbox" disabled aria-describedby="turbo-hint"><span><strong data-copy="turbo">Bilibili turbo mode</strong><small id="turbo-hint"></small></span></label>
-                <div class="callout" id="download-notice" role="status" hidden></div>
-                <div class="form-actions">
-                  <button id="preview-button" class="button primary" type="submit" data-copy="previewLinks" disabled>Preview links</button>
-                  <button id="clear-links" class="button ghost" type="button" data-copy="clear">Clear</button>
-                  <span class="kbd-hint" id="submit-hint" aria-hidden="true"></span>
-                </div>
-              </form>
-            </section>
-            <aside class="panel activity-panel">
-              <div class="panel-heading">
-                <div><h2 data-copy="queue">Queue</h2><p id="activity-count"></p></div>
-                <button class="button ghost compact" type="button" data-page="queue"><span data-copy="viewQueue">View queue</span><svg class="icon" aria-hidden="true"><use href="#i-chevron-right"/></svg></button>
+                <button type="button" class="property" id="composer-format" aria-haspopup="menu" aria-expanded="false"><svg class="icon" aria-hidden="true"><use href="#i-audio"/></svg><span class="property-value"></span><svg class="icon property-chevron" aria-hidden="true"><use href="#i-chevron-down"/></svg></button>
+                <button type="button" class="property" id="composer-tracks" aria-haspopup="menu" aria-expanded="false"><svg class="icon" aria-hidden="true"><use href="#i-captions"/></svg><span class="property-value"></span><svg class="icon property-chevron" aria-hidden="true"><use href="#i-chevron-down"/></svg></button>
+                <button type="button" class="property toggle" id="composer-turbo" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-bolt"/></svg><span class="property-value" data-copy="turboChip">Turbo</span></button>
+                <button type="button" class="property" id="composer-folder" aria-haspopup="menu" aria-expanded="false"><svg class="icon" aria-hidden="true"><use href="#i-folder"/></svg><span class="property-value"></span><svg class="icon property-chevron" aria-hidden="true"><use href="#i-chevron-down"/></svg></button>
+                <span class="composer-spacer"></span>
+                <button type="button" class="button ghost compact" id="composer-from-file" data-tip="fromFileTip" data-keys="O"><svg class="icon" aria-hidden="true"><use href="#i-file-video"/></svg><span data-copy="fromFile">From file</span></button>
+                <button type="submit" class="button primary" id="composer-submit"><svg class="icon button-icon" aria-hidden="true"><use href="#i-download"/></svg><svg class="icon button-spinner spinning" aria-hidden="true"><use href="#i-spinner"/></svg><span class="button-label">Download</span></button>
               </div>
-              <ul id="activity-list" class="activity-list"></ul>
-            </aside>
+            </div>
+            <p class="composer-hint" id="composer-hint"></p>
+          </form>
+          <div class="callout" id="composer-notice" role="status" hidden></div>
+          <div class="callout" id="downloads-notice" role="status" hidden></div>
+          <div id="downloads-list" class="task-view" data-view="downloads"></div>
+          <p class="list-footnote" id="downloads-elsewhere" hidden><button class="link-button" id="search-everywhere" type="button"></button></p>
+          <p class="list-footnote" id="downloads-loading" role="status" hidden></p>
+        </div>
+        <div class="selection-bar" id="downloads-selection" hidden></div>
+      </section>
+
+      <section id="view-batches" class="view" hidden aria-labelledby="batches-title">
+        <header class="view-header">
+          <div class="view-titles">
+            <h1 id="batches-title" tabindex="-1" data-copy="batches">Batches</h1>
+            <p class="view-summary" id="batches-summary"></p>
           </div>
-        </section>
-
-        <section id="view-queue" class="view" hidden aria-labelledby="app-heading">
-          <div id="queue-notice" class="callout" role="status" hidden></div>
-          <section class="panel list-panel">
-            <div id="queue-list" class="task-view" data-view="queue"></div>
-          </section>
-        </section>
-
-        <section id="view-history" class="view" hidden aria-labelledby="app-heading">
-          <div id="history-notice" class="callout" role="status" hidden></div>
-          <div id="history-empty" hidden></div>
-          <div class="history-layout" id="history-layout">
+          <label class="search-field header-search">
+            <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+            <input id="batches-search" type="search" spellcheck="false" autocomplete="off" data-placeholder="searchBatches" data-label="searchBatches" placeholder="Search batches">
+            <kbd class="search-keys" id="batch-search-keys" aria-hidden="true"></kbd>
+          </label>
+        </header>
+        <div class="view-body">
+          <div class="callout" id="batches-notice" role="status" hidden></div>
+          <div id="batches-empty" hidden></div>
+          <div class="batches-layout" id="batches-layout">
             <aside class="panel batch-panel" aria-labelledby="batch-list-label">
-              <h2 class="sr-only" id="batch-list-label" data-copy="historyList">Batches</h2>
-              <label class="search-field">
-                <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
-                <input id="history-search" type="search" spellcheck="false" autocomplete="off" data-placeholder="historySearch" data-label="historySearch" placeholder="Search history">
-              </label>
+              <h2 class="sr-only" id="batch-list-label" data-copy="batchList">Batches</h2>
               <div id="batch-list" class="batch-list"></div>
             </aside>
             <section class="panel batch-detail" aria-labelledby="batch-title">
               <header class="batch-header" id="batch-header"></header>
-              <div id="history-list" class="task-view" data-view="history"></div>
+              <div id="batch-tasks" class="task-view" data-view="batches"></div>
             </section>
           </div>
-        </section>
+        </div>
+        <div class="selection-bar" id="batches-selection" hidden></div>
+      </section>
 
-        <section id="view-extract" class="view" hidden aria-labelledby="app-heading">
-          <section class="panel narrow-panel">
-            <div class="panel-heading"><div><h2 data-copy="localVideo">Local video</h2><p data-copy="extractHint">Save the original audio track or convert it to MP3 V0.</p></div></div>
-            <form id="extract-form" class="form-stack">
-              <button type="button" class="drop-zone" id="pick-video">
-                <span class="file-mark"><svg class="icon" aria-hidden="true"><use href="#i-file-video"/></svg></span>
-                <span class="drop-copy"><strong data-copy="chooseVideo">Choose a video</strong><span data-copy="chooseVideoHint">MP4, MOV, MKV, WebM and more · one video at a time · up to 2 GiB</span></span>
-              </button>
-              <div class="file-card" id="file-card" hidden>
-                <span class="file-mark"><svg class="icon" aria-hidden="true"><use href="#i-file-video"/></svg></span>
-                <span class="file-content"><strong id="file-name"></strong><code class="path" id="file-path"></code></span>
-                <button class="button secondary compact" id="change-video" type="button" data-copy="changeVideo">Change</button>
-                <button class="icon-button" id="clear-video" type="button" data-label="removeVideo" aria-label="Remove selected video"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
-              </div>
-              <fieldset class="field">
-                <legend class="field-label" data-copy="audioFormat">Audio format</legend>
-                <div class="segmented fill">
-                  <label><input type="radio" name="extract-format" value="source" checked><span data-copy="sourceAudio">Original audio</span></label>
-                  <label><input type="radio" name="extract-format" value="mp3"><span>MP3 V0</span></label>
-                </div>
-                <p class="hint" id="extract-format-hint"></p>
-              </fieldset>
-              <div class="field">
-                <label for="extract-folder" data-copy="outputFolder">Output folder</label>
-                <div class="field-row">
-                  <input id="extract-folder" class="path-input" type="text" spellcheck="false" autocomplete="off">
-                  <button class="button secondary" type="button" data-pick-folder="extract-folder"><svg class="icon" aria-hidden="true"><use href="#i-folder"/></svg><span data-copy="browse">Browse</span></button>
-                </div>
-              </div>
-              <div class="callout" id="extract-notice" role="status" hidden></div>
-              <div class="form-actions"><button id="extract-button" class="button primary" type="submit" data-copy="startExtract" disabled>Extract audio</button></div>
-            </form>
-          </section>
-        </section>
-
-        <section id="view-settings" class="view" hidden aria-labelledby="app-heading">
+      <section id="view-settings" class="view" hidden aria-labelledby="settings-title">
+        <header class="view-header">
+          <div class="view-titles"><h1 id="settings-title" tabindex="-1" data-copy="settings">Settings</h1></div>
+        </header>
+        <div class="view-body">
           <div id="settings-notice" class="callout" role="status" hidden></div>
           <div class="settings-stack">
             <section class="panel settings-group" aria-labelledby="settings-general">
@@ -240,7 +204,7 @@
                 </div>
                 <div class="field-row">
                   <input id="default-folder" class="path-input" type="text" spellcheck="false" autocomplete="off" aria-describedby="folder-status">
-                  <button class="button secondary" type="button" data-pick-folder="default-folder"><svg class="icon" aria-hidden="true"><use href="#i-folder"/></svg><span data-copy="chooseFolder">Choose folder</span></button>
+                  <button class="button secondary" type="button" id="choose-default-folder"><svg class="icon" aria-hidden="true"><use href="#i-folder"/></svg><span data-copy="chooseFolder">Choose folder</span></button>
                   <button class="button secondary" type="button" id="open-default-folder" data-label="openFolder" aria-label="Open folder"><span data-copy="open">Open</span></button>
                 </div>
                 <div class="setting-foot" id="folder-status">
@@ -268,6 +232,11 @@
               </details>
             </section>
 
+            <section class="panel settings-group" aria-labelledby="settings-shortcuts">
+              <h2 id="settings-shortcuts" data-copy="shortcuts">Keyboard shortcuts</h2>
+              <dl class="shortcut-list" id="shortcut-list"></dl>
+            </section>
+
             <section class="panel settings-group" aria-labelledby="settings-about">
               <h2 id="settings-about" data-copy="about">About</h2>
               <div class="setting-row">
@@ -279,8 +248,8 @@
               </div>
             </section>
           </div>
-        </section>
-      </div>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -307,10 +276,17 @@
     <div class="dialog-actions">
       <p class="dialog-summary" id="collection-summary"></p>
       <button id="back-collection" class="button secondary" type="button" data-copy="back">Back to editing</button>
-      <button id="submit-collection" class="button primary" type="button">Add to queue</button>
+      <button id="submit-collection" class="button primary" type="button"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg><span>Add to queue</span></button>
     </div>
   </dialog>
 
+  <div class="drop-overlay" id="drop-overlay" hidden>
+    <div class="drop-card">
+      <span class="drop-mark"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg></span>
+      <p class="drop-title" id="drop-title"></p>
+      <p class="drop-hint" id="drop-hint"></p>
+    </div>
+  </div>
   <div id="toasts" class="toasts" aria-live="polite"></div>
 </body>
 </html>

@@ -56,6 +56,18 @@ cargo test --locked --manifest-path desktop/src-tauri/Cargo.toml
 
 The native executable supports `--smoke-test`, which initializes the WebView, starts the packaged backend, generates a video using bundled FFmpeg, extracts MP3 through the task queue, and shuts the process down. The package collector invokes it with a minimal system `PATH` and a temporary profile that includes Unicode and spaces. Platform downloads can be checked separately against public URLs or with user-provided cookies in Settings.
 
+## Desktop UI
+
+`desktop/ui` is plain ES modules without a build step. The Tauri CSP only allows same-origin scripts and styles, and both WebViews (WKWebView on macOS 13.5+, WebView2 on Windows) load the files as they are.
+
+- `store.js` holds the one state object. Change it through `update()`; every view re-renders once per microtask and skips work whose inputs did not change.
+- `service.js` is the only module that talks to the host: boot, polling (`/api/batches` every second while work is active, every four seconds otherwise), the background loader that fetches each stored batch once, and task actions.
+- `downloads.js` shows one list over every stored batch, scoped by the sidebar and searchable. `composer.js` (links, options, local video extraction) and `collection.js` (the collection picker) add to it. `batches.js` and `settings.js` are the other two views.
+- `tasks.js` (rows, details, row menus, selection bar), `menu.js` (accessible menus), `ui.js` (DOM helpers, motion, toasts) and `strings.js` (English and Chinese copy) are shared.
+- Composer options and dismissed failures are per-viewer preferences in `localStorage` (`prefs.js`). Losing them changes nothing else; backend settings and data formats are untouched.
+
+Animate only transform and opacity, keep hover styles behind `(hover: hover) and (pointer: fine)`, and avoid features WebKit 16.6 lacks, such as the popover API, CSS nesting and `@starting-style`.
+
 ## GitHub Actions and versioning
 
 The **Desktop packages** workflow supports manual dispatch from Actions. A manual run produces test artifacts for both architectures. A push of a tag matching `v*` runs the same builds and publishes a GitHub Release after both builds and smoke tests pass. Artifact checksums are verified before publication.
